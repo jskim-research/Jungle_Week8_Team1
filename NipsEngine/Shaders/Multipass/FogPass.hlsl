@@ -4,6 +4,7 @@
 Texture2D SceneColor : register(t0);
 Texture2D SceneNormal : register(t1);
 Texture2D SceneDepth : register(t2);
+Texture2D SceneLightColor : register(t3);
 
 SamplerState SampleState : register(s0);
 
@@ -40,13 +41,12 @@ VSOutput mainVS(uint vertexID : SV_VertexID)
 float4 mainPS(VSOutput input) : SV_TARGET
 {
     int2 ip = int2(input.ClipPos.xy);
-    float3 albedo = SceneColor.Load(int3(ip, 0)).rgb;
-    float3 normal = SceneNormal.Load(int3(ip, 0)).rgb;
     float depth = SceneDepth.Load(int3(ip, 0)).r;
-
-    return float4(albedo, 1.0f);
-    // return float4(normal, 1.0f);
+    float4 lightColor = SceneLightColor.Load(int3(ip, 0));
+    float4 FogColorTest = float4(1, 1, 1, 1);
+    float FogDensityTest = 0.f;
+    float T = exp(-FogDensityTest * depth);
     
-    // float visual = 1.0f - depth;
-    // return float4(visual, visual, visual, 1.0f);
+    return lerp(FogColorTest, lightColor, T);
+    
 }
