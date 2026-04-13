@@ -1,12 +1,15 @@
-# MTL file
+# Blender 5.1.0 MTL File: 'None'
+# www.blender.org
 
-newmtl PUBG_lv3_helmet
+newmtl TT_checker_2048x2048_UV_GRID.002
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
 illum 2
-Tr 0.0000
-Ka 1.0000 1.0000 1.0000
-Kd 0.8000 0.8000 0.8000
-Ks 0.5000 0.5000 0.5000
-Ns 50.0000
+
 map_Kd Helmet_BaseColor.png
 map_Ks Helmet_Metallic.png
 map_Ns Helmet_Roughness.png
