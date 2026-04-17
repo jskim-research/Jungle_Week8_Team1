@@ -218,9 +218,6 @@ void FResourceManager::LoadFromAssetDirectory(const FString& Path)
 	}
 
 	//	TODO : Material, Texture Load
-
-	InitializeDefaultResources(CachedDevice.Get());
-
 	PreloadStaticMeshes();
 
 	if (LoadGPUResources(CachedDevice.Get()))
