@@ -1,4 +1,4 @@
-﻿#include "SubUVComponent.h"
+#include "SubUVComponent.h"
 
 #include <cmath>
 #include <cstring>
@@ -9,7 +9,7 @@
 #include "Component/CameraComponent.h"
 #include "Math/Utils.h"
 
-DEFINE_CLASS(USubUVComponent, UBillboardComponent)
+DEFINE_CLASS(USubUVComponent, UPrimitiveComponent)
 REGISTER_FACTORY(USubUVComponent)
 
 USubUVComponent::USubUVComponent()
@@ -17,26 +17,81 @@ USubUVComponent::USubUVComponent()
 	SetVisibility(true);
 }
 
-// 재생 상태 등 GetEditableProperties 에 노출되지 않은 필드를 직접 복사합니다.
-// CachedParticle 은 CopyPropertiesFrom 내부에서 Particle(Name) 처리 시
-// PostEditProperty("Particle") → SetParticle() 를 통해 자동으로 갱신됩니다.
 void USubUVComponent::PostDuplicate(UObject* Original)
 {
-    UBillboardComponent::PostDuplicate(Original);
+    UPrimitiveComponent::PostDuplicate(Original);
 
     const USubUVComponent* Orig = Cast<USubUVComponent>(Original);
-    // 현재 프레임/누적 시간을 유지해 PIE 진입 시 에디터에서 보던 파티클 상태를 이어 재생합니다.
+    bIsBillboard = Orig->bIsBillboard;
+    ParticleName = Orig->ParticleName;
+    CachedParticle = Orig->CachedParticle;
+    FrameIndex = Orig->FrameIndex;
+    Width = Orig->Width;
+    Height = Orig->Height;
+    PlayRate = Orig->PlayRate;
+    TimeAccumulator = Orig->TimeAccumulator;
+    bLoop = Orig->bLoop;
     bIsExecute = Orig->bIsExecute;
 }
 
 void USubUVComponent::Serialize(FArchive& Ar)
 {
-	UBillboardComponent::Serialize(Ar);
-	Ar << "Particle" << CachedParticle->Texture->GetFilePathRef();
+	UPrimitiveComponent::Serialize(Ar);
+	Ar << "Particle" << ParticleName;
 	Ar << "Width" << Width;
 	Ar << "Height" << Height;
 	Ar << "PlayRate" << PlayRate;
 	Ar << "bLoop" << bLoop;
+}
+
+bool USubUVComponent::TryGetActiveCamera(const FViewportCamera*& OutCamera) const
+{
+	OutCamera = nullptr;
+
+	if (GetOwner() == nullptr || GetOwner()->GetFocusedWorld() == nullptr)
+	{
+		return false;
+	}
+
+	OutCamera = GetOwner()->GetFocusedWorld()->GetActiveCamera();
+	return OutCamera != nullptr;
+}
+
+FMatrix USubUVComponent::MakeBillboardWorldMatrix(
+	const FVector& WorldLocation,
+	const FVector& WorldScale,
+	const FVector& CameraForward,
+	const FVector& CameraRight,
+	const FVector& CameraUp)
+{
+	FVector Forward = CameraForward.GetSafeNormal();
+	FVector Right = (-CameraRight).GetSafeNormal();
+	FVector Up = CameraUp.GetSafeNormal();
+
+	if (Forward.IsNearlyZero())
+	{
+		Forward = FVector(-1.0f, 0.0f, 0.0f);
+	}
+
+	if (Right.IsNearlyZero() || Up.IsNearlyZero())
+	{
+		FVector FallbackUp = FVector::UpVector;
+		if (std::abs(FVector::DotProduct(Forward, FallbackUp)) > 0.99f)
+		{
+			FallbackUp = FVector::RightVector;
+		}
+
+		Right = FVector::CrossProduct(FallbackUp, Forward).GetSafeNormal();
+		Up = FVector::CrossProduct(Forward, Right).GetSafeNormal();
+	}
+
+	FMatrix BillboardMatrix = FMatrix::Identity;
+	BillboardMatrix.SetAxes(
+		Forward * WorldScale.X,
+		Right * WorldScale.Y,
+		Up * WorldScale.Z,
+		WorldLocation);
+	return BillboardMatrix;
 }
 
 void USubUVComponent::SetParticle(const FName& InParticleName)
@@ -79,12 +134,11 @@ void USubUVComponent::UpdateWorldAABB() const
 	}
 	else
 	{
-		// 카메라를 찾을 수 없는 로드 초기 시점 등에서는 기본 축을 사용합니다.
 		CachedWorldMatrix = MakeBillboardWorldMatrix(GetWorldLocation(),
 			GetWorldScale(),
-			FVector(1.0f, 0.0f, 0.0f),  // Forward
-			FVector(0.0f, 1.0f, 0.0f),  // Right
-			FVector(0.0f, 0.0f, 1.0f)); // Up
+			FVector(1.0f, 0.0f, 0.0f),
+			FVector(0.0f, 1.0f, 0.0f),
+			FVector(0.0f, 0.0f, 1.0f));
 	}
 
 	FVector LExt = { 0.01f, Width * 0.5f, Height * 0.5f };
@@ -163,10 +217,10 @@ bool USubUVComponent::RaycastMesh(const FRay& Ray, FHitResult& OutHitResult)
 
 void USubUVComponent::TickComponent(float DeltaTime)
 {
-	UBillboardComponent::TickComponent(DeltaTime);
+	UpdateWorldAABB();
 
 	if (!CachedParticle) return;
-	if (!bLoop && bIsExecute) return; // 단발 재생 완료 후 정지
+	if (!bLoop && bIsExecute) return;
 
 	const uint32 TotalFrames = CachedParticle->Columns * CachedParticle->Rows;
 	if (TotalFrames == 0) return;
@@ -180,7 +234,7 @@ void USubUVComponent::TickComponent(float DeltaTime)
 		if (bLoop)
 		{
 			bIsExecute = false;
-			FrameIndex = (FrameIndex + 1) % TotalFrames; // 무한 반복
+			FrameIndex = (FrameIndex + 1) % TotalFrames;
 		}
 		else
 		{
@@ -190,11 +244,10 @@ void USubUVComponent::TickComponent(float DeltaTime)
 			}
 			else
 			{
-				bIsExecute = true;    // 마지막 프레임 도달 → 완료
+				bIsExecute = true;
 				TimeAccumulator = 0.0f;
 				break;
 			}
 		}
 	}
 }
-

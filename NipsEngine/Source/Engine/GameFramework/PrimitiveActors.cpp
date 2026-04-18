@@ -9,9 +9,10 @@
 #include "Component/Light/AmbientLightComponent.h"
 #include "Component/Light/PointLightComponent.h"
 #include "Component/Light/SpotLightComponent.h"
+#include "Component/BillboardComponent.h"
+#include "Component/SubUVComponent.h"
 #include "Core/ResourceManager.h"
 #include <format>
-#include <Component/SubUVComponent.h>
 
 DEFINE_CLASS(ASceneActor, AActor)
 REGISTER_FACTORY(ASceneActor)
@@ -51,19 +52,8 @@ void ASceneActor::InitDefaultComponents()
 
 void AStaticMeshActor::InitDefaultComponents()
 {
-	auto* StaticMesh = AddComponent<UStaticMeshComponent>();;
+	auto* StaticMesh = AddComponent<UStaticMeshComponent>();
 	SetRootComponent(StaticMesh);
-
-	// Text attached directly to Root
-	auto* Text = AddComponent<UTextRenderComponent>();
-	Text->AttachToComponent(StaticMesh);
-	Text->SetFont(FName("Default"));
-	Text->SetText("UUID: " + std::to_string(GetUUID()));
-	Text->SetTransient(true);
-	Text->SetEditorOnly(true);
-
-	FVector Extent = StaticMesh->GetWorldAABB().GetExtent();
-	Text->SetRelativeLocation(FVector(0.0f, 0.0f, Extent.Z * 2.0f));
 }
 
 void ASubUVActor::InitDefaultComponents()
@@ -75,16 +65,6 @@ void ASubUVActor::InitDefaultComponents()
 	SubUV->SetParticle(FName("Explosion"));
 	SubUV->SetSpriteSize(2.0f, 2.0f);
 	SubUV->SetFrameRate(30.f);
-
-    auto* Text = AddComponent<UTextRenderComponent>();
-    Text->AttachToComponent(SubUV);
-    Text->SetFont(FName("Default"));
-    Text->SetText("UUID: " + std::to_string(GetUUID()));
-	Text->SetTransient(true);
-	Text->SetEditorOnly(true);
-
-    FVector Extent = SubUV->GetWorldAABB().GetExtent();
-    Text->SetRelativeLocation(FVector(0.0f, 0.0f, Extent.Y * 1.4f));
 }
 
 void ATextRenderActor::InitDefaultComponents()
@@ -93,34 +73,13 @@ void ATextRenderActor::InitDefaultComponents()
 	SetRootComponent(Text);
 	Text->SetFont(FName("Default"));
 	Text->SetText("TextRender");
-
-    auto* TextUUID = AddComponent<UTextRenderComponent>();
-    TextUUID->AttachToComponent(Text);
-    TextUUID->SetFont(FName("Default"));
-    TextUUID->SetText("UUID: " + std::to_string(GetUUID()));
-	TextUUID->SetTransient(true);
-	TextUUID->SetEditorOnly(true);
-
-    FVector Extent = TextUUID->GetWorldAABB().GetExtent();
-    TextUUID->SetRelativeLocation(FVector(0.0f, 0.0f, Extent.Y * 0.6f));
 }
 
 void ABillboardActor::InitDefaultComponents()
 {
 	UBillboardComponent* Billboard = AddComponent<UBillboardComponent>();
 	SetRootComponent(Billboard);
-	Billboard->SetTextureName(("Asset/Texture/Pawn_64x.png"));
-	//Billboard->SetTextureName();
-
-    auto* TextUUID = AddComponent<UTextRenderComponent>();
-    TextUUID->AttachToComponent(Billboard);
-    TextUUID->SetFont(FName("Default"));
-    TextUUID->SetText("UUID: " + std::to_string(GetUUID()));
-	TextUUID->SetTransient(true);
-	TextUUID->SetEditorOnly(true);
-
-    FVector Extent = TextUUID->GetWorldAABB().GetExtent();
-    TextUUID->SetRelativeLocation(FVector(0.0f, 0.0f, Extent.Y * 0.6f));
+	Billboard->SetTexturePath(("Asset/Texture/Pawn_64x.png"));
 }
 
 void ADecalActor::InitDefaultComponents()
@@ -131,16 +90,7 @@ void ADecalActor::InitDefaultComponents()
 	UBillboardComponent* Billboard = AddComponent<UBillboardComponent>();
 	Billboard->AttachToComponent(Decal);
 	Billboard->SetEditorOnly(true);
-	Billboard->SetTextureName(("Asset/Texture/DecalActor_64.png"));
-
-	auto* TextUUID = AddComponent<UTextRenderComponent>();
-	TextUUID->AttachToComponent(Decal);
-	TextUUID->SetFont(FName("Default"));
-	TextUUID->SetText("UUID: " + std::to_string(GetUUID()));
-	TextUUID->SetTransient(true);
-	TextUUID->SetEditorOnly(true);
-	FVector Extent = TextUUID->GetWorldAABB().GetExtent();
-	TextUUID->SetRelativeLocation(FVector(0.0f, 0.0f, Extent.Y * 0.6f));
+	Billboard->SetTexturePath(("Asset/Texture/DecalActor_64.png"));
 }
 
 void ADirectionalLightActor::InitDefaultComponents()

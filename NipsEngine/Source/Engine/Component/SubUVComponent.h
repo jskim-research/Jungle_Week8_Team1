@@ -1,32 +1,25 @@
-﻿#pragma once
+#pragma once
 
-#include "BillboardComponent.h"
+#include "PrimitiveComponent.h"
 #include "Core/ResourceTypes.h"
 #include "Object/FName.h"
 
-// SubUV 파티클 스프라이트를 월드 공간에 빌보드로 렌더링하는 컴포넌트.
-// PrimitiveComponent를 상속받아 RenderCollector에 자동으로 감지됩니다.
-// MeshBuffer를 사용하지 않으며, SubUVBatcher가 드로우콜을 처리합니다.
-//
-// 사용 예:
-//   USubUVComponent* Comp = Actor->AddComponent<USubUVComponent>();
-//   Comp->SetParticle(FName("Explosion"));
-//   Comp->SetFrameIndex(CurrentFrame);
-//   Comp->SetSpriteSize(2.0f, 2.0f);
-class USubUVComponent : public UBillboardComponent
+class FViewportCamera;
+
+class USubUVComponent : public UPrimitiveComponent
 {
 public:
-	DECLARE_CLASS(USubUVComponent, UBillboardComponent)
+	DECLARE_CLASS(USubUVComponent, UPrimitiveComponent)
 
 	USubUVComponent();
 	~USubUVComponent() override = default;
-	
-	virtual void PostDuplicate(UObject* Original) override;
 
+	virtual void PostDuplicate(UObject* Original) override;
 	virtual void Serialize(FArchive& Ar) override;
 
+	void SetBillboardEnabled(bool bEnable) { bIsBillboard = bEnable; }
+
 	// --- Particle Resource ---
-	// FName 키로 ResourceManager에서 FParticleResource*를 찾아 캐싱
 	void SetParticle(const FName& InParticleName);
 	const FParticleResource* GetParticle() const { return CachedParticle; }
 	const FName& GetParticleName() const { return ParticleName; }
@@ -47,7 +40,9 @@ public:
 	float GetWidth()  const { return Width; }
 	float GetHeight() const { return Height; }
 
-	// --- Property / Serialization ---
+    static FMatrix MakeBillboardWorldMatrix(const FVector& WorldLocation, const FVector& WorldScale, const FVector& CameraForward, const FVector& CameraRight, const FVector& CameraUp);
+
+    // --- Property / Serialization ---
 	void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
 	void PostEditProperty(const char* PropertyName) override;
 
@@ -58,12 +53,23 @@ public:
 
 	void UpdateWorldAABB() const override;
 	bool RaycastMesh(const FRay& Ray, FHitResult& OutHitResult) override;
+
 protected:
 	void TickComponent(float DeltaTime) override;
 
 private:
-	FName ParticleName;
-	FParticleResource* CachedParticle = nullptr; // ResourceManager 소유, 여기선 참조만
+	bool TryGetActiveCamera(const FViewportCamera*& OutCamera) const;
 
+	FName ParticleName;
+	FParticleResource* CachedParticle = nullptr;
+
+	uint32 FrameIndex = 0;
+	float  Width = 1.0f;
+	float  Height = 1.0f;
+	float  PlayRate = 30.0f;
+	float  TimeAccumulator = 0.0f;
+
+	bool bIsBillboard = true;
+	bool bLoop = true;
 	bool bIsExecute = false;
 };

@@ -144,7 +144,7 @@ static const TArray<FComponentMenuEntry> ComponentMenuRegistry = {
 		"Billboard Component",
 		[](AActor* Actor) -> UActorComponent* {
 			UBillboardComponent* Comp = Actor->AddComponent<UBillboardComponent>();
-			Comp->SetTextureName("Asset/Texture/Pawn_64x.png");
+			Comp->SetTexturePath("Asset/Texture/Pawn_64x.png");
 			return Comp;
 		}
 	},
@@ -626,45 +626,6 @@ void FEditorPropertyWidget::RenderActorProperties(AActor* PrimaryActor, const TA
 	{
 		PrimaryActor->SetVisible(bVisible);
 	}
-
-	ImGui::Separator();
-	// Billboard 타입 체크
-	if (UBillboardComponent* BillboardComp = dynamic_cast<UBillboardComponent*>(PrimaryActor->GetRootComponent()))
-	{
-		if (dynamic_cast<USubUVComponent*>(PrimaryActor->GetRootComponent()))
-		{
-			return;
-		}
-		ImGui::Separator();
-		ImGui::Text("Sprite Texture");
-
-		const TArray<FString>& TextureList = FResourceManager::Get().GetTextureFilePath();
-		const FString CurrentName = BillboardComp->GetTextureName();
-
-		if (ImGui::BeginCombo("##SpriteTexture", CurrentName.empty() ? "None" : CurrentName.c_str()))
-		{
-			for (const FString& TexPath : TextureList)
-			{
-				// 경로 전체 대신 파일명만 표시
-				FString DisplayName = TexPath;
-				bool bSelected = (TexPath == CurrentName);
-
-				if (ImGui::Selectable(DisplayName.c_str(), bSelected))
-				{
-					for (AActor* Actor : SelectedActors)
-					{
-						if (UBillboardComponent* Comp =
-							dynamic_cast<UBillboardComponent*>(Actor->GetRootComponent()))
-						{
-							Comp->SetTextureName(TexPath);
-						}
-					}
-				}
-				if (bSelected) ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
-		}
-	}
 }
 
 void FEditorPropertyWidget::RenderComponentProperties()
@@ -826,6 +787,29 @@ void FEditorPropertyWidget::RenderPropertyWidget(FPropertyDescriptor& Prop)
 						{
 							ImGui::SetItemDefaultFocus();
 						}
+					}
+					ImGui::EndCombo();
+				}
+			}
+		}
+		else if (strcmp(Prop.Name, "Texture Path") == 0)
+		{
+			const TArray<FString>& TexturePaths = FResourceManager::Get().GetTextureFilePath();
+			if (!TexturePaths.empty())
+			{
+				const FString Current = *Val;
+				if (ImGui::BeginCombo(Prop.Name, Current.empty() ? "<None>" : Current.c_str()))
+				{
+					for (const FString& Path : TexturePaths)
+					{
+						const bool bSelected = (Current == Path);
+						if (ImGui::Selectable(Path.c_str(), bSelected))
+						{
+							*Val = Path;
+							bChanged = true;
+						}
+						if (bSelected)
+							ImGui::SetItemDefaultFocus();
 					}
 					ImGui::EndCombo();
 				}

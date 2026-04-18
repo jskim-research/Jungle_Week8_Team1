@@ -28,9 +28,12 @@ float4 PS(PSInput input) : SV_TARGET
     float4 col = SubUVAtlas.Sample(SubUVSampler, input.texCoord);
     if (bIsWireframe < 0.5f)
     {
-        if (col.r < 0.1f)
+        if (col.a < 0.01f )
         {
-            
+            discard;
+        }
+        if (col.r < 0.01f)
+        {
             discard;
         }
         return col;
