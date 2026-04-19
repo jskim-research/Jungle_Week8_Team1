@@ -20,11 +20,8 @@ cbuffer UberPerObject : register(b1)
 
 cbuffer UberMaterial : register(b2)
 {
-    float3 AmbientColor;
+    float3 BaseColor;
     float Opacity;
-
-    float3 DiffuseColor;
-    float _UberMaterialPad0;
 
     float3 SpecularColor;
     float Shininess;
@@ -34,16 +31,12 @@ cbuffer UberMaterial : register(b2)
     uint bHasSpecularMap;
 
     float3 EmissiveColor;
-    uint bHasAmbientMap;
-
     uint bHasBumpMap;
-    float3 _UberMaterialPad1;
 }
 
 Texture2D DiffuseMap : register(t0);
-Texture2D AmbientMap : register(t1);
-Texture2D SpecularMap : register(t2);
-Texture2D BumpMap : register(t3);
+Texture2D SpecularMap : register(t1);
+Texture2D BumpMap : register(t2);
 
 SamplerState SampleState : register(s0);
 
@@ -82,48 +75,18 @@ struct FUberSurfaceData
     uint bIsEmissive;
 };
 
-// 로컬 정점 위치를 World -> View -> Projection 순서로 변환해 최종 클립 공간 좌표를 만든다.
 float4 ApplyUberMVP(float3 Position)
 {
-    float4 WorldPosition = mul(float4(Position, 1.0f), World);
-    float4 ViewPosition = mul(WorldPosition, View);
+    const float4 WorldPosition = mul(float4(Position, 1.0f), World);
+    const float4 ViewPosition = mul(WorldPosition, View);
     return mul(ViewPosition, Projection);
 }
 
-// 로컬 노멀을 월드 공간 노멀로 변환한다.
-// 비균일 스케일에도 올바르게 대응하기 위해 역전치 행렬을 사용한다.
 float3 TransformNormalToWorld(float3 Normal)
 {
     return normalize(mul(Normal, (float3x3)WorldInverseTranspose));
 }
 
-// 기존 머티리얼 슬롯/텍스처 바인딩 계약을 유지하기 위한 보존용 함수다.
-// 현재 shading 단계에서는 실제 색 기여를 하지 않지만, 샘플링 경로 자체는 남겨서
-// 레거시 파라미터 연결이 끊어지지 않도록 한다.
-float3 PreserveLegacyMaterialMaps(float2 UV)
-{
-    float3 Preserved = 0.0f;
-
-    if (bHasAmbientMap != 0u)
-    {
-        Preserved += AmbientMap.Sample(SampleState, UV).rgb * 0.0f;
-    }
-
-    if (bHasSpecularMap != 0u)
-    {
-        Preserved += SpecularMap.Sample(SampleState, UV).rgb * 0.0f;
-    }
-
-    if (bHasBumpMap != 0u)
-    {
-        Preserved += BumpMap.Sample(SampleState, UV).rgb * 0.0f;
-    }
-
-    return Preserved;
-}
-
-// 버텍스 단계에서 픽셀 셰이더가 필요로 하는 surface 입력값을 구성한다.
-// 월드 위치, 월드 노멀, 스크롤이 반영된 UV, 클립 공간 좌표를 한 번에 계산한다.
 FUberPSInput BuildSurfaceVertex(FUberVSInput Input)
 {
     FUberPSInput Output;
@@ -138,8 +101,6 @@ FUberPSInput BuildSurfaceVertex(FUberVSInput Input)
     return Output;
 }
 
-// 픽셀 단계에서 사용할 surface 데이터를 평가한다.
-// diffuse map 샘플링, alpha clip, albedo 계산, emissive 여부 판정까지 담당한다.
 FUberSurfaceData EvaluateSurface(FUberPSInput Input)
 {
     FUberSurfaceData Surface;
@@ -155,15 +116,12 @@ FUberSurfaceData EvaluateSurface(FUberPSInput Input)
         clip(Surface.DiffuseSample.a - 0.001f);
     }
 
-    Surface.DiffuseSample.rgb += PreserveLegacyMaterialMaps(Surface.UV);
-    Surface.Albedo = DiffuseColor * Surface.DiffuseSample.rgb;
+    Surface.Albedo = BaseColor * Surface.DiffuseSample.rgb;
     Surface.bIsEmissive = any(EmissiveColor > 0.0f) ? 1u : 0u;
 
     return Surface;
 }
 
-// 평가된 surface와 최종 색을 현재 엔진의 MRT 출력 계약에 맞게 패킹한다.
-// emissive와 wireframe 같은 특수 표시 정책도 이 단계에서 최종 반영한다.
 FUberPSOutput ComposeOutput(FUberSurfaceData Surface, float3 FinalColor)
 {
     FUberPSOutput Output;

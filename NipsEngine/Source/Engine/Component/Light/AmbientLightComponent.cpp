@@ -7,6 +7,7 @@ REGISTER_FACTORY(UAmbientLightComponent)
 UAmbientLightComponent::UAmbientLightComponent()
 {
     SetLightType(ELightType::LightType_AmbientLight);
+    SetLightColor({ 0.2f, 0.2f, 0.2f, 1.0f });
 }
 
 void UAmbientLightComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)

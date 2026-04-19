@@ -499,6 +499,7 @@ void FShaderBindingInstance::ApplyFrameParameters(const FRenderBus& RenderBus)
 	SetFloat("bIsWireframe", RenderBus.GetViewMode() == EViewMode::Wireframe ? 1.0f : 0.0f);
 	SetVector3("WireframeRGB", RenderBus.GetWireframeColor());
 	SetVector2("ViewportSize", RenderBus.GetViewportSize());
+	SetVector3("GlobalAmbientColor", RenderBus.GetGlobalAmbientColor());
 	SetUInt("bHasDirectionalLight", RenderBus.HasDirectionalLight() ? 1u : 0u);
 	SetVector3("DirectionalLightDirection", RenderBus.GetDirectionalLightDirection());
 	SetVector3("DirectionalLightColor", RenderBus.GetDirectionalLightColor());

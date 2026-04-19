@@ -11,6 +11,7 @@
 #include "Component/SubUVComponent.h"
 #include "Component/DecalComponent.h"
 #include "Component/HeightFogComponent.h"
+#include "Component/Light/AmbientLightComponent.h"
 #include "Component/Light/DirectionalLightComponent.h"
 #include "Core/ResourceManager.h"
 #include "Engine/Geometry/Frustum.h"
@@ -183,6 +184,29 @@ namespace
 			FVector(LightColor.r, LightColor.g, LightColor.b) * Intensity,
 			Intensity);
 	}
+
+	void TryCollectAmbientLight(const AActor* Actor, FRenderBus& RenderBus)
+	{
+		if (Actor == nullptr || !Actor->IsVisible() || RenderBus.HasAmbientLight())
+		{
+			return;
+		}
+
+		if (!Actor->IsA<AAmbientLightActor>())
+		{
+			return;
+		}
+
+		const UAmbientLightComponent* AmbientLight = Cast<UAmbientLightComponent>(Actor->GetRootComponent());
+		if (AmbientLight == nullptr || !AmbientLight->IsVisible())
+		{
+			return;
+		}
+
+		const FColor& LightColor = AmbientLight->GetLightColor();
+		const float Intensity = AmbientLight->GetIntensity();
+		RenderBus.SetAmbientLight(FVector(LightColor.r, LightColor.g, LightColor.b) * Intensity);
+	}
 }
 
 void FRenderCollector::CollectWorld(UWorld* World, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus,
@@ -204,6 +228,7 @@ void FRenderCollector::CollectWorld(UWorld* World, const FShowFlags& ShowFlags, 
 		AActor* Actor = *Iter;
 
 		if (!Actor || !Actor->IsVisible()) continue;
+		TryCollectAmbientLight(Actor, RenderBus);
 		TryCollectDirectionalLight(Actor, RenderBus);
 
 		for (UPrimitiveComponent* Primitive : Actor->GetPrimitiveComponents())
@@ -257,6 +282,7 @@ void FRenderCollector::CollectWorldWithFrustum(UWorld* World, const FFrustum& Vi
 			continue;
 		}
 
+		TryCollectAmbientLight(Actor, RenderBus);
 		TryCollectDirectionalLight(Actor, RenderBus);
 
 		for (UPrimitiveComponent* Primitive : Actor->GetPrimitiveComponents())

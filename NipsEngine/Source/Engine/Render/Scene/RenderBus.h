@@ -27,6 +27,7 @@ public:
 	void SetViewProjection(const FMatrix& InView, const FMatrix& InProj);
 	void SetRenderSettings(const EViewMode NewViewMode, const FShowFlags NewShowFlags);
 	void SetDirectionalLight(const FVector& InDirectionToLight, const FVector& InLightColor, float InIntensity);
+	void SetAmbientLight(const FVector& InAmbientColor);
 
 	const FMatrix& GetView() const { return View; }
 	const FMatrix& GetProj() const { return Proj; }
@@ -49,6 +50,8 @@ public:
 	const FVector& GetDirectionalLightDirection() const { return DirectionalLightDirection; }
 	const FVector& GetDirectionalLightColor() const { return DirectionalLightColor; }
 	float GetDirectionalLightIntensity() const { return DirectionalLightIntensity; }
+	const FVector& GetGlobalAmbientColor() const { return GlobalAmbientColor; }
+	bool HasAmbientLight() const { return bHasAmbientLight; }
 
 private:
 	TArray<FRenderCommand> PassQueues[(uint32)ERenderPass::MAX];
@@ -72,4 +75,6 @@ private:
 	FVector DirectionalLightDirection = FVector::ZeroVector;
 	FVector DirectionalLightColor = FVector::ZeroVector;
 	float DirectionalLightIntensity = 0.0f;
+	bool bHasAmbientLight = false;
+	FVector GlobalAmbientColor = FVector(0.02f, 0.02f, 0.02f);
 };

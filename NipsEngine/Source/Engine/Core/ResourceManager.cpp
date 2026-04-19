@@ -113,6 +113,21 @@ namespace
 		MacroData.Macros.push_back({ nullptr, nullptr });
 		return MacroData;
 	}
+
+	bool IsRemovedAmbientMaterialParam(const FString& ParamName)
+	{
+		return ParamName == "AmbientColor" || ParamName == "AmbientMap" || ParamName == "bHasAmbientMap";
+	}
+
+	FString NormalizeLegacyMaterialParamName(const FString& ParamName)
+	{
+		if (ParamName == "DiffuseColor")
+		{
+			return "BaseColor";
+		}
+
+		return ParamName;
+	}
 }
 
 #pragma region __BINARY__
@@ -650,8 +665,7 @@ void FResourceManager::InitializeDefaultResources(ID3D11Device* Device)
 	}
 
 	UMaterial* DefaultMat = GetOrCreateMaterial("DefaultWhite", DefaultUberLitShaderPath);
-	DefaultMat->MaterialParams["AmbientColor"] = FMaterialParamValue(DefaultMat->MaterialData.AmbientColor);
-	DefaultMat->MaterialParams["DiffuseColor"] = FMaterialParamValue(DefaultMat->MaterialData.DiffuseColor);
+	DefaultMat->MaterialParams["BaseColor"] = FMaterialParamValue(DefaultMat->MaterialData.BaseColor);
 	DefaultMat->MaterialParams["SpecularColor"] = FMaterialParamValue(DefaultMat->MaterialData.SpecularColor);
 	DefaultMat->MaterialParams["EmissiveColor"] = FMaterialParamValue(DefaultMat->MaterialData.EmissiveColor);
 	DefaultMat->MaterialParams["Shininess"] = FMaterialParamValue(DefaultMat->MaterialData.Shininess);
@@ -663,11 +677,6 @@ void FResourceManager::InitializeDefaultResources(ID3D11Device* Device)
 		DefaultMat->MaterialParams["DiffuseMap"] = FMaterialParamValue(FResourceManager::Get().LoadTexture(DefaultMat->MaterialData.DiffuseTexPath, Device));
 	else
 		DefaultMat->MaterialParams["DiffuseMap"] = FMaterialParamValue(DefaultWhite);
-
-	if (DefaultMat->MaterialData.bHasAmbientTexture)
-		DefaultMat->MaterialParams["AmbientMap"] = FMaterialParamValue(FResourceManager::Get().LoadTexture(DefaultMat->MaterialData.AmbientTexPath, Device));
-	else
-		DefaultMat->MaterialParams["AmbientMap"] = FMaterialParamValue(DefaultWhite);
 
 	if (DefaultMat->MaterialData.bHasSpecularTexture)
 		DefaultMat->MaterialParams["SpecularMap"] = FMaterialParamValue(FResourceManager::Get().LoadTexture(DefaultMat->MaterialData.SpecularTexPath, Device));
@@ -681,7 +690,6 @@ void FResourceManager::InitializeDefaultResources(ID3D11Device* Device)
 
 	DefaultMat->MaterialParams["bHasDiffuseMap"] = FMaterialParamValue(DefaultMat->MaterialData.bHasDiffuseTexture);
 	DefaultMat->MaterialParams["bHasSpecularMap"] = FMaterialParamValue(DefaultMat->MaterialData.bHasSpecularTexture);
-	DefaultMat->MaterialParams["bHasAmbientMap"] = FMaterialParamValue(DefaultMat->MaterialData.bHasAmbientTexture);
 	DefaultMat->MaterialParams["bHasBumpMap"] = FMaterialParamValue(DefaultMat->MaterialData.bHasBumpTexture);
 
 	DefaultMat->MaterialParams["ScrollUV"] = FMaterialParamValue(FVector2(0.0f, 0.0f));
@@ -1095,7 +1103,6 @@ bool FResourceManager::LoadMaterial(const FString& MtlFilePath, const FString& S
 		FMaterial& MaterialData = Mat->MaterialData;
 
 		if (MaterialData.bHasDiffuseTexture && !MaterialData.DiffuseTexPath.empty())  LoadTexture(MaterialData.DiffuseTexPath, CachedDevice.Get());
-		if (MaterialData.bHasAmbientTexture && !MaterialData.AmbientTexPath.empty())  LoadTexture(MaterialData.AmbientTexPath, CachedDevice.Get());
 		if (MaterialData.bHasSpecularTexture && !MaterialData.SpecularTexPath.empty()) LoadTexture(MaterialData.SpecularTexPath, CachedDevice.Get());
 		if (MaterialData.bHasBumpTexture && !MaterialData.BumpTexPath.empty())     LoadTexture(MaterialData.BumpTexPath, CachedDevice.Get());
 	}
@@ -1152,8 +1159,14 @@ bool FResourceManager::SerializeMaterial(const FString& MatFilePath, const UMate
 	JSON Params = JSON::Make(JSON::Class::Array);
 	for (const auto& [ParamName, ParamValue] : Material->MaterialParams)
 	{
+		const FString SerializedParamName = NormalizeLegacyMaterialParamName(ParamName);
+		if (IsRemovedAmbientMaterialParam(SerializedParamName))
+		{
+			continue;
+		}
+
 		JSON Param = JSON::Make(JSON::Class::Object);
-		Param["Name"] = ParamName;
+		Param["Name"] = SerializedParamName;
 		if (std::holds_alternative<bool>(ParamValue.Value))
 		{
 			Param["Type"] = "Bool";
@@ -1240,8 +1253,14 @@ bool FResourceManager::SerializeMaterialInstance(const FString& MatInstFilePath,
 	JSON Params = JSON::Make(JSON::Class::Array);
 	for (const auto& [ParamName, ParamValue] : MaterialInstance->OverridedParams)
 	{
+		const FString SerializedParamName = NormalizeLegacyMaterialParamName(ParamName);
+		if (IsRemovedAmbientMaterialParam(SerializedParamName))
+		{
+			continue;
+		}
+
 		JSON Param = JSON::Make(JSON::Class::Object);
-		Param["Name"] = ParamName;
+		Param["Name"] = SerializedParamName;
 		if (std::holds_alternative<bool>(ParamValue.Value))
 		{
 			Param["Type"] = "Bool";
@@ -1365,7 +1384,12 @@ bool FResourceManager::DeserializeMaterial(const FString& MatFilePath)
 
 		for (auto& Param : Root["OverridedParams"].ArrayRange())
 		{
-			FString ParamName = Param["Name"].ToString();
+			FString ParamName = NormalizeLegacyMaterialParamName(Param["Name"].ToString());
+			if (IsRemovedAmbientMaterialParam(ParamName))
+			{
+				continue;
+			}
+
 			FString Type = Param["Type"].ToString();
 			if (Type == "Bool")
 			{
@@ -1454,7 +1478,12 @@ bool FResourceManager::DeserializeMaterial(const FString& MatFilePath)
 
 	for (auto& Param : Root["Params"].ArrayRange())
 	{
-		FString ParamName = Param["Name"].ToString();
+		FString ParamName = NormalizeLegacyMaterialParamName(Param["Name"].ToString());
+		if (IsRemovedAmbientMaterialParam(ParamName))
+		{
+			continue;
+		}
+
 		FString Type = Param["Type"].ToString();
 
 		if (Type == "Bool")
@@ -1998,7 +2027,6 @@ size_t FResourceManager::GetMaterialMemorySize() const
 		const FMaterial& Mat = Pair.second->MaterialData;
 		TotalSize += Mat.Name.capacity();
 		TotalSize += Mat.DiffuseTexPath.capacity();
-		TotalSize += Mat.AmbientTexPath.capacity();
 		TotalSize += Mat.SpecularTexPath.capacity();
 		TotalSize += Mat.BumpTexPath.capacity();
 	}

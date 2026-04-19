@@ -6,6 +6,8 @@
 
 cbuffer UberLighting : register(b3)
 {
+    float3 GlobalAmbientColor;
+    float _UberLightingPad0;
     float3 DirectionalLightDirection;
     uint bHasDirectionalLight;
     float3 DirectionalLightColor;
@@ -21,7 +23,7 @@ struct FLightingResult
 FLightingResult EvaluateLightingFromWorld(float3 WorldPos, float3 WorldNormal)
 {
     FLightingResult Result;
-    Result.Diffuse = AmbientColor;
+    Result.Diffuse = GlobalAmbientColor;
     Result.Specular = 0.0f.xxx;
 
     if (bHasDirectionalLight == 0u)

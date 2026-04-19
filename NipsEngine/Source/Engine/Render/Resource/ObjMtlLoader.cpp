@@ -77,11 +77,11 @@ bool FObjMtlLoader::Load(const FString& FilePath, TMap<FString, UMaterial*>& Out
 		// 색상
 		else if (Token == "Ka")
 		{
-			Current->MaterialData.AmbientColor = ParseFVector(ISS);
+			// Legacy MTL ambient is ignored in the UberLit material model.
 		}
 		else if (Token == "Kd")
 		{
-			Current->MaterialData.DiffuseColor = ParseFVector(ISS);
+			Current->MaterialData.BaseColor = ParseFVector(ISS);
 		}
 		else if (Token == "Ks")
 		{
@@ -109,8 +109,8 @@ bool FObjMtlLoader::Load(const FString& FilePath, TMap<FString, UMaterial*>& Out
 		}
 		/**
 		 * 0 -> 조명 계산 없음
-		 * 1 -> Ka + Kd
-		 * 2 -> Ka + Kd + Ks (퐁 셰이더)
+		 * 1 -> Kd
+		 * 2 -> Kd + Ks
 		 */
 		else if (Token == "illum")
 		{
@@ -124,8 +124,7 @@ bool FObjMtlLoader::Load(const FString& FilePath, TMap<FString, UMaterial*>& Out
 		}
 		else if (Token == "map_Ka")
 		{
-			Current->MaterialData.AmbientTexPath = ResolveTexPath(ISS);
-			Current->MaterialData.bHasAmbientTexture = true;
+			// Legacy MTL ambient map is ignored in the UberLit material model.
 		}
 		else if (Token == "map_Ks")
 		{
@@ -142,8 +141,7 @@ bool FObjMtlLoader::Load(const FString& FilePath, TMap<FString, UMaterial*>& Out
 
 	for (auto& [Name, Mat] : OutMaterialAssets)
 	{
-		Mat->MaterialParams["AmbientColor"] = FMaterialParamValue(Mat->MaterialData.AmbientColor);
-		Mat->MaterialParams["DiffuseColor"] = FMaterialParamValue(Mat->MaterialData.DiffuseColor);
+		Mat->MaterialParams["BaseColor"] = FMaterialParamValue(Mat->MaterialData.BaseColor);
 		Mat->MaterialParams["SpecularColor"] = FMaterialParamValue(Mat->MaterialData.SpecularColor);
 		Mat->MaterialParams["EmissiveColor"] = FMaterialParamValue(Mat->MaterialData.EmissiveColor);
 		Mat->MaterialParams["Shininess"] = FMaterialParamValue(Mat->MaterialData.Shininess);
@@ -155,11 +153,6 @@ bool FObjMtlLoader::Load(const FString& FilePath, TMap<FString, UMaterial*>& Out
 			Mat->MaterialParams["DiffuseMap"] = FMaterialParamValue(FResourceManager::Get().LoadTexture(Mat->MaterialData.DiffuseTexPath, Device));
 		else
 			Mat->MaterialParams["DiffuseMap"] = FMaterialParamValue(DefaultWhite);
-
-		if (Mat->MaterialData.bHasAmbientTexture)
-			Mat->MaterialParams["AmbientMap"] = FMaterialParamValue(FResourceManager::Get().LoadTexture(Mat->MaterialData.AmbientTexPath, Device));
-		else
-			Mat->MaterialParams["AmbientMap"] = FMaterialParamValue(DefaultWhite);
 
 		if (Mat->MaterialData.bHasSpecularTexture)
 			Mat->MaterialParams["SpecularMap"] = FMaterialParamValue(FResourceManager::Get().LoadTexture(Mat->MaterialData.SpecularTexPath, Device));
@@ -173,7 +166,6 @@ bool FObjMtlLoader::Load(const FString& FilePath, TMap<FString, UMaterial*>& Out
 
 		Mat->MaterialParams["bHasDiffuseMap"] = FMaterialParamValue(Mat->MaterialData.bHasDiffuseTexture);
 		Mat->MaterialParams["bHasSpecularMap"] = FMaterialParamValue(Mat->MaterialData.bHasSpecularTexture);
-		Mat->MaterialParams["bHasAmbientMap"] = FMaterialParamValue(Mat->MaterialData.bHasAmbientTexture);
 		Mat->MaterialParams["bHasBumpMap"] = FMaterialParamValue(Mat->MaterialData.bHasBumpTexture);
 
 		Mat->MaterialParams["ScrollUV"] = FMaterialParamValue(FVector2(0.0f, 0.0f));

@@ -15,8 +15,7 @@ struct FMaterial
 {
     FString Name;
 
-    FVector AmbientColor   = { 0.2f, 0.2f, 0.2f }; // Ka
-    FVector DiffuseColor   = { 0.8f, 0.8f, 0.8f }; // Kd
+    FVector BaseColor      = { 0.8f, 0.8f, 0.8f }; // Kd
     FVector SpecularColor  = { 0.0f, 0.0f, 0.0f }; // Ks
     FVector EmissiveColor  = { 0.0f, 0.0f, 0.0f }; // Ke
 
@@ -27,9 +26,6 @@ struct FMaterial
 	// Texture 정보
     FString DiffuseTexPath;   // map_Kd
 	bool	bHasDiffuseTexture = { false };
-		 
-    FString AmbientTexPath;   // map_Ka
-	bool	bHasAmbientTexture = { false };
 
     FString SpecularTexPath;  // map_Ks
 	bool	bHasSpecularTexture = { false };
