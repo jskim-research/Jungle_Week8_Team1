@@ -228,6 +228,7 @@ void UEditorEngine::StopPlaySession()
         InputSystem::Get().SetCursorVisibility(true);
     }
 
+    MainPanel.ResetWidgetSelections();
     SelectionManager.ClearSelection();
 }
 

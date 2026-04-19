@@ -35,3 +35,4 @@ void UPointLightComponent::PostDuplicate(UObject* Original)
     AttenuationRadius    = Orig->AttenuationRadius;
     LightFalloffExponent = Orig->LightFalloffExponent;
 }
+

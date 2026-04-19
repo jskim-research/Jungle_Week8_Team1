@@ -128,6 +128,7 @@ void AActor::Serialize(FArchive& Ar)
 
 	for (UActorComponent* Comp : OwnedComponents)
 	{
+		if (Comp->IsTransient()) continue;
 		Ar.BeginObject(std::to_string(Comp->GetUUID()));
 		Comp->Serialize(Ar);
 		Ar.EndObject();
@@ -153,7 +154,7 @@ UActorComponent* AActor::AddComponentByClass(const FTypeInfo* Class)
     Comp->SetOwner(this);
     OwnedComponents.push_back(Comp);
     bPrimitiveCacheDirty = true;
-    NotifyComponentRegistered(Comp);
+    Comp->OnRegister();
     return Comp;
 }
 
@@ -168,7 +169,7 @@ void AActor::RegisterComponent(UActorComponent* Comp)
         Comp->SetOwner(this);
         OwnedComponents.push_back(Comp);
         bPrimitiveCacheDirty = true;
-        NotifyComponentRegistered(Comp);
+        Comp->OnRegister();
     }
 }
 
@@ -177,7 +178,7 @@ void AActor::RemoveComponent(UActorComponent* Component)
     if (!Component)
         return;
 
-    NotifyComponentUnregistered(Component);
+    Component->OnUnregister();
 
     auto it = std::find(OwnedComponents.begin(), OwnedComponents.end(), Component);
     if (it != OwnedComponents.end())
@@ -283,45 +284,6 @@ void AActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
     }
 }
 
-void AActor::NotifyComponentRegistered(UActorComponent* Component)
-{
-    if (Component == nullptr || OwningWorld == nullptr)
-    {
-        return;
-    }
-
-	// TODO : 임시 코드 이 함수의 로직들은 Component에 가상 함수로 들어가고 각각의 컴포넌트가 자신의 시스템에 Register해야함.
-    if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
-    {
-        OwningWorld->GetSpatialIndex().RegisterPrimitive(Primitive);
-        OwningWorld->GetSpatialIndex().FlushDirtyBounds();   
-    }
-    
-	if (ULightComponent* Light = Cast<ULightComponent>(Component))
-	{
-        OwningWorld->RegisterLight(Light);
-	}
-}
-
-void AActor::NotifyComponentUnregistered(UActorComponent* Component)
-{
-    if (Component == nullptr || OwningWorld == nullptr)
-    {
-        return;
-    }
-
-	// TODO : 임시 코드 이 함수의 로직들은 Component에 가상 함수로 들어가고 각각의 컴포넌트가 자신의 시스템에 Unregister해야함.
-    if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
-    {
-        OwningWorld->GetSpatialIndex().UnregisterPrimitive(Primitive);
-    }
-
-	if (ULightComponent* Light = Cast<ULightComponent>(Component))
-	{
-        OwningWorld->UnregisterLight(Light);
-	}
-
-}
 
 void AActor::MarkPrimitiveComponentsDirty()
 {

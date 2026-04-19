@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "PrimitiveComponent.h"
+#include "BillboardComponent.h"
 
 class UHeightFogComponent : public UPrimitiveComponent
 {
@@ -10,6 +11,9 @@ public:
     ~UHeightFogComponent() override = default;
 
 	virtual void Serialize(FArchive& Ar) override;
+
+    virtual void OnRegister() override;
+    virtual void OnUnregister() override;
 
     EPrimitiveType GetPrimitiveType() const override { return EPrimitiveType::EPT_FOG; }
 
@@ -39,6 +43,8 @@ public:
     void PostEditProperty(const char* PropertyName) override;
 
 private:
+    UBillboardComponent* VisualizationComponent = nullptr;
+
     FColor FogInscatteringColor;
     float FogDensity = 0;
     float HeightFalloff = 0;

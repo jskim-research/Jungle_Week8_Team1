@@ -25,3 +25,4 @@ void UDirectionalLightComponent::PostDuplicate(UObject* Original)
 
     // const UDirectionalLightComponent* Orig = Cast<UDirectionalLightComponent>(Original);
 }
+

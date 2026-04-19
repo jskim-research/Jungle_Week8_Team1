@@ -56,7 +56,6 @@ void UActorComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProp
     // OutProps.push_back({"Active", EPropertyType::Bool, &bIsActive});
     // OutProps.push_back({"Auto Activate", EPropertyType::Bool, &bAutoActivate});
     OutProps.push_back({"Enable Tick", EPropertyType::Bool, &bCanEverTick});
-    OutProps.push_back({"Be Serialized", EPropertyType::Bool, &bTransient});
     OutProps.push_back({"Editor Only", EPropertyType::Bool, &bIsEditorOnly});
 }
 
@@ -64,6 +63,5 @@ void UActorComponent::Serialize(FArchive& Ar)
 {
 	UObject::Serialize(Ar);
 	Ar << "Enable Tick" << bCanEverTick;
-	Ar << "Be Serialized" << bTransient;
 	Ar << "Editor Only" << bIsEditorOnly;
 }

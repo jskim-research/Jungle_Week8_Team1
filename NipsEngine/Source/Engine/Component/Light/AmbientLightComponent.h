@@ -12,4 +12,7 @@ public:
     void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
     void Serialize(FArchive& Ar) override;
     void PostDuplicate(UObject* Original) override;
+
+protected:
+    FString GetVisualizationTexturePath() const override { return "Asset/Texture/Icons/SkyLight.PNG"; }
 };

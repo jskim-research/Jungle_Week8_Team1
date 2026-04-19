@@ -45,6 +45,22 @@ public:
 	void SetEditorOnly(bool bInEditorOnly) { bIsEditorOnly = bInEditorOnly; }
 	bool IsEditorOnly() const { return bIsEditorOnly; }
 
+	void SetIsVisualizationComponent(bool bInIsVisualizationComponent)
+    {
+        bIsVisualizationComponent = bInIsVisualizationComponent;
+        if (bInIsVisualizationComponent)
+        {
+            bIsEditorOnly = true;
+            bTransient = true;
+        }
+    }
+    bool IsVisualizationComponent() const { return bIsVisualizationComponent; }
+
+    // AActor에 추가될 때 호출. 컴포넌트가 월드 시스템(SpatialIndex 등)에 자신을 등록하는 곳.
+    virtual void OnRegister() {}
+    // AActor에서 제거될 때 호출. OnRegister에서 등록한 내용을 정리하는 곳.
+    virtual void OnUnregister() {}
+
 protected:
 	virtual void TickComponent(float DeltaTime) {}
 
@@ -55,10 +71,7 @@ private:
 	bool bIsActive = true;
 	bool bAutoActivate = true;
 	bool bCanEverTick = true;
-	bool bTransient = false; // 런타임에만 존재해야 하며, 저장되어서는 안 되는 객체에 붙입니다. (UUID 컴포넌트)
-	bool bIsEditorOnly = false;
+    bool bTransient = false;                // 런타임에만 존재, 직렬화 완전 제외
+    bool bIsEditorOnly = false;             // 에디터 전용, PIE/Game 렌더 제외
+    bool bIsVisualizationComponent = false; // 에디터 시각화 보조 컴포넌트, Outliner 에서 숨김 처리
 };
-
-
-
-

@@ -26,3 +26,4 @@ void UAmbientLightComponent::PostDuplicate(UObject* Original)
 
     // const UAmbientLightComponent* Orig = Cast<UAmbientLightComponent>(Original);
 }
+
