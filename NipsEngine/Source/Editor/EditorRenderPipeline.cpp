@@ -91,6 +91,8 @@ void FEditorRenderPipeline::RenderViewport(FRenderer& Renderer, int32 ViewportIn
     Bus.SetFXAAEnabled(Settings.bEnableFXAA && !SceneView.bOrthographic);
 
     const FFrustum& ViewFrustum = SceneView.CameraFrustum;
+    Renderer.GetEditorLineBatcher().Clear();
+    Collector.SetLineBatcher(&Renderer.GetEditorLineBatcher());
     Collector.CollectWorld(World, ShowFlags, ViewMode, Bus, &ViewFrustum);
     ViewportCullingStats[ViewportIndex] = Collector.GetLastCullingStats();
     ViewportDecalStats[ViewportIndex] = Collector.GetLastDecalStats();

@@ -53,7 +53,6 @@ private:
 	TArray<UMaterialInterface*> Materials;
 	FVector DecalSize = FVector(5.0f, 5.0f, 5.0f);
 	FColor DecalColor = FColor::White();
-	bool bDebugLine = true;
 
 	float FadeStartDelay = 0.0f;
 	float FadeDuration = 0.0f;

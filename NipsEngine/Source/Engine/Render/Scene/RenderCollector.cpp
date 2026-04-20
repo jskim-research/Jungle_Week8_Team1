@@ -1,5 +1,6 @@
 ﻿#include "RenderCollector.h"
 
+#include "Render/LineBatcher.h"
 #include "GameFramework/World.h"
 #include "GameFramework/AActor.h"
 #include "Object/ActorIterator.h"
@@ -173,7 +174,7 @@ namespace
 }
 
 void FRenderCollector::CollectWorld(UWorld* World, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus,
-                                    const FFrustum* ViewFrustum)
+	const FFrustum* ViewFrustum)
 {
 	ResetCullingStats();
 	ResetDecalStats();
@@ -300,8 +301,7 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus)
 	}
 }
 
-void FRenderCollector::CollectWorldWithFrustum(UWorld* World, const FFrustum& ViewFrustum, const FShowFlags& ShowFlags,
-                                               EViewMode ViewMode, FRenderBus& RenderBus)
+void FRenderCollector::CollectWorldWithFrustum(UWorld* World, const FFrustum& ViewFrustum, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus)
 {
 	VisiblePrimitiveScratch.clear();
 	World->GetSpatialIndex().FrustumQueryPrimitives(ViewFrustum, VisiblePrimitiveScratch, FrustumQueryScratch);
@@ -458,12 +458,6 @@ void FRenderCollector::CollectFromActor(AActor* Actor, const FShowFlags& ShowFla
 	{
 		CollectFromComponent(Primitive, ShowFlags, ViewMode, RenderBus, WorldType);
 	}
-
-	if (Actor->IsA<ASpotLightActor>())
-	{
-		ASpotLightActor* SpotlightActor = Cast<ASpotLightActor>(Actor);
-
-	}
 }
 
 bool FRenderCollector::CollectFromSelectedActor(AActor* Actor, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus)
@@ -544,15 +538,9 @@ bool FRenderCollector::CollectFromSelectedActor(AActor* Actor, const FShowFlags&
 		RenderBus.AddCommand(ERenderPass::SelectionMask, MaskCmd);
 		bHasSelectionMask = true;
 
-		// TODO: 리팩토링 필요 (현재는 DecalComponent만 OBB를 그리도록 설정)
-		UDecalComponent* DecalComp = Cast<UDecalComponent>(primitiveComponent);
-		if (DecalComp)
+		if (ShowFlags.bBoundingVolume)
 		{
-			CollectOBBCommand(primitiveComponent, ShowFlags, RenderBus);
-		}
-		else
-		{
-			CollectAABBCommand(primitiveComponent, ShowFlags, RenderBus);
+			LineBatcher->AddAABB(BuildRenderAABB(primitiveComponent, RenderBus), FColor::White());
 		}
 
 		CollectBVHInternalNodeAABBs(primitiveComponent, ShowFlags, RenderBus, SeenBVHNodeIndices);
@@ -690,7 +678,7 @@ void FRenderCollector::CollectFromComponent(UPrimitiveComponent* Primitive, cons
 		RenderBus.AddCommand(ERenderPass::SubUV, Cmd);  // SubUV 패스 재사용
 		break;
 	}
-	
+
 	case EPrimitiveType::EPT_Decal:
 	{
 		if (!ShowFlags.bDecals) return;
@@ -754,11 +742,16 @@ void FRenderCollector::CollectFromComponent(UPrimitiveComponent* Primitive, cons
 			}
 		}
 
+		if (WorldType == EWorldType::Editor)
+		{
+			LineBatcher->AddOBB(DecalOBB, FColor::Green());
+		}
+
 		LastDecalStats.TotalDecalCount += 1;
 		LastDecalStats.CollectTimeMS += static_cast<int32>(RenderDecalScope.Finish());
 		break;
 	}
-	
+
     case EPrimitiveType::EPT_FOG:
     {
         if (!ShowFlags.bFog)
@@ -789,10 +782,9 @@ void FRenderCollector::CollectFromComponent(UPrimitiveComponent* Primitive, cons
 	}
 }
 
-void FRenderCollector::CollectBVHInternalNodeAABBs(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags,
-                                                   FRenderBus& RenderBus, std::unordered_set<int32>& SeenNodeIndices)
+void FRenderCollector::CollectBVHInternalNodeAABBs(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags, FRenderBus& RenderBus, std::unordered_set<int32>& SeenNodeIndices)
 {
-	if (!ShowFlags.bBoundingVolume || !ShowFlags.bBVHBoundingVolume || PrimitiveComponent == nullptr)
+	if (!ShowFlags.bBoundingVolume || !ShowFlags.bBVHBoundingVolume || PrimitiveComponent == nullptr || LineBatcher == nullptr)
 	{
 		return;
 	}
@@ -860,44 +852,7 @@ void FRenderCollector::CollectBVHInternalNodeAABBs(UPrimitiveComponent* Primitiv
 		}
 
 		const FColor Color = MakeBVHInternalNodeColor(PathIndex, static_cast<int32>(PathToRoot.size()));
-		CollectAABBCommand(Node.Bounds, Color, RenderBus);
+		LineBatcher->AddAABB(Node.Bounds, Color);
 	}
 }
 
-void FRenderCollector::CollectAABBCommand(const FAABB& Box, const FColor& Color, FRenderBus& RenderBus)
-{
-	FRenderCommand AABBCmd = {};
-	AABBCmd.Type = ERenderCommandType::DebugBox;
-	AABBCmd.Constants.AABB.Min = Box.Min;
-	AABBCmd.Constants.AABB.Max = Box.Max;
-	AABBCmd.Constants.AABB.Color = Color;
-	RenderBus.AddCommand(ERenderPass::Editor, AABBCmd);
-}
-
-void FRenderCollector::CollectAABBCommand(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags, FRenderBus& RenderBus)
-{
-	if (!ShowFlags.bBoundingVolume) return;
-
-	const FAABB Box = BuildRenderAABB(PrimitiveComponent, RenderBus);
-	CollectAABBCommand(Box, FColor::White(), RenderBus);
-}
-
-void FRenderCollector::CollectOBBCommand(const FOBB& Box, const FColor& Color, FRenderBus& RenderBus)
-{
-	FRenderCommand OBBCmd = {};
-	OBBCmd.Type = ERenderCommandType::DebugOBB;
-	OBBCmd.Constants.OBB.Center = Box.Center;
-	OBBCmd.Constants.OBB.Extents = Box.Extents;
-	OBBCmd.Constants.OBB.Rotation = Box.Rotation.ToMatrix();
-	OBBCmd.Constants.OBB.Color = Color;
-	RenderBus.AddCommand(ERenderPass::Editor, OBBCmd);
-}
-
-void FRenderCollector::CollectOBBCommand(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags, FRenderBus& RenderBus)
-{
-	if (!ShowFlags.bBoundingVolume) return;
-
-	const FAABB AABB = PrimitiveComponent->GetWorldAABB();
-	const FOBB Box = FOBB::FromAABB(AABB, PrimitiveComponent->GetWorldMatrix());
-	CollectOBBCommand(Box, FColor::Green(), RenderBus);
-}

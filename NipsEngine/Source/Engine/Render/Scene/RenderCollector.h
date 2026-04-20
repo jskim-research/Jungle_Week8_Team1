@@ -14,6 +14,7 @@ class UPrimitiveComponent;
 class UGizmoComponent;
 class UDecalComponent;
 class UFireballComponent;
+class FLineBatcher;
 struct FFrustum;
 
 class FRenderCollector {
@@ -36,11 +37,15 @@ private:
 	FWorldSpatialIndex::FPrimitiveFrustumQueryScratch FrustumQueryScratch;
 	FWorldSpatialIndex::FPrimitiveOBBQueryScratch OBBQueryScratch;
 	TArray<UPrimitiveComponent*> VisiblePrimitiveScratch;
+	FLineBatcher* LineBatcher = nullptr;
 	FCullingStats LastCullingStats;
 	FDecalStats LastDecalStats;
+
 public:
 	void Initialize(ID3D11Device* InDevice) { MeshBufferManager.Create(InDevice); }
-	void Release() { MeshBufferManager.Release(); }
+	void Release() { LineBatcher = nullptr; MeshBufferManager.Release(); }
+	void SetLineBatcher(FLineBatcher* InLineBatcher) { LineBatcher = InLineBatcher; }
+	void ClearLineBatcher() { LineBatcher = nullptr; }
 
 	void CollectWorld(UWorld* World, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus,
 	                  const FFrustum* ViewFrustum = nullptr);
@@ -62,8 +67,4 @@ private:
 	void CollectFromComponent(UPrimitiveComponent* Primitive, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus, EWorldType WorldType);
 	void CollectBVHInternalNodeAABBs(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags, FRenderBus& RenderBus,
 	                                 std::unordered_set<int32>& SeenNodeIndices);
-	void CollectAABBCommand(const FAABB& Box, const FColor& Color, FRenderBus& RenderBus);
-	void CollectAABBCommand(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags, FRenderBus& RenderBus);
-	void CollectOBBCommand(const FOBB& Box, const FColor& Color, FRenderBus& RenderBus);
-	void CollectOBBCommand(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags, FRenderBus& RenderBus);
 };

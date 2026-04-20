@@ -23,6 +23,7 @@ FObjViewerRenderPipeline::~FObjViewerRenderPipeline()
 void FObjViewerRenderPipeline::Execute(float DeltaTime, FRenderer& Renderer)
 {
 	Bus.Clear();
+	Renderer.GetEditorLineBatcher().Clear();
 
 	UWorld* World = Engine->GetWorld();
 	FViewportCamera* Camera = Engine->GetCamera();
@@ -35,6 +36,7 @@ void FObjViewerRenderPipeline::Execute(float DeltaTime, FRenderer& Renderer)
 		Bus.SetViewProjection(Camera->GetViewMatrix(), Camera->GetProjectionMatrix());
 		Bus.SetRenderSettings(ViewMode, ShowFlags);
 		Bus.SetFXAAEnabled(true);
+		Collector.SetLineBatcher(&Renderer.GetEditorLineBatcher());
 
 		Collector.CollectWorld(World, ShowFlags, ViewMode, Bus);
 		Collector.CollectGrid(Settings.GridSpacing, Settings.GridHalfLineCount, Bus);

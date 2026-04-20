@@ -20,6 +20,7 @@ void FDefaultRenderPipeline::Execute(float DeltaTime, FRenderer& Renderer)
 {
 	Bus.Clear();
 
+
 	UWorld* World = Engine->GetWorld();
 	FViewportCamera* Camera = World ? World->GetActiveCamera() : nullptr;
 	if (Camera)
@@ -33,6 +34,8 @@ void FDefaultRenderPipeline::Execute(float DeltaTime, FRenderer& Renderer)
 		Bus.SetViewProjection(Camera->GetViewMatrix(), Camera->GetProjectionMatrix());
 		Bus.SetRenderSettings(ViewMode, ShowFlags);
 		Bus.SetFXAAEnabled(true);
+		Renderer.GetEditorLineBatcher().Clear();
+		Collector.SetLineBatcher(&Renderer.GetEditorLineBatcher());
 
 		const FFrustum& ViewFrustum = Camera->GetFrustum();
 		Collector.CollectWorld(World, ShowFlags, ViewMode, Bus, &ViewFrustum);

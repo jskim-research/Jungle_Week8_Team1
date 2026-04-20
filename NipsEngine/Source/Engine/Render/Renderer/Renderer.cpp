@@ -366,26 +366,6 @@ void FRenderer::ReleaseViewportResource(FSceneViewport* VP, int32 Index)
 // ============================================================
 void FRenderer::InitializePassBatchers()
 {
-	// --- Editor 패스: AABB 디버그 박스 → EditorLineBatcher ---
-	PassBatchers[(uint32)ERenderPass::Editor] = {
-		/*.Clear   =*/ [this]() { EditorLineBatcher.Clear(); },
-		/*.Collect =*/ [this](const FRenderCommand& Cmd, const FRenderBus&) {
-			if (Cmd.Type == ERenderCommandType::DebugBox)
-			{
-				EditorLineBatcher.AddAABB(FBoundingBox{ Cmd.Constants.AABB.Min, Cmd.Constants.AABB.Max }, Cmd.Constants.AABB.Color);
-			}
-			else if (Cmd.Type == ERenderCommandType::DebugOBB)
-			{
-				EditorLineBatcher.AddOBB(FOBB{ Cmd.Constants.OBB.Center, Cmd.Constants.OBB.Extents, Cmd.Constants.OBB.Rotation }, Cmd.Constants.OBB.Color);
-			}
-			else if (Cmd.Type == ERenderCommandType::DebugSpotlight)
-			{
-				const auto& S = Cmd.Constants.SpotLight;
-				EditorLineBatcher.AddSpotLight(S.Position, S.Direction, S.Range, S.InnerAngle, S.OuterAngle, S.Color);
-			}
-		},
-	};
-
 	// --- Grid 패스: 월드 그리드 + 축 → GridLineBatcher ---
     PassBatchers[(uint32)ERenderPass::Grid] = {
         /*.Clear   =*/[this]()

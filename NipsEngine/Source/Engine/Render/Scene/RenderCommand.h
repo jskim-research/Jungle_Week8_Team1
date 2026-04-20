@@ -26,9 +26,6 @@ enum class ERenderCommandType
 	SelectionMask,
 	PostProcessOutline,
 	Billboard,
-	DebugBox,
-	DebugOBB,
-	DebugSpotlight,
 	Grid,		// Grid 패스 — LineBatcher 경유
 	Font,		// TextRenderComponent — FontBatcher 경유
 	SubUV,		// SubUVComponent     — SubUVBatcher 경유
@@ -83,37 +80,6 @@ struct FOutlineConstants
 	float OutlineThicknessPixels = 2.0f;
 	FVector2 ViewportSize = FVector2(1.0f, 1.0f);
 	float Padding0 = 0.0f;
-};
-
-struct FAABBConstants
-{
-	FVector Min;
-	float Padding0;
-
-	FVector Max;
-	float Padding1;
-
-	FColor Color;
-};
-
-struct FOBBConstants
-{
-	FVector Center;
-	float Padding0;
-	FVector Extents;
-	float Padding1;
-	FMatrix Rotation; // 월드 회전 행렬 (회전만 포함, 평행 이동과 스케일 제외)
-	FColor Color;
-};
-
-struct FSpotLightConstants
-{
-	FVector Position;
-	FVector Direction;
-	float InnerAngle;
-	float OuterAngle;
-	float Range;
-	FColor Color;
 };
 
 struct FGridConstants
@@ -236,13 +202,10 @@ struct FRenderCommand
 
 	union
 	{
-		FAABBConstants AABB;
-		FOBBConstants OBB;
-		FSpotLightConstants SpotLight;
 		FGridConstants Grid;
 		FFontConstants Font;
 		FSubUVConstants SubUV;
-		FBillboardConstants Billboard;  // ← 추가
+		FBillboardConstants Billboard;
         FFogConstants Fog;
         FFXAAConstants FXAA;
 	} Constants;
