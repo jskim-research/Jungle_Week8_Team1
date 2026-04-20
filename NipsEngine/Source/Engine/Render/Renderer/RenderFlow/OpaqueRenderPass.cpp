@@ -1,4 +1,4 @@
-#include "OpaqueRenderPass.h"
+﻿#include "OpaqueRenderPass.h"
 #include "LightCullingPass.h"
 #include "Render/Device/D3DDevice.h"
 #include "Render/Scene/RenderBus.h"
@@ -92,6 +92,8 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
         {
             Cmd.Material->Bind(Context->DeviceContext, Context->RenderBus, &Cmd.PerObjectConstants, ShaderOverride, Context);
         }
+
+		BindLightCullingResources(Context);
 
 		CheckOverrideViewMode(Context);
 
