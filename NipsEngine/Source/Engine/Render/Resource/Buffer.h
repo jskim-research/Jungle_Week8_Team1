@@ -96,10 +96,12 @@ public:
 
 	ID3D11ShaderResourceView* GetSRV() const;
     uint32 GetCount() const { return Count; }
+    uint32 GetMaxElements() const { return MaxElements; }
 
 private:
 	TComPtr<ID3D11Buffer>			  Buffer;
 	TComPtr<ID3D11ShaderResourceView> SRV;
 	uint32							  Count = 0;
 	uint32							  ElementSize = 0;
+    uint32                            MaxElements = 0;
 };

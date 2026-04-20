@@ -2,8 +2,6 @@
 #include "RenderPass.h"
 #include "Render/Common/ComPtr.h"
 
-struct FLightData;
-
 struct FLightCullingOutputs
 {
     ID3D11ShaderResourceView* LightBufferSRV = nullptr;

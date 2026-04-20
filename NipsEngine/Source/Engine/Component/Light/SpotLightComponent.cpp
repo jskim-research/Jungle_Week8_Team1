@@ -38,3 +38,4 @@ void USpotLightComponent::PostDuplicate(UObject* Original)
     InnerConeAngle = Orig->InnerConeAngle;
     OuterConeAngle = Orig->OuterConeAngle;
 }
+

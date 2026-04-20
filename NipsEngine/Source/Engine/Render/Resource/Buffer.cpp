@@ -197,12 +197,13 @@ void FIndexBuffer::Update(ID3D11DeviceContext* InDeviceContext, const TArray<uin
 }
 
 void FStructuredBuffer::Create(ID3D11Device* InDevice, uint32 InElementSize, uint32 InMaxElements) {
-	if (InElementSize == 0) {
+	if (InDevice == nullptr || InElementSize == 0 || InMaxElements == 0) {
 		Release();
 		return;
 	}
 
 	ElementSize = InElementSize;
+	MaxElements = InMaxElements;
 
 	D3D11_BUFFER_DESC desc = {};
 	desc.Usage = D3D11_USAGE_DYNAMIC;
@@ -227,16 +228,27 @@ void FStructuredBuffer::Release() {
 	SRV.Reset();
 	Count = 0;
 	ElementSize = 0;
+	MaxElements = 0;
 }
 
 void FStructuredBuffer::Update(ID3D11DeviceContext* InContext, const void* InData, uint32 InElementCount) {
-	if (Buffer) {
-		D3D11_MAPPED_SUBRESOURCE structuredMSR;
-        InContext->Map(Buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &structuredMSR);
-        std::memcpy(structuredMSR.pData, InData, InElementCount * ElementSize);
-		Count = InElementCount;
-        InContext->Unmap(Buffer.Get(), 0);
+	if (!Buffer || InContext == nullptr)
+	{
+		return;
 	}
+
+	const uint32 ClampedElementCount = (InElementCount > MaxElements) ? MaxElements : InElementCount;
+	Count = ClampedElementCount;
+
+	if (ClampedElementCount == 0 || InData == nullptr)
+	{
+		return;
+	}
+
+	D3D11_MAPPED_SUBRESOURCE structuredMSR;
+	InContext->Map(Buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &structuredMSR);
+	std::memcpy(structuredMSR.pData, InData, ClampedElementCount * ElementSize);
+	InContext->Unmap(Buffer.Get(), 0);
 }
 
 ID3D11ShaderResourceView* FStructuredBuffer::GetSRV() const {

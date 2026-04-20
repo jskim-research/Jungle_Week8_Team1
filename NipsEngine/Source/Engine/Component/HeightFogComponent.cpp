@@ -1,12 +1,37 @@
 ﻿#include "HeightFogComponent.h"
 #include "Object/Object.h"
+#include "GameFramework/AActor.h"
 
 
 DEFINE_CLASS(UHeightFogComponent, UPrimitiveComponent)
 REGISTER_FACTORY(UHeightFogComponent)
 
-UHeightFogComponent::UHeightFogComponent() 
+UHeightFogComponent::UHeightFogComponent()
 {
+}
+
+void UHeightFogComponent::OnRegister()
+{
+    if (VisualizationComponent) { return; }
+
+    AActor* Owner = GetOwner();
+    if (!Owner) { return; }
+
+    VisualizationComponent = Owner->AddComponent<UBillboardComponent>();
+    VisualizationComponent->SetIsVisualizationComponent(true);
+    VisualizationComponent->SetTexturePath("Asset/Texture/Icons/S_ExpoHeightFog.PNG");
+    VisualizationComponent->AttachToComponent(this);
+}
+
+void UHeightFogComponent::OnUnregister()
+{
+    if (!VisualizationComponent) { return; }
+    AActor* Owner = GetOwner();
+    if (Owner)
+    {
+        Owner->RemoveComponent(VisualizationComponent);
+    }
+    VisualizationComponent = nullptr;
 }
 
 void UHeightFogComponent::Serialize(FArchive& Ar)

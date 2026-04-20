@@ -34,7 +34,7 @@ public:
 		Comp->SetOwner(this);
 		OwnedComponents.push_back(Comp);
 		bPrimitiveCacheDirty = true;
-		NotifyComponentRegistered(Comp);
+		Comp->OnRegister();
 		return Comp;
 	}
 
@@ -108,8 +108,6 @@ public:
 	const TArray<UPrimitiveComponent*>& GetPrimitiveComponents() const;
 
 protected:
-	void NotifyComponentRegistered(UActorComponent* Component);
-	void NotifyComponentUnregistered(UActorComponent* Component);
 	void MarkPrimitiveComponentsDirty();
 
 	USceneComponent* RootComponent = nullptr;

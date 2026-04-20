@@ -223,7 +223,7 @@ bool UShader::ReflectShader(ID3DBlob* ShaderBlob, ID3D11Device* Device, EShaderS
 
 			ReflectResult.CBuffers[BufferDesc.Name] = BufferDesc;
 		}
-		else if (BindDesc.Type == D3D_SIT_TEXTURE)
+		else if (BindDesc.Type == D3D_SIT_TEXTURE || BindDesc.Type == D3D_SIT_STRUCTURED || BindDesc.Type == D3D_SIT_BYTEADDRESS)
 		{
 			FTextureBindDesc TextureDesc = {};
 			TextureDesc.Name = BindDesc.Name;
@@ -491,7 +491,7 @@ void FShaderBindingInstance::SetAllSamplers(ID3D11SamplerState* Sampler)
 	}
 }
 
-void FShaderBindingInstance::ApplyFrameParameters(const FRenderBus& RenderBus)
+void FShaderBindingInstance::ApplyFrameParameters(const FRenderBus& RenderBus, ID3D11ShaderResourceView* SceneLightBufferSRV, uint32 SceneLightCount)
 {
 	SetMatrix4("View", RenderBus.GetView());
 	SetMatrix4("Projection", RenderBus.GetProj());
@@ -499,11 +499,8 @@ void FShaderBindingInstance::ApplyFrameParameters(const FRenderBus& RenderBus)
 	SetFloat("bIsWireframe", RenderBus.GetViewMode() == EViewMode::Wireframe ? 1.0f : 0.0f);
 	SetVector3("WireframeRGB", RenderBus.GetWireframeColor());
 	SetVector2("ViewportSize", RenderBus.GetViewportSize());
-	SetVector3("GlobalAmbientColor", RenderBus.GetGlobalAmbientColor());
-	SetUInt("bHasDirectionalLight", RenderBus.HasDirectionalLight() ? 1u : 0u);
-	SetVector3("DirectionalLightDirection", RenderBus.GetDirectionalLightDirection());
-	SetVector3("DirectionalLightColor", RenderBus.GetDirectionalLightColor());
-	SetFloat("DirectionalLightIntensity", RenderBus.GetDirectionalLightIntensity());
+	SetUInt("SceneLightCount", SceneLightCount);
+	SetSRV("SceneLights", SceneLightBufferSRV);
 }
 
 void FShaderBindingInstance::ApplyPerObjectParameters(const FPerObjectConstants& Constants)

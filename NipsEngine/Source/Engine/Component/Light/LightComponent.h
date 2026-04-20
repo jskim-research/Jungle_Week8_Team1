@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Component/SceneComponent.h"
+#include "Component/BillboardComponent.h"
 #include "Render/Common/RenderTypes.h"
 #include "GameFramework/World.h"
 
@@ -21,6 +22,9 @@ public:
     void BeginPlay() override;
     void EndPlay() override;
 
+    void OnRegister() override;
+    void OnUnregister() override;
+
 public:
     const FColor& GetLightColor() const { return LightColor; }
     float GetIntensity() const { return Intensity; }
@@ -39,6 +43,10 @@ private:
     bool bVisible = true;
 
 	FLightHandle LightHandle;
+    UBillboardComponent* VisualizationComponent = nullptr;
+
+protected:
+    virtual FString GetVisualizationTexturePath() const { return {}; }
 };
 
 class ULightComponent : public ULightComponentBase

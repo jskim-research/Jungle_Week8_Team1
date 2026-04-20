@@ -1,5 +1,6 @@
 ﻿#include "LightComponent.h"
 #include "Object/ObjectFactory.h"
+#include "GameFramework/AActor.h"
 
 DEFINE_CLASS(ULightComponentBase, USceneComponent)
 REGISTER_FACTORY(ULightComponentBase)
@@ -40,7 +41,45 @@ void ULightComponentBase::BeginPlay()
 void ULightComponentBase::EndPlay()
 {
     USceneComponent::EndPlay();
-    Owner->GetFocusedWorld()->UnregisterLight(this);
+}
+
+void ULightComponentBase::OnRegister()
+{
+    if (!Owner) { return; }
+    UWorld* World = Owner->GetFocusedWorld();
+    if (!World) { return; }
+
+    World->RegisterLight(this);
+
+    if (!VisualizationComponent)
+    {
+        FString TexturePath = GetVisualizationTexturePath();
+        if (!TexturePath.empty())
+        {
+            VisualizationComponent = Owner->AddComponent<UBillboardComponent>();
+            VisualizationComponent->SetIsVisualizationComponent(true);
+            VisualizationComponent->SetTexturePath(TexturePath);
+            VisualizationComponent->AttachToComponent(this);
+        }
+    }
+}
+
+void ULightComponentBase::OnUnregister()
+{
+    if (VisualizationComponent)
+    {
+        if (Owner)
+        {
+            Owner->RemoveComponent(VisualizationComponent);
+        }
+        VisualizationComponent = nullptr;
+    }
+
+    if (!Owner) { return; }
+    UWorld* World = Owner->GetFocusedWorld();
+    if (!World) { return; }
+
+    World->UnregisterLight(this);
 }
 
 void ULightComponentBase::PostDuplicate(UObject* Original)

@@ -3,6 +3,12 @@
 #include "Editor/EditorEngine.h"
 #include "ImGui/imgui.h"
 #include "GameFramework/PrimitiveActors.h"
+#include "Core/PropertyTypes.h"
+#include "Math/Color.h"
+#include "Core/ResourceManager.h"
+#include "Object/FName.h"
+#include <functional>
+
 #include "Component/StaticMeshComponent.h"
 #include "Component/BillboardComponent.h"
 #include "Component/TextRenderComponent.h"
@@ -12,14 +18,12 @@
 #include "Component/Movement/ProjectileMovementComponent.h"
 #include "Component/Movement/InterpToMovementComponent.h"
 #include "Component/Movement/PursuitMovementComponent.h"
-#include "Core/PropertyTypes.h"
-#include "Math/Color.h"
-#include "Core/ResourceManager.h"
-#include "Object/FName.h"
-#include <functional>
-#include "Component/HeightFogComponent.h"
-#include "Component/Light/LightComponent.h"
 #include "Selection/SelectionManager.h"
+#include "Component/HeightFogComponent.h"
+#include "Component/Light/AmbientLightComponent.h"
+#include "Component/Light/DirectionalLightComponent.h"
+#include "Component/Light/PointLightComponent.h"
+#include "Component/Light/SpotLightComponent.h"
 
 #define SEPARATOR(); ImGui::Spacing(); ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing(); ImGui::Spacing();
 
@@ -73,6 +77,41 @@ namespace
 	static void MakeXButtonId(char* OutBuf, size_t BufSize, const void* Ptr)
 	{
 		snprintf(OutBuf, BufSize, "xbtn_%p", Ptr);
+	}
+
+	static bool RenderStringComboOrInput(const char* Label, FString& Value, const TArray<FString>& Options)
+	{
+		if (!Options.empty())
+		{
+			bool bChanged = false;
+			if (ImGui::BeginCombo(Label, Value.empty() ? "<None>" : Value.c_str()))
+			{
+				for (const FString& Path : Options)
+				{
+					bool bSelected = (Value == Path);
+					if (ImGui::Selectable(Path.c_str(), bSelected))
+					{
+						Value = Path;
+						bChanged = true;
+					}
+					if (bSelected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			return bChanged;
+		}
+		else
+		{
+			char Buf[256];
+			strncpy_s(Buf, sizeof(Buf), Value.c_str(), _TRUNCATE);
+			if (ImGui::InputText(Label, Buf, sizeof(Buf)))
+			{
+				Value = Buf;
+				return true;
+			}
+			return false;
+		}
 	}
 
 	static FString GetMovementComponentDisplayName(UMovementComponent* MoveComp)
@@ -188,13 +227,33 @@ static const TArray<FComponentMenuEntry> ComponentMenuRegistry = {
 		}
 	},
     {
-        "Light Component",
-      [](AActor* Actor) -> UActorComponent*
-      {
-          ULightComponent* Comp = Actor->AddComponent<ULightComponent>();
-          return Comp;
-      }
+        "AmbientLight Component",
+		[](AActor* Actor) -> UActorComponent*
+		{
+			return Actor->AddComponent<UAmbientLightComponent>();
+		}
     },
+	{
+		"DirectionalLight Component",
+		[](AActor* Actor) -> UActorComponent*
+		{
+			return Actor->AddComponent<UDirectionalLightComponent>();;
+		}
+	},
+	{
+		"PointLight Component",
+		[](AActor* Actor) -> UActorComponent*
+		{
+			return Actor->AddComponent<UPointLightComponent>();
+		}
+	},
+	{
+		"SpotLight Component",
+		[](AActor* Actor) -> UActorComponent*
+		{
+			return Actor->AddComponent<USpotLightComponent>();
+		}
+	}
 };
 
 void FEditorPropertyWidget::Initialize(UEditorEngine* InEditorEngine)
@@ -401,8 +460,8 @@ void FEditorPropertyWidget::RenderComponentTree(AActor* Actor)
     for (UActorComponent* Comp : Actor->GetComponents())
     {
         // SceneComponent는 위의 트리 렌더링에서 처리되었으므로 패스
-        if (!Comp || Comp->IsA<USceneComponent>())
-            continue;
+        if (!Comp || Comp->IsA<USceneComponent>()) { continue; }
+        if (Comp->IsVisualizationComponent()) { continue; }
 
         ImGuiTreeNodeFlags Flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
         if (!bActorSelected && SelectedComponent == Comp)
@@ -460,13 +519,22 @@ void FEditorPropertyWidget::RenderComponentTree(AActor* Actor)
 void FEditorPropertyWidget::RenderSceneComponentNode(AActor* Actor, USceneComponent* Comp, UActorComponent*& OutCompToDelete)
 {
     if (!Comp) return;
+    if (Comp->IsVisualizationComponent()) return;
 
     FString Name = Comp->GetFName().ToString();
     if (Name.empty()) Name = Comp->GetTypeInfo()->name;
 
     const auto& Children = Comp->GetChildren();
 
-    bool bHasChildren = !Children.empty(); // 자식 무브먼트 체크 제거
+    bool bHasChildren = false;
+    for (USceneComponent* Child : Children)
+    {
+        if (!Child->IsVisualizationComponent())
+        {
+            bHasChildren = true;
+            break;
+        }
+    }
 
     ImGuiTreeNodeFlags Flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_DefaultOpen;
     if (!bHasChildren) Flags |= ImGuiTreeNodeFlags_Leaf;
@@ -766,106 +834,23 @@ void FEditorPropertyWidget::RenderPropertyWidget(FPropertyDescriptor& Prop)
 	case EPropertyType::String:
 	{
 		FString* Val = static_cast<FString*>(Prop.ValuePtr);
-
-		if (strcmp(Prop.Name, "StaticMesh") == 0)
-		{
-			TArray<FString> MeshPaths = FResourceManager::Get().GetStaticMeshPaths();
-			if (!MeshPaths.empty())
-			{
-				const FString Current = *Val;
-				if (ImGui::BeginCombo(Prop.Name, Current.empty() ? "<None>" : Current.c_str()))
-				{
-					for (const FString& Path : MeshPaths)
-					{
-						const bool bSelected = (Current == Path);
-						if (ImGui::Selectable(Path.c_str(), bSelected))
-						{
-							*Val = Path;
-							bChanged = true;
-						}
-						if (bSelected)
-						{
-							ImGui::SetItemDefaultFocus();
-						}
-					}
-					ImGui::EndCombo();
-				}
-			}
-		}
-		else if (strcmp(Prop.Name, "Texture Path") == 0)
-		{
-			const TArray<FString>& TexturePaths = FResourceManager::Get().GetTextureFilePath();
-			if (!TexturePaths.empty())
-			{
-				const FString Current = *Val;
-				if (ImGui::BeginCombo(Prop.Name, Current.empty() ? "<None>" : Current.c_str()))
-				{
-					for (const FString& Path : TexturePaths)
-					{
-						const bool bSelected = (Current == Path);
-						if (ImGui::Selectable(Path.c_str(), bSelected))
-						{
-							*Val = Path;
-							bChanged = true;
-						}
-						if (bSelected)
-							ImGui::SetItemDefaultFocus();
-					}
-					ImGui::EndCombo();
-				}
-			}
-		}
-		else
-		{
-			char Buf[256];
-			strncpy_s(Buf, sizeof(Buf), Val->c_str(), _TRUNCATE);
-			if (ImGui::InputText(Prop.Name, Buf, sizeof(Buf)))
-			{
-				*Val = Buf;
-				bChanged = true;
-			}
-		}
+		TArray<FString> Options;
+		if      (strcmp(Prop.Name, "Texture Path") == 0) Options = FResourceManager::Get().GetTextureFilePath();
+		else if (strcmp(Prop.Name, "StaticMesh")   == 0) Options = FResourceManager::Get().GetStaticMeshPaths();
+		bChanged = RenderStringComboOrInput(Prop.Name, *Val, Options);
 		break;
 	}
 	case EPropertyType::Name:
 	{
 		FName* Val = static_cast<FName*>(Prop.ValuePtr);
 		FString Current = Val->ToString();
-
-		// 리소스 키와 매칭되는 프로퍼티면 콤보 박스로 렌더링
-		TArray<FString> Names;
-		if (strcmp(Prop.Name, "Font") == 0)
-			Names = FResourceManager::Get().GetFontNames();
-		else if (strcmp(Prop.Name, "Particle") == 0)
-			Names = FResourceManager::Get().GetParticleNames();
-
-		if (!Names.empty())
+		TArray<FString> Options;
+		if      (strcmp(Prop.Name, "Font")     == 0) Options = FResourceManager::Get().GetFontNames();
+		else if (strcmp(Prop.Name, "Particle") == 0) Options = FResourceManager::Get().GetParticleNames();
+		if (RenderStringComboOrInput(Prop.Name, Current, Options))
 		{
-			if (ImGui::BeginCombo(Prop.Name, Current.c_str()))
-			{
-				for (const auto& Name : Names)
-				{
-					bool bSelected = (Current == Name);
-					if (ImGui::Selectable(Name.c_str(), bSelected))
-					{
-						*Val = FName(Name);
-						bChanged = true;
-					}
-					if (bSelected)
-						ImGui::SetItemDefaultFocus();
-				}
-				ImGui::EndCombo();
-			}
-		}
-		else
-		{
-			char Buf[256];
-			strncpy_s(Buf, sizeof(Buf), Current.c_str(), _TRUNCATE);
-			if (ImGui::InputText(Prop.Name, Buf, sizeof(Buf)))
-			{
-				*Val = FName(Buf);
-				bChanged = true;
-			}
+			*Val = FName(Current);
+			bChanged = true;
 		}
 		break;
 	}

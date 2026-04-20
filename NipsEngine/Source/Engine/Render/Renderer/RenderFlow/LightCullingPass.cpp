@@ -26,6 +26,16 @@ namespace
         float Padding[2] = { 0.0f, 0.0f };
     };
 
+    struct FLightCullingLight
+    {
+        FVector WorldPos = FVector::ZeroVector;
+        float Radius = 0.0f;
+        FVector Color = FVector::ZeroVector;
+        float Intensity = 0.0f;
+        float RadiusFalloff = 1.0f;
+        float Padding[3] = { 0.0f, 0.0f, 0.0f };
+    };
+
     uint32 CeilDivide(uint32 Numerator, uint32 Denominator)
     {
         return (Numerator + Denominator - 1u) / Denominator;
@@ -104,8 +114,28 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
         return false;
     }
 
-    const TArray<FLightData>& Lights = Context->RenderBus->GetLight();
-    const uint32 LightCount = static_cast<uint32>(Lights.size());
+    TArray<FLightCullingLight> CullingLights;
+    const TArray<FRenderLight>& SceneLights = Context->RenderBus->GetLights();
+    CullingLights.reserve(SceneLights.size());
+
+    for (const FRenderLight& Light : SceneLights)
+    {
+        if (Light.Type != static_cast<uint32>(ELightType::LightType_Point) &&
+            Light.Type != static_cast<uint32>(ELightType::LightType_Spot))
+        {
+            continue;
+        }
+
+        FLightCullingLight CullingLight = {};
+        CullingLight.WorldPos = Light.Position;
+        CullingLight.Radius = Light.Radius;
+        CullingLight.Color = Light.Color;
+        CullingLight.Intensity = Light.Intensity;
+        CullingLight.RadiusFalloff = Light.FalloffExponent;
+        CullingLights.push_back(CullingLight);
+    }
+
+    const uint32 LightCount = static_cast<uint32>(CullingLights.size());
 
     if (LightCount > 0)
     {
@@ -119,7 +149,7 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
         {
             return false;
         }
-        std::memcpy(MappedLightBuffer.pData, Lights.data(), sizeof(FLightData) * LightCount);
+        std::memcpy(MappedLightBuffer.pData, CullingLights.data(), sizeof(FLightCullingLight) * LightCount);
         Context->DeviceContext->Unmap(LightBuffer.Get(), 0);
     }
 
@@ -244,11 +274,11 @@ bool FLightCullingPass::EnsureInputLightBuffer(ID3D11Device* Device, uint32 Requ
 
     D3D11_BUFFER_DESC BufferDesc = {};
     BufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-    BufferDesc.ByteWidth = static_cast<uint32>(sizeof(FLightData) * NewCapacity);
+    BufferDesc.ByteWidth = static_cast<uint32>(sizeof(FLightCullingLight) * NewCapacity);
     BufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
     BufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     BufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    BufferDesc.StructureByteStride = sizeof(FLightData);
+    BufferDesc.StructureByteStride = sizeof(FLightCullingLight);
 
     TComPtr<ID3D11Buffer> NewBuffer;
     if (FAILED(Device->CreateBuffer(&BufferDesc, nullptr, NewBuffer.GetAddressOf())))

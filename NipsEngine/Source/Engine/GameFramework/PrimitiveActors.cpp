@@ -48,6 +48,11 @@ void ASceneActor::InitDefaultComponents()
 {
 	auto SceneRoot = AddComponent<USceneComponent>();
 	SetRootComponent(SceneRoot);
+
+	UBillboardComponent* Billboard = AddComponent<UBillboardComponent>();
+	Billboard->AttachToComponent(SceneRoot);
+	Billboard->SetIsVisualizationComponent(true);
+	Billboard->SetTexturePath("Asset/Texture/Icons/EmptyActor.PNG");
 }
 
 void AStaticMeshActor::InitDefaultComponents()
@@ -89,8 +94,8 @@ void ADecalActor::InitDefaultComponents()
 
 	UBillboardComponent* Billboard = AddComponent<UBillboardComponent>();
 	Billboard->AttachToComponent(Decal);
-	Billboard->SetEditorOnly(true);
-	Billboard->SetTexturePath(("Asset/Texture/DecalActor_64.png"));
+	Billboard->SetIsVisualizationComponent(true);
+	Billboard->SetTexturePath("Asset/Texture/Icons/S_DecalActorIcon.PNG");
 }
 
 void ADirectionalLightActor::InitDefaultComponents()

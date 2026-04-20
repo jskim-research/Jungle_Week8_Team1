@@ -1,5 +1,6 @@
 #include "Material.h"
 #include "Core/ResourceManager.h"
+#include "Render/Renderer/RenderFlow/RenderPassContext.h"
 
 DEFINE_CLASS(UMaterialInterface, UObject)
 DEFINE_CLASS(UMaterial, UMaterialInterface)
@@ -193,10 +194,10 @@ void UMaterial::ApplyParams(FShaderBindingInstance& Binding, const TMap<FString,
 
 void UMaterial::Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject) const
 {
-	Bind(Context, RenderBus, PerObject, nullptr);
+	Bind(Context, RenderBus, PerObject, nullptr, nullptr);
 }
 
-void UMaterial::Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject, UShader* ShaderOverride) const
+void UMaterial::Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject, UShader* ShaderOverride, const FRenderPassContext* PassContext) const
 {
 	UShader* EffectiveShader = ResolveEffectiveMaterialShader(*this, Shader, ShaderOverride);
 	if (!Context || !EffectiveShader)
@@ -215,7 +216,10 @@ void UMaterial::Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, 
 
 	if (RenderBus)
 	{
-		ShaderBinding->ApplyFrameParameters(*RenderBus);
+		ShaderBinding->ApplyFrameParameters(
+			*RenderBus,
+			PassContext ? PassContext->SceneLightBufferSRV : nullptr,
+			PassContext ? PassContext->SceneLightCount : 0u);
 	}
 
 	if (PerObject)
@@ -236,10 +240,10 @@ void UMaterial::Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, 
 
 void UMaterialInstance::Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject) const
 {
-	Bind(Context, RenderBus, PerObject, nullptr);
+	Bind(Context, RenderBus, PerObject, nullptr, nullptr);
 }
 
-void UMaterialInstance::Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject, UShader* ShaderOverride) const
+void UMaterialInstance::Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject, UShader* ShaderOverride, const FRenderPassContext* PassContext) const
 {
 	UShader* EffectiveShader = ResolveEffectiveMaterialShader(*this, Parent ? Parent->Shader : nullptr, ShaderOverride);
 	if (!Context || !Parent || !EffectiveShader)
@@ -269,7 +273,10 @@ void UMaterialInstance::Bind(ID3D11DeviceContext* Context, const FRenderBus* Ren
 
 	if (RenderBus)
 	{
-		ShaderBinding->ApplyFrameParameters(*RenderBus);
+		ShaderBinding->ApplyFrameParameters(
+			*RenderBus,
+			PassContext ? PassContext->SceneLightBufferSRV : nullptr,
+			PassContext ? PassContext->SceneLightCount : 0u);
 	}
 
 	if (PerObject)

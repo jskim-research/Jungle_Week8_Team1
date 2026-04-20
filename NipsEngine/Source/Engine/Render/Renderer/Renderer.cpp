@@ -8,6 +8,7 @@
 #include "Render/Mesh/MeshManager.h"
 #include "Core/Logging/Stats.h"
 #include "Core/Logging/GPUProfiler.h"
+#include "Editor/UI/EditorConsoleWidget.h"
 #include "Editor/Viewport/FSceneViewport.h"
 #include "Render/Renderer/RenderTarget/RenderTargetFactory.h"
 #include "Render/Renderer/RenderTarget/DepthStencilFactory.h"
@@ -52,6 +53,8 @@ void FRenderer::CreateResources()
 	// 텍스처는 ResourceManager가 소유 — Batcher 는 셰이더/버퍼만 초기화
 	FontBatcher.Create(Device.GetDevice());
 	SubUVBatcher.Create(Device.GetDevice());
+	SceneLightBuffer.Create(Device.GetDevice(), sizeof(FGPULight), MaxSceneLightCount);
+	SceneLightUploadScratch.reserve(MaxSceneLightCount);
 
 	InitializePassBatchers();
 	UseBackBufferRenderTargets();
@@ -76,6 +79,8 @@ void FRenderer::Release()
 	GridLineBatcher.Release();
 	FontBatcher.Release();
 	SubUVBatcher.Release();
+	SceneLightBuffer.Release();
+	SceneLightUploadScratch.clear();
 
     // Device::ReportLiveObjects 이전에 ResourceManager가 잡고 있던 D3D 객체를 먼저 해제한다.
     FResourceManager::Get().ReleaseGPUResources();
@@ -180,6 +185,32 @@ void FRenderer::InvalidateSceneFinalTargets()
 	CurrentRenderTargets = nullptr;
 }
 
+void FRenderer::UpdateSceneLightBuffer(const FRenderBus& InRenderBus)
+{
+	const TArray<FRenderLight>& SceneLights = InRenderBus.GetLights();
+	uint32 UploadCount = static_cast<uint32>(SceneLights.size());
+	if (UploadCount > MaxSceneLightCount)
+	{
+		UE_LOG("[Renderer] Scene light count exceeded the %u light cap. Clamping %u lights to %u.",
+			MaxSceneLightCount, UploadCount, MaxSceneLightCount);
+		UploadCount = MaxSceneLightCount;
+	}
+
+	SceneLightUploadScratch.clear();
+	if (UploadCount > 0)
+	{
+		SceneLightUploadScratch.assign(SceneLights.begin(), SceneLights.begin() + UploadCount);
+	}
+
+	SceneLightBuffer.Update(
+		Device.GetDeviceContext(),
+		UploadCount > 0 ? SceneLightUploadScratch.data() : nullptr,
+		UploadCount);
+
+	RenderPassContext->SceneLightBufferSRV = SceneLightBuffer.GetSRV();
+	RenderPassContext->SceneLightCount = UploadCount;
+}
+
 //	RenderBus에 담긴 모든 RenderCommand에 대해서 Draw Call 수행 (GPU)
 void FRenderer::Render(const FRenderBus& InRenderBus)
 {
@@ -194,6 +225,7 @@ void FRenderer::Render(const FRenderBus& InRenderBus)
     RenderPassContext->SubUVBatcher = &SubUVBatcher;
     RenderPassContext->GridLineBatcher = &GridLineBatcher;
     RenderPassContext->EditorLineBatcher = &EditorLineBatcher;
+	UpdateSceneLightBuffer(InRenderBus);
 	RenderPipeline.Render(RenderPassContext.get());
 	
 	SceneFinalSRV = RenderPipeline.GetOutSRV();

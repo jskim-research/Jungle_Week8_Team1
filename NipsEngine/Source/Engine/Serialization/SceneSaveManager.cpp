@@ -125,7 +125,8 @@ json::JSON FSceneSaveManager::SerializeWorldToPrimitives(UWorld* World, const FW
 // ParentID == 0 은 부모 없음(루트 컴포넌트)을 의미 (UUID는 1부터 시작)
 void FSceneSaveManager::CollectComponentsFlat(USceneComponent* Comp, uint32 ParentID, json::JSON& OutPrimitives)
 {
-	if (Comp->IsTransient()) return;
+    if (Comp->IsTransient()) { return; }
+    if (Comp->IsVisualizationComponent()) { return; }
 
     json::JSON PrimObj = json::Object();
 
