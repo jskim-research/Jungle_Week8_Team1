@@ -204,9 +204,6 @@
     <FxCompile Include="Shaders\Multipass\FogPass.hlsl">
       <Filter>Shaders\Multipass</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\Multipass\LightPass.hlsl">
-      <Filter>Shaders\Multipass</Filter>
-    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Editor\EditorEngine.cpp">
@@ -482,9 +479,6 @@
     <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\GridRenderPass.cpp">
       <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\LightRenderPass.cpp">
-      <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\OpaqueRenderPass.cpp">
       <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
     </ClCompile>
@@ -669,6 +663,7 @@
     <ClCompile Include="Source\Engine\Component\Light\SpotLightComponent.cpp">
       <Filter>Source\Engine\Component\Light</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Engine\Component\Light\PointLightComponent.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h">
@@ -1055,9 +1050,6 @@
     <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\GridRenderPass.h">
       <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\LightRenderPass.h">
-      <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\OpaqueRenderPass.h">
       <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
     </ClInclude>
@@ -1265,12 +1257,6 @@
     <ClInclude Include="ThirdParty\SimpleJSON\json.hpp">
       <Filter>ThirdParty\SimpleJSON</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Component\PostProcess\Light\LightComponentBase.h">
-      <Filter>Source\Engine\Component\Movement\PostProcess\Light</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Engine\Component\PostProcess\Light\LightComponent.h">
-      <Filter>Source\Engine\Component\Movement\PostProcess\Light</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Engine\Serialization\Archive.h" />
     <ClInclude Include="Source\Engine\Serialization\MemoryWriter.h" />
     <ClInclude Include="Source\Engine\Serialization\JsonWriter.h" />
@@ -1286,10 +1272,6 @@
     <ClInclude Include="Source\Engine\Component\Light\SpotLightComponent.h">
       <Filter>Source\Engine\Component\Light</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Shaders\UberSurface.hlsli">
-      <Filter>Shaders</Filter>
-    </None>
+    <ClInclude Include="Source\Engine\Component\Light\PointLightComponent.h" />
   </ItemGroup>
 </Project>

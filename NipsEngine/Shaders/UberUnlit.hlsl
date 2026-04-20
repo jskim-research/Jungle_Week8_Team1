@@ -1,13 +1,5 @@
 #include "UberSurface.hlsli"
 
-cbuffer UberLighting : register(b3)
-{
-    float3 DirectionalLightDirection;
-    uint bHasDirectionalLight;
-    float3 DirectionalLightColor;
-    float DirectionalLightIntensity;
-}
-
 FUberPSInput mainVS(FUberVSInput Input)
 {
     return BuildSurfaceVertex(Input);
@@ -15,7 +7,11 @@ FUberPSInput mainVS(FUberVSInput Input)
 
 FUberPSOutput mainPS(FUberPSInput Input)
 {
-    FUberSurfaceData Surface = EvaluateSurface(Input);
-    const float UnusedDirectionalIntensity = DirectionalLightIntensity * 0.0f;
-    return ComposeOutput(Surface, Surface.Albedo + UnusedDirectionalIntensity.xxx);
+    const FUberSurfaceData Surface = EvaluateSurface(Input);
+
+    FUberPSOutput Output;
+    Output.Color = float4(Surface.Albedo, 1.0f);
+    Output.Normal = float4(Surface.WorldNormal * 0.5f + 0.5f, 1.0f);
+    Output.WorldPos = float4(Surface.WorldPos, 1.0f);
+    return Output;
 }
