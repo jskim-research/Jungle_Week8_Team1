@@ -9,12 +9,6 @@ void FRenderBus::Clear()
 	}
 
 	Lights.clear();
-	bHasDirectionalLight = false;
-	DirectionalLightDirection = FVector::ZeroVector;
-	DirectionalLightColor = FVector::ZeroVector;
-	DirectionalLightIntensity = 0.0f;
-	bHasAmbientLight = false;
-	GlobalAmbientColor = FVector(0.02f, 0.02f, 0.02f);
 }
 
 void FRenderBus::AddCommand(ERenderPass Pass, const FRenderCommand& InCommand)
@@ -48,18 +42,4 @@ void FRenderBus::SetRenderSettings(const EViewMode NewViewMode, const FShowFlags
 {
 	ViewMode = NewViewMode;
 	ShowFlags = NewShowFlags;
-}
-
-void FRenderBus::SetDirectionalLight(const FVector& InDirectionToLight, const FVector& InLightColor, float InIntensity)
-{
-	bHasDirectionalLight = true;
-	DirectionalLightDirection = InDirectionToLight;
-	DirectionalLightColor = InLightColor;
-	DirectionalLightIntensity = InIntensity;
-}
-
-void FRenderBus::SetAmbientLight(const FVector& InAmbientColor)
-{
-	bHasAmbientLight = true;
-	GlobalAmbientColor = InAmbientColor;
 }

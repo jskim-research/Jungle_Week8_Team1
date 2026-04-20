@@ -9,6 +9,7 @@
 
 #include "Render/Scene/RenderBus.h"
 #include "Render/Device/D3DDevice.h"
+#include "Render/Resource/Buffer.h"
 #include "Render/Resource/RenderResources.h"
 #include "Render/LineBatcher.h"
 #include "Render/FontBatcher.h"
@@ -137,6 +138,7 @@ public:
 
 private:
 	void InitializePassBatchers();
+	void UpdateSceneLightBuffer(const FRenderBus& InRenderBus);
 
 private:
 	FD3DDevice Device;
@@ -146,6 +148,8 @@ private:
 	FLineBatcher   GridLineBatcher;
 	FFontBatcher   FontBatcher;
 	FSubUVBatcher  SubUVBatcher;
+	FStructuredBuffer SceneLightBuffer;
+	TArray<FGPULight> SceneLightUploadScratch;
 
 	/** 모든 Render Pass 를 관리할 객체 */
 	FRenderPipeline RenderPipeline;
@@ -183,6 +187,7 @@ private:
 	TComPtr<ID3D11RenderTargetView> SceneFinalRTV = nullptr;
     TComPtr<ID3D11ShaderResourceView> SceneFinalSRV = nullptr;
 	constexpr static uint32 MaxRTVCount = 3;
+	constexpr static uint32 MaxSceneLightCount = 256;
 
 	// 지금은 4개 Viewport 고정 존재 상황이라 다음과 같이 처리
 	FViewportRenderResource ViewportResources[4];

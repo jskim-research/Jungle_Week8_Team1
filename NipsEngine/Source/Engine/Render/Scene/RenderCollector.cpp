@@ -13,17 +13,32 @@
 #include "Component/HeightFogComponent.h"
 #include "Component/Light/AmbientLightComponent.h"
 #include "Component/Light/DirectionalLightComponent.h"
+#include "Component/Light/PointLightComponent.h"
+#include "Component/Light/SpotLightComponent.h"
 #include "Core/ResourceManager.h"
 #include "Engine/Geometry/Frustum.h"
 #include "Engine/Asset/StaticMesh.h"
 #include "Engine/GameFramework/PrimitiveActors.h"
 #include "Render/Resource/Material.h"
+#include "Math/Utils.h"
 #include "Object/ObjectIterator.h"
 #include "Runtime/Stats/ScopeCycleCounter.h"
+#include <algorithm>
 #include <unordered_set>
 
 namespace
 {
+	FVector MakeLightColorVector(const ULightComponentBase* LightComponent)
+	{
+		if (LightComponent == nullptr)
+		{
+			return FVector::ZeroVector;
+		}
+
+		const FColor& LightColor = LightComponent->GetLightColor();
+		return FVector(LightColor.r, LightColor.g, LightColor.b);
+	}
+
 	FColor MakeBVHInternalNodeColor(int32 PathIndexFromLeaf, int32 PathLength)
 	{
 		if (PathLength <= 1)
@@ -206,40 +221,81 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus)
 {
     const TArray<FLightSlot>& LightSlots = World->GetWorldLightSlots();
 
-	for (FLightSlot Slot : LightSlots)
+	for (const FLightSlot& Slot : LightSlots)
 	{
         if (!Slot.bAlive || !Slot.LightData)
             continue;
 
-		if (Slot.LightData->IsA<UAmbientLightComponent>())
+		const ULightComponent* LightComponent = Cast<ULightComponent>(Slot.LightData);
+		if (LightComponent == nullptr || !LightComponent->IsVisible())
 		{
-            const UAmbientLightComponent* AmbientLight = Cast<UAmbientLightComponent>(Slot.LightData);
-            if (AmbientLight == nullptr || !AmbientLight->IsVisible())
-            {
-                return;
-            }
-
-            const FColor& LightColor = AmbientLight->GetLightColor();
-            const float Intensity = AmbientLight->GetIntensity();
-            RenderBus.SetAmbientLight(FVector(LightColor.r, LightColor.g, LightColor.b) * Intensity);
+			continue;
 		}
-		else if (Slot.LightData->IsA<UDirectionalLightComponent>())
+
+		FRenderLight RenderLight = {};
+		RenderLight.Type = static_cast<uint32>(LightComponent->GetLightType());
+		RenderLight.Color = MakeLightColorVector(LightComponent);
+		RenderLight.Intensity = LightComponent->GetIntensity();
+
+		switch (LightComponent->GetLightType())
 		{
-            const UDirectionalLightComponent* DirectionalLight = Cast<UDirectionalLightComponent>(Slot.LightData);
-            if (DirectionalLight == nullptr || !DirectionalLight->IsVisible())
-            {
-                return;
-            }
+		case ELightType::LightType_AmbientLight:
+			RenderBus.AddLight(RenderLight);
+			break;
 
-            FVector DirectionToLight = DirectionalLight->GetForwardVector() * -1.0f;
-            DirectionToLight.NormalizeSafe();
+		case ELightType::LightType_Directional:
+		{
+			FVector DirectionToLight = LightComponent->GetForwardVector() * -1.0f;
+			DirectionToLight.Normalize();
+			RenderLight.Direction = DirectionToLight;
+			RenderBus.AddLight(RenderLight);
+			break;
+		}
 
-            const FColor& LightColor = DirectionalLight->GetLightColor();
-            const float Intensity = DirectionalLight->GetIntensity();
-            RenderBus.SetDirectionalLight(
-                DirectionToLight,
-                FVector(LightColor.r, LightColor.g, LightColor.b) * Intensity,
-                Intensity);
+		case ELightType::LightType_Point:
+		{
+			const UPointLightComponent* PointLight = Cast<UPointLightComponent>(LightComponent);
+			if (PointLight == nullptr)
+			{
+				continue;
+			}
+
+			RenderLight.Position = PointLight->GetWorldLocation();
+			RenderLight.Radius = PointLight->GetAttenuationRadius();
+			RenderLight.FalloffExponent = PointLight->GetLightFalloffExponent();
+			RenderBus.AddLight(RenderLight);
+			break;
+		}
+
+		case ELightType::LightType_Spot:
+		{
+			const USpotLightComponent* SpotLight = Cast<USpotLightComponent>(LightComponent);
+			if (SpotLight == nullptr)
+			{
+				continue;
+			}
+
+			const float InnerAngleDegrees = MathUtil::Clamp(SpotLight->GetInnerConeAngle(), 0.0f, 89.0f);
+			const float OuterAngleDegrees = MathUtil::Clamp(
+				std::max(SpotLight->GetOuterConeAngle(), InnerAngleDegrees),
+				0.0f,
+				89.0f);
+
+			FVector LightDirection = SpotLight->GetForwardVector();
+			LightDirection.Normalize();
+
+			RenderLight.Position = SpotLight->GetWorldLocation();
+			RenderLight.Direction = LightDirection;
+			RenderLight.Radius = SpotLight->GetAttenuationRadius();
+			RenderLight.FalloffExponent = SpotLight->GetLightFalloffExponent();
+			RenderLight.SpotInnerCos = std::cos(MathUtil::DegreesToRadians(InnerAngleDegrees));
+			RenderLight.SpotOuterCos = std::cos(MathUtil::DegreesToRadians(OuterAngleDegrees));
+			RenderBus.AddLight(RenderLight);
+			break;
+		}
+
+		default:
+			break;
 		}
 	}
 }

@@ -19,15 +19,13 @@ public:
 	void Clear();
 	void AddCommand(ERenderPass Pass, const FRenderCommand& InCommand);
 	void AddCommand(ERenderPass Pass, FRenderCommand&& InCommand);
-	void AddLight(const FLightData& InLight) { Lights.push_back(InLight); }
+	void AddLight(const FRenderLight& InLight) { Lights.push_back(InLight); }
 	const TArray<FRenderCommand>& GetCommands(ERenderPass Pass) const;
-	const TArray<FLightData>& GetLight() const { return Lights; }
+	const TArray<FRenderLight>& GetLights() const { return Lights; }
 
 	// Getter,Setter
 	void SetViewProjection(const FMatrix& InView, const FMatrix& InProj);
 	void SetRenderSettings(const EViewMode NewViewMode, const FShowFlags NewShowFlags);
-	void SetDirectionalLight(const FVector& InDirectionToLight, const FVector& InLightColor, float InIntensity);
-	void SetAmbientLight(const FVector& InAmbientColor);
 
 	const FMatrix& GetView() const { return View; }
 	const FMatrix& GetProj() const { return Proj; }
@@ -46,16 +44,10 @@ public:
 	const FVector2& GetViewportSize() const { return ViewportSize; }
 	void SetViewportOrigin(const FVector2& InViewportOrigin) { ViewportOrigin = InViewportOrigin; }
 	const FVector2& GetViewportOrigin() const { return ViewportOrigin; }
-	bool HasDirectionalLight() const { return bHasDirectionalLight; }
-	const FVector& GetDirectionalLightDirection() const { return DirectionalLightDirection; }
-	const FVector& GetDirectionalLightColor() const { return DirectionalLightColor; }
-	float GetDirectionalLightIntensity() const { return DirectionalLightIntensity; }
-	const FVector& GetGlobalAmbientColor() const { return GlobalAmbientColor; }
-	bool HasAmbientLight() const { return bHasAmbientLight; }
 
 private:
 	TArray<FRenderCommand> PassQueues[(uint32)ERenderPass::MAX];
-	TArray<FLightData> Lights;
+	TArray<FRenderLight> Lights;
 
 	FMatrix View;
 	FMatrix Proj;
@@ -71,10 +63,4 @@ private:
 	FShowFlags ShowFlags;
 	FVector WireframeColor = FVector(1.0f, 1.0f, 1.0f);
 	bool bFXAAEnabled = true;
-	bool bHasDirectionalLight = false;
-	FVector DirectionalLightDirection = FVector::ZeroVector;
-	FVector DirectionalLightColor = FVector::ZeroVector;
-	float DirectionalLightIntensity = 0.0f;
-	bool bHasAmbientLight = false;
-	FVector GlobalAmbientColor = FVector(0.02f, 0.02f, 0.02f);
 };

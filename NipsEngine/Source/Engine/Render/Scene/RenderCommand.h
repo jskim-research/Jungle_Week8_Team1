@@ -203,15 +203,26 @@ struct FFXAAConstants
     float  Padding;
 };
 
-struct FLightData
+struct alignas(16) FGPULight
 {
-    FVector WorldPos;
-    float	Radius;
-    FVector Color;
-    float	Intensity;
-	float	RadiusFalloff;
-	float	Padding[3];
+    uint32 Type = static_cast<uint32>(ELightType::Max);
+    float  Intensity = 0.0f;
+    float  Radius = 0.0f;
+    float  FalloffExponent = 1.0f;
+
+    FVector Color = FVector::ZeroVector;
+    float   SpotInnerCos = 0.0f;
+
+    FVector Position = FVector::ZeroVector;
+    float   SpotOuterCos = 0.0f;
+
+    FVector Direction = FVector::ZeroVector;
+    float   Padding0 = 0.0f;
 };
+
+using FRenderLight = FGPULight;
+
+static_assert(sizeof(FGPULight) == 64, "FGPULight layout must match the HLSL structured buffer layout.");
 
 struct FRenderCommand
 {

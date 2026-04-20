@@ -86,7 +86,7 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 
         if (Cmd.Material)
         {
-            Cmd.Material->Bind(Context->DeviceContext, Context->RenderBus, &Cmd.PerObjectConstants, ShaderOverride);
+            Cmd.Material->Bind(Context->DeviceContext, Context->RenderBus, &Cmd.PerObjectConstants, ShaderOverride, Context);
         }
 
 		CheckOverrideViewMode(Context);

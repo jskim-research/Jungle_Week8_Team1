@@ -80,6 +80,7 @@ enum class ELightingModel : uint8
 const char* ToLightingModelString(ELightingModel LightingModel);
 bool TryParseLightingModel(const FString& Value, ELightingModel& OutLightingModel);
 FShaderCompileKey MakeUberLitShaderCompileKey(ELightingModel LightingModel);
+struct FRenderPassContext;
 
 class UMaterialInterface : public UObject
 {
@@ -93,10 +94,10 @@ public:
 	
 	void Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus = nullptr, const FPerObjectConstants* PerObject = nullptr) const
 	{
-		Bind(Context, RenderBus, PerObject, nullptr);
+		Bind(Context, RenderBus, PerObject, nullptr, nullptr);
 	}
 
-	virtual void Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject, UShader* ShaderOverride) const = 0;
+	virtual void Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject, UShader* ShaderOverride, const FRenderPassContext* PassContext = nullptr) const = 0;
 	virtual bool GetParam(const FString& Name, FMaterialParamValue& OutValue) const = 0;
 	virtual ELightingModel GetEffectiveLightingModel() const = 0;
 
@@ -169,7 +170,7 @@ public:
 	}
 
 	void Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus = nullptr, const FPerObjectConstants* PerObject = nullptr) const;
-	void Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject, UShader* ShaderOverride) const override;
+	void Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject, UShader* ShaderOverride, const FRenderPassContext* PassContext = nullptr) const override;
 
 	void ApplyParams(FShaderBindingInstance& Binding, const TMap<FString, FMaterialParamValue>& Params) const;
 
@@ -247,7 +248,7 @@ public:
 	}
 
 	void Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus = nullptr, const FPerObjectConstants* PerObject = nullptr) const;
-	void Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject, UShader* ShaderOverride) const override;
+	void Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, const FPerObjectConstants* PerObject, UShader* ShaderOverride, const FRenderPassContext* PassContext = nullptr) const override;
 
 	void GatherAllParams(TMap<FString, FMaterialParamValue>& OutParams) const override
 	{
