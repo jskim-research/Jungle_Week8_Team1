@@ -97,7 +97,7 @@ void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V,
                            float3 L, float3 LightContribution,
                            inout FLightingResult Result)
 {
-    const float NdotL = saturate(dot(N, L));
+    const float NdotL = saturate(dot(N, L) * 0.5f + 0.5f);
     if (NdotL <= 0.0f)
         return;
 
