@@ -107,8 +107,6 @@ struct FSubUVConstants
 struct FBillboardConstants
 {
 	UTexture* Texture = nullptr;
-	float Width = 1.0f;
-	float Height = 1.0f;
 };
 // Static mesh material constants — UberLit/UberUnlit material contract
 // 완전 Obj전용입니다. NormalMap 은 Uber 셰이더 계약에 포함되고 BumpMap 은 현재 보존만 합니다.

@@ -30,5 +30,5 @@ float4 mainPS(PSInput Input) : SV_TARGET
     {
         discard;
     }
-    return Color;
+    return Color * PrimitiveColor;
 }

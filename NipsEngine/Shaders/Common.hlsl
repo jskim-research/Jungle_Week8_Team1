@@ -15,7 +15,7 @@ cbuffer PerObjectBuffer : register(b1)
 {
     row_major float4x4 Model;
     row_major float4x4 WorldInvTrans;
-    float4 PrimitiveColor; 
+    float4 PrimitiveColor;
 };
 
 cbuffer OverlayBuffer : register(b3)

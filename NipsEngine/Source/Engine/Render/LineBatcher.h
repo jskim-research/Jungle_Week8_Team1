@@ -91,7 +91,7 @@ public:
 	void AddCircle(const FVector& Center, const FVector& AxisA, const FVector& AxisB, float Radius, const FVector4& Color);
 	void AddSpotLight(const FVector& Position, const FVector& Direction, const FVector& DirectionRight, float AttenuationRadius, float InnerConeAngle, float OuterConeAngle);
 	void AddPointLight(const FVector& Position, float AttenuationRadius, const FVector& Right, const FVector& Up);
-	void AddDirectionalLight(const FVector& Position, const FVector& Direction, const FVector& DirectionRight);
+	void AddDirectionalLight(const FVector& Position, const FVector& Direction, const FVector& DirectionRight, const FVector4& LineColor);
 	void AddSingleCone(const FVector& Position, const FVector& Forward, const FVector& Right, const FVector& Up, float ConeAngle, float Radius, const FVector4& Color);
 
 private:

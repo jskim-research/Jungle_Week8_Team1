@@ -528,9 +528,8 @@ void FLineBatcher::AddPointLight(const FVector& Position, float AttenuationRadiu
 	AddCircle(Position, AxisX, AxisY, AttenuationRadius, LineColor);
 }
 
-void FLineBatcher::AddDirectionalLight(const FVector& Position, const FVector& Direction, const FVector& DirectionRight)
+void FLineBatcher::AddDirectionalLight(const FVector& Position, const FVector& Direction, const FVector& DirectionRight, const FVector4& LineColor)
 {
-	const FVector4 LineColor = FColor(255, 255, 255).ToVector4();
 	const float LineLength = 1.0f;
 
 	FVector Forward = Direction.GetSafeNormal();

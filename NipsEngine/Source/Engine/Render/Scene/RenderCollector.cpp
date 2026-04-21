@@ -264,7 +264,9 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus)
             LineBatcher->AddDirectionalLight(
                 LightComponent->GetWorldLocation(),
                 RenderLight.Direction * -1.0f,
-                LightComponent->GetRightVector());
+                LightComponent->GetRightVector(),
+				LightComponent->GetLightColor().ToVector4()
+			);
             break;
 		}
 
@@ -742,14 +744,19 @@ void FRenderCollector::CollectFromComponent(UPrimitiveComponent* Primitive, cons
 			RenderBus.GetCameraRight(),
 			RenderBus.GetCameraUp());
 
+		// LightComponents에 부착된 빌보드의 색상 조정
+		FVector4 LightColor = FColor::White().ToVector4();
+		if (ULightComponent* LightComponent = Cast<ULightComponent>(BillboardComp->GetParent()))
+		{
+			LightColor = LightComponent->GetLightColor().ToVector4();
+		}
+
 		FRenderCommand Cmd = {};
 		Cmd.Type = ERenderCommandType::Billboard;
 		Cmd.MeshBuffer = &MeshBufferManager.GetMeshBuffer(EPrimitiveType::EPT_Billboard);
-		Cmd.PerObjectConstants = FPerObjectConstants{ BillboardMatrix, FColor::White().ToVector4() };
+		Cmd.PerObjectConstants = FPerObjectConstants{ BillboardMatrix, LightColor };
 		Cmd.Material = BillboardMat;
 		Cmd.Constants.Billboard.Texture = Texture;
-		Cmd.Constants.Billboard.Width = BillboardComp->GetWidth();
-		Cmd.Constants.Billboard.Height = BillboardComp->GetHeight();
 
 		RenderBus.AddCommand(ERenderPass::Billboard, Cmd);
 		break;
