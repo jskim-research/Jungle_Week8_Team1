@@ -53,7 +53,7 @@ struct FVisibleLightData
     float3 Color;
     float Intensity;
     float RadiusFalloff;
-    uint Type; // 0=Point 1=Spot
+    uint Type;
     float SpotInnerCos;
     float SpotOuterCos;
     float3 Direction;
@@ -144,7 +144,7 @@ void AccumulateVisiblePointLights(float3 WorldPos, float3 N, float3 V,
         if (Att <= 0.0f)
             continue;
         
-        if (Light.Type == 1u) // Spot
+        if (Light.Type == LIGHT_TYPE_SPOT) // Spot
         {
             const float3 SpotDir = normalize(Light.Direction);
             const float CosAngle = dot(SpotDir, -L); // 빛 방향과 픽셀 방향 내적

@@ -9,7 +9,11 @@ struct FLightDataCS
     float3 Color;
     float Intensity;
     float RadiusFalloff;
-    float3 Padding;
+    uint Type;
+    float SpotInnerCos;
+    float SpotOuterCos;
+    float3 Direction;
+    float Padding;
 };
 
 cbuffer LightCullingConstants : register(b0)

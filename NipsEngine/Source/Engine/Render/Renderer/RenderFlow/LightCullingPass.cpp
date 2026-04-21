@@ -124,19 +124,13 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
 
     for (const FRenderLight& Light : SceneLights)
     {
-        if (Light.Type != static_cast<uint32>(ELightType::LightType_Point) &&
-            Light.Type != static_cast<uint32>(ELightType::LightType_Spot))
-        {
-            continue;
-        }
-
         FLightCullingLight CullingLight = {};
         CullingLight.WorldPos = Light.Position;
         CullingLight.Radius = Light.Radius;
         CullingLight.Color = Light.Color;
         CullingLight.Intensity = Light.Intensity;
         CullingLight.RadiusFalloff = Light.FalloffExponent;
-        CullingLight.Type = (Light.Type == static_cast<uint32>(ELightType::LightType_Spot)) ? 1u : 0u;
+        CullingLight.Type = Light.Type;
         CullingLight.SpotInnerCos = Light.SpotInnerCos;
         CullingLight.SpotOuterCos = Light.SpotOuterCos;
         CullingLight.Direction = Light.Direction;
