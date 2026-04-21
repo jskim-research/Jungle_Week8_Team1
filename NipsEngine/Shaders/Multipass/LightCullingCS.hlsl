@@ -99,9 +99,9 @@ void mainCS(
             const float4 ViewPosition = mul(float4(WorldPos, 1.0f), View);
             const float EyeDepth = ViewPosition.x;
             
-            // 카메라 뒤
             if (EyeDepth + Radius <= 1e-4f)
             {
+                // 카메라 뒤
                 // → 컬링
             }
             // 카메라 구 내부
@@ -122,8 +122,9 @@ void mainCS(
                         (Ndc.x * 0.5f + 0.5f) * ViewportWidth,
                         (-Ndc.y * 0.5f + 0.5f) * ViewportHeight);
 
+                    const float EffectiveDepth = max(EyeDepth - Radius, 1e-4f);
                     const float YScale = Projection[2][1];
-                    const float ProjectedRadius = (Radius / EyeDepth) * YScale * (ViewportHeight * 0.5f);
+                    const float ProjectedRadius = (Radius / EffectiveDepth) * YScale * (ViewportHeight * 0.5f);
 
                     if (ProjectedRadius > 0.0f)
                     {
