@@ -1,4 +1,4 @@
-#include "Material.h"
+﻿#include "Material.h"
 #include "Core/ResourceManager.h"
 #include "Render/Renderer/RenderFlow/RenderPassContext.h"
 
@@ -218,8 +218,8 @@ void UMaterial::Bind(ID3D11DeviceContext* Context, const FRenderBus* RenderBus, 
 	{
 		ShaderBinding->ApplyFrameParameters(
 			*RenderBus,
-			PassContext ? PassContext->SceneLightBufferSRV : nullptr,
-			PassContext ? PassContext->SceneLightCount : 0u);
+			PassContext ? PassContext->SceneGlobalLightBufferSRV : nullptr,
+			PassContext ? PassContext->SceneGlobalLightCount : 0u);
 	}
 
 	if (PerObject)
@@ -275,8 +275,8 @@ void UMaterialInstance::Bind(ID3D11DeviceContext* Context, const FRenderBus* Ren
 	{
 		ShaderBinding->ApplyFrameParameters(
 			*RenderBus,
-			PassContext ? PassContext->SceneLightBufferSRV : nullptr,
-			PassContext ? PassContext->SceneLightCount : 0u);
+			PassContext ? PassContext->SceneGlobalLightBufferSRV : nullptr,
+			PassContext ? PassContext->SceneGlobalLightCount : 0u);
 	}
 
 	if (PerObject)

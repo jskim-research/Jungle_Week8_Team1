@@ -150,7 +150,7 @@ private:
 	FFontBatcher   FontBatcher;
 	FSubUVBatcher  SubUVBatcher;
 	FStructuredBuffer SceneLightBuffer;
-	TArray<FGPULight> SceneLightUploadScratch;
+	TArray<FGPULight> SceneGlobalLightUploadScratch;
 
 	/** 모든 Render Pass 를 관리할 객체 */
 	FRenderPipeline RenderPipeline;
@@ -190,7 +190,8 @@ private:
 	TComPtr<ID3D11RenderTargetView> SceneFinalRTV = nullptr;
     TComPtr<ID3D11ShaderResourceView> SceneFinalSRV = nullptr;
 	constexpr static uint32 MaxRTVCount = 3;
-	constexpr static uint32 MaxSceneLightCount = 1024;
+	// Directional, Ambient 같은 전역 Light 개수 제한
+	constexpr static uint32 MaxSceneGlobalLightCount = 64;
 
 	// 지금은 4개 Viewport 고정 존재 상황이라 다음과 같이 처리
 	FViewportRenderResource ViewportResources[4];

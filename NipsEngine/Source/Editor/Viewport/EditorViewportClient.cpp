@@ -18,6 +18,8 @@
 #include "Slate/SWidget.h"
 #include <algorithm>
 #include <unordered_set>
+#include "GameFramework/PrimitiveActors.h"
+#include "Component/StaticMeshComponent.h"
 
 void FEditorViewportClient::Initialize(FWindowsWindow* InWindow, UEditorEngine* InEditor)
 {
@@ -288,6 +290,39 @@ void FEditorViewportClient::TickEditorShortcuts()
 
 	if (IS.GetKeyDown('A') && bCtrlDown && !bAltDown)
 		SelectAllActors();
+
+	if (IS.GetKeyUp('G'))
+	{
+        const int GridSizeX = 10;
+        const int GridSizeY = 10;
+        const int GridSizeZ = 10;
+        const float Spacing = 3.0f; // 라이트 간격
+
+        for (int i = 0; i < GridSizeX; i++)
+        {
+            for (int j = 0; j < GridSizeY; j++)
+            {
+				for (int k = 0; k < GridSizeZ; k++)
+                {
+                    const float X = (i - GridSizeX * 0.5f) * Spacing;
+                    const float Y = (j - GridSizeY * 0.5f) * Spacing;
+                    const float Z = (k - GridSizeZ * 0.5f) * Spacing;
+
+                    FVector Location(X, Y, Z);
+
+                    APointLightActor* Actor = World->SpawnActor<APointLightActor>();
+                    Actor->InitDefaultComponents();
+                    Actor->SetActorLocation(Location);
+
+
+                    AStaticMeshActor* MeshActor = World->SpawnActor<AStaticMeshActor>();
+                    MeshActor->InitDefaultComponents();
+                    MeshActor->SetActorLocation(Location);
+
+				}
+            }
+        }
+	}
 }
 
 void FEditorViewportClient::TickPIEShortCuts()

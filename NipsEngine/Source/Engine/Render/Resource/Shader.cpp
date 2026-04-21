@@ -491,7 +491,7 @@ void FShaderBindingInstance::SetAllSamplers(ID3D11SamplerState* Sampler)
 	}
 }
 
-void FShaderBindingInstance::ApplyFrameParameters(const FRenderBus& RenderBus, ID3D11ShaderResourceView* SceneLightBufferSRV, uint32 SceneLightCount)
+void FShaderBindingInstance::ApplyFrameParameters(const FRenderBus& RenderBus, ID3D11ShaderResourceView* SceneGlobalLightBufferSRV, uint32 SceneGlobalLightCount)
 {
 	SetMatrix4("View", RenderBus.GetView());
 	SetMatrix4("Projection", RenderBus.GetProj());
@@ -499,8 +499,8 @@ void FShaderBindingInstance::ApplyFrameParameters(const FRenderBus& RenderBus, I
 	SetFloat("bIsWireframe", RenderBus.GetViewMode() == EViewMode::Wireframe ? 1.0f : 0.0f);
 	SetVector3("WireframeRGB", RenderBus.GetWireframeColor());
 	SetVector2("ViewportSize", RenderBus.GetViewportSize());
-	SetUInt("SceneLightCount", SceneLightCount);
-	SetSRV("GlobalLights", SceneLightBufferSRV);
+	SetUInt("SceneGlobalLightCount", SceneGlobalLightCount);
+	SetSRV("GlobalLights", SceneGlobalLightBufferSRV);
 }
 
 void FShaderBindingInstance::ApplyPerObjectParameters(const FPerObjectConstants& Constants)

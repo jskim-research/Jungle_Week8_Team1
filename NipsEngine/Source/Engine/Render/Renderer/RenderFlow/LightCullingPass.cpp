@@ -8,7 +8,7 @@
 namespace
 {
     constexpr uint32 LightCullingTileSize = 16;
-    constexpr uint32 MaxLightsPerTile = 1024;
+    constexpr uint32 MaxLightsPerTile = 512;
     constexpr uint32 ThreadGroupSizeX = 8;
     constexpr uint32 ThreadGroupSizeY = 8;
     constexpr uint32 DebugLogIntervalFrames = 30;

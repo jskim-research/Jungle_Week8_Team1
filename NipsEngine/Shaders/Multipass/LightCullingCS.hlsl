@@ -1,5 +1,5 @@
 #define LIGHT_CULLING_TILE_SIZE 16
-#define LIGHT_CULLING_MAX_LIGHTS_PER_TILE 1024
+#define LIGHT_CULLING_MAX_LIGHTS_PER_TILE 512
 #define THREADS_PER_TILE (LIGHT_CULLING_TILE_SIZE * LIGHT_CULLING_TILE_SIZE) // 256
 
 struct FLightDataCS
@@ -128,8 +128,6 @@ void mainCS(
                     const float YScale = Projection[2][1];
                     const float ProjectedRadius = (Radius / EffectiveDepth) * YScale * (ViewportHeight * 0.5f);
                     
-                    
-
                     if (ProjectedRadius > 0.0f)
                     {
                         const float2 Closest = clamp(ScreenPos, TileMin, TileMax);

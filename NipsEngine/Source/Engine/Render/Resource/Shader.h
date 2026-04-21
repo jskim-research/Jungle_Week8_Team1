@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 /*
 	Shader들을 관리하는 Class입니다.
@@ -177,7 +177,7 @@ public:
 	void SetSampler(const FString& Name, ID3D11SamplerState* Sampler);
 	void SetAllSamplers(ID3D11SamplerState* Sampler);
 
-	void ApplyFrameParameters(const FRenderBus& RenderBus, ID3D11ShaderResourceView* SceneLightBufferSRV = nullptr, uint32 SceneLightCount = 0);
+	void ApplyFrameParameters(const FRenderBus& RenderBus, ID3D11ShaderResourceView* SceneGlobalLightBufferSRV = nullptr, uint32 SceneGlobalLightCount = 0);
 	void ApplyPerObjectParameters(const FPerObjectConstants& Constants);
 	void ApplyUberPerObjectParameters(const FPerObjectConstants& Constants);
 

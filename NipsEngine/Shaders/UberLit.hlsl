@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────
 cbuffer UberLighting : register(b3)
 {
-    uint SceneLightCount;
+    uint SceneGlobalLightCount;
     float3 _UberLightingPad0;
 }
 
@@ -175,7 +175,7 @@ FLightingResult EvaluateLightingFromWorld(float3 WorldPos, float3 WorldNormal, f
 
     // Ambient, Directional Light 처리
     [loop]
-    for (uint LightIndex = 0u; LightIndex < SceneLightCount; ++LightIndex)
+    for (uint LightIndex = 0u; LightIndex < SceneGlobalLightCount; ++LightIndex)
     {
         const FGPULight Light = GlobalLights[LightIndex];
         const float3 LightColor = Light.Color * Light.Intensity;
@@ -218,7 +218,7 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
     const float3 V = normalize(CameraPosition - WorldPos);
 
     [loop]
-    for (uint LightIndex = 0u; LightIndex < SceneLightCount; ++LightIndex)
+    for (uint LightIndex = 0u; LightIndex < SceneGlobalLightCount; ++LightIndex)
     {
         const FGPULight Light = GlobalLights[LightIndex];
         const float3 LightColor = Light.Color * Light.Intensity;

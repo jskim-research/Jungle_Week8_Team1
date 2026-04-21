@@ -54,8 +54,8 @@ void FRenderer::CreateResources()
 	// 텍스처는 ResourceManager가 소유 — Batcher 는 셰이더/버퍼만 초기화
 	FontBatcher.Create(Device.GetDevice());
 	SubUVBatcher.Create(Device.GetDevice());
-	SceneLightBuffer.Create(Device.GetDevice(), sizeof(FGPULight), MaxSceneLightCount);
-	SceneLightUploadScratch.reserve(MaxSceneLightCount);
+	SceneLightBuffer.Create(Device.GetDevice(), sizeof(FGPULight), MaxSceneGlobalLightCount);
+	SceneGlobalLightUploadScratch.reserve(MaxSceneGlobalLightCount);
 
 	InitializePassBatchers();
 	UseBackBufferRenderTargets();
@@ -81,7 +81,7 @@ void FRenderer::Release()
 	FontBatcher.Release();
 	SubUVBatcher.Release();
 	SceneLightBuffer.Release();
-	SceneLightUploadScratch.clear();
+	SceneGlobalLightUploadScratch.clear();
 
     // Device::ReportLiveObjects 이전에 ResourceManager가 잡고 있던 D3D 객체를 먼저 해제한다.
     FResourceManager::Get().ReleaseGPUResources();
@@ -217,27 +217,28 @@ void FRenderer::UpdateSceneLightBuffer(const FRenderBus& InRenderBus)
         GlobalLights.push_back(GlobalLight);
     }
 
+	// 최대 개수를 넘을 경우 전역 라이트 자름
 	uint32 UploadCount = static_cast<uint32>(GlobalLights.size());
-	if (UploadCount > MaxSceneLightCount)
+	if (UploadCount > MaxSceneGlobalLightCount)
 	{
 		UE_LOG("[Renderer] Scene light count exceeded the %u light cap. Clamping %u lights to %u.",
-			MaxSceneLightCount, UploadCount, MaxSceneLightCount);
-		UploadCount = MaxSceneLightCount;
+               MaxSceneGlobalLightCount, UploadCount, MaxSceneGlobalLightCount);
+        UploadCount = MaxSceneGlobalLightCount;
 	}
 
-	SceneLightUploadScratch.clear();
+	SceneGlobalLightUploadScratch.clear();
 	if (UploadCount > 0)
 	{
-        SceneLightUploadScratch.assign(GlobalLights.begin(), GlobalLights.begin() + UploadCount);
+        SceneGlobalLightUploadScratch.assign(GlobalLights.begin(), GlobalLights.begin() + UploadCount);
 	}
 
 	SceneLightBuffer.Update(
 		Device.GetDeviceContext(),
-		UploadCount > 0 ? SceneLightUploadScratch.data() : nullptr,
+		UploadCount > 0 ? SceneGlobalLightUploadScratch.data() : nullptr,
 		UploadCount);
 
-	RenderPassContext->SceneLightBufferSRV = SceneLightBuffer.GetSRV();
-	RenderPassContext->SceneLightCount = UploadCount;
+	RenderPassContext->SceneGlobalLightBufferSRV = SceneLightBuffer.GetSRV();
+	RenderPassContext->SceneGlobalLightCount = UploadCount;
 }
 
 //	RenderBus에 담긴 모든 RenderCommand에 대해서 Draw Call 수행 (GPU)
