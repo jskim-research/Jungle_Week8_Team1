@@ -10,6 +10,7 @@ public:
     ~USpotLightComponent() override = default;
 
     void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
+    void PostEditProperty(const char* PropertyName) override;
     void Serialize(FArchive& Ar) override;
     void PostDuplicate(UObject* Original) override;
 

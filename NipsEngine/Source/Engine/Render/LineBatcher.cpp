@@ -484,65 +484,16 @@ void FLineBatcher::AddSpotLight(const FVector& Position, const FVector& Directio
 	const FVector4 OuterConeColor = FColor(198, 255, 255).ToVector4();
 	const FVector4 InnerConeColor = FColor(149, 198, 255).ToVector4();
 
-	const uint32 BaseVertex = static_cast<uint32>(IndexedVertices.size());
+	const FVector Forward = Direction.GetSafeNormal();
+	const FVector Right   = DirectionRight.GetSafeNormal();
+	const FVector Up      = Forward.CrossProduct(DirectionRight).GetSafeNormal();
 
-	FVector Forward = Direction.GetSafeNormal();
-	FVector Right = DirectionRight.GetSafeNormal();
-	FVector Up = Forward.CrossProduct(DirectionRight).GetSafeNormal();
+	AddSingleCone(Position, Forward, Right, Up, OuterConeAngle, AttenuationRadius, OuterConeColor);
 
-	const float OuterConeAltitude = AttenuationRadius * std::cos(MathUtil::DegreesToRadians(OuterConeAngle));
-	const float InnerConeAltitude = AttenuationRadius * std::cos(MathUtil::DegreesToRadians(InnerConeAngle));
-	const FVector OuterConeBaseCenter = Position + (Forward * OuterConeAltitude);
-	const FVector InnerConeBaseCenter = Position + (Forward * InnerConeAltitude);
-	const float OuterConeRadius = AttenuationRadius * std::sin(MathUtil::DegreesToRadians(OuterConeAngle));
-	const float InnerConeRadius = AttenuationRadius * std::sin(MathUtil::DegreesToRadians(InnerConeAngle));
-
-	constexpr int32 ConeSegments = 32;
-
-	// Outer Cone
-	const uint32 OuterBaseVertex = BaseVertex;
-	for (int32 i = 0; i < ConeSegments; ++i)
+	if (InnerConeAngle > 0.0f)
 	{
-		float Angle = (static_cast<float>(i) / ConeSegments) * MathUtil::TwoPi;
-		float CosA = std::cos(Angle);
-		float SinA = std::sin(Angle);
-
-	    FVector VertexPos = OuterConeBaseCenter + (DirectionRight * CosA * OuterConeRadius) + (Up * SinA * OuterConeRadius);
-		IndexedVertices.emplace_back(VertexPos, OuterConeColor);
+		AddSingleCone(Position, Forward, Right, Up, InnerConeAngle, AttenuationRadius, InnerConeColor);
 	}
-
-	// Inner Cone
-	const uint32 InnerBaseVertex = static_cast<uint32>(IndexedVertices.size());
-	for (int32 i = 0; i < ConeSegments; ++i)
-	{
-		float Angle = (static_cast<float>(i) / ConeSegments) * MathUtil::TwoPi;
-		float CosA = std::cos(Angle);
-		float SinA = std::sin(Angle);
-
-		FVector VertexPos = InnerConeBaseCenter + (DirectionRight * CosA * InnerConeRadius) + (Up * SinA * InnerConeRadius);
-		IndexedVertices.emplace_back(VertexPos, InnerConeColor);
-	}
-
-	const uint32 TipIdx = static_cast<uint32>(IndexedVertices.size());
-	IndexedVertices.emplace_back(Position, InnerConeColor);
-
-	for (int32 i = 0; i < ConeSegments; ++i)
-	{
-		Indices.push_back(OuterBaseVertex + i);
-		Indices.push_back(OuterBaseVertex + ((i + 1) % ConeSegments));
-		Indices.push_back(TipIdx);
-		Indices.push_back(OuterBaseVertex + i);
-
-		Indices.push_back(InnerBaseVertex + i);
-		Indices.push_back(InnerBaseVertex + ((i + 1) % ConeSegments));
-		Indices.push_back(TipIdx);
-		Indices.push_back(InnerBaseVertex + i);
-	}
-
-	AddArc(Position, Forward, Up,    OuterConeAngle, AttenuationRadius, TipIdx, OuterConeColor);
-	AddArc(Position, Forward, Up,    InnerConeAngle, AttenuationRadius, TipIdx, InnerConeColor);
-	AddArc(Position, Forward, Right, OuterConeAngle, AttenuationRadius, TipIdx, OuterConeColor);
-	AddArc(Position, Forward, Right, InnerConeAngle, AttenuationRadius, TipIdx, InnerConeColor);
 }
 
 void FLineBatcher::AddCircle(const FVector& Center, const FVector& AxisA, const FVector& AxisB, float Radius, const FVector4& Color)
@@ -602,7 +553,7 @@ void FLineBatcher::AddDirectionalLight(const FVector& Position, const FVector& D
 }
 
 void FLineBatcher::AddArc(const FVector& Position, const FVector& Forward, const FVector& Axis,
-                          float ConeAngle, float Radius, uint32 TipIdx, const FVector4& Color)
+	float ConeAngle, float Radius, uint32 TipIdx, const FVector4& Color)
 {
 	constexpr int32 ArcSegments = 10;
 	const uint32 ArcBase = static_cast<uint32>(IndexedVertices.size());
@@ -621,4 +572,36 @@ void FLineBatcher::AddArc(const FVector& Position, const FVector& Forward, const
 
 	Indices.push_back(TipIdx); Indices.push_back(ArcBase);
 	Indices.push_back(TipIdx); Indices.push_back(ArcBase + ArcSegments);
+}
+
+void FLineBatcher::AddSingleCone(const FVector& Position, const FVector& Forward, const FVector& Right, const FVector& Up,
+	float ConeAngle, float Radius, const FVector4& Color)
+{
+	constexpr int32 ConeSegments = 32;
+
+	const float Altitude   = Radius * std::cos(MathUtil::DegreesToRadians(ConeAngle));
+	const float ConeRadius = Radius * std::sin(MathUtil::DegreesToRadians(ConeAngle));
+	const FVector BaseCenter = Position + (Forward * Altitude);
+
+	const uint32 BaseVertex = static_cast<uint32>(IndexedVertices.size());
+	for (int32 i = 0; i < ConeSegments; ++i)
+	{
+		float Angle = (static_cast<float>(i) / ConeSegments) * MathUtil::TwoPi;
+		FVector VertexPos = BaseCenter + (Right * std::cos(Angle) * ConeRadius) + (Up * std::sin(Angle) * ConeRadius);
+		IndexedVertices.emplace_back(VertexPos, Color);
+	}
+
+	const uint32 TipIdx = static_cast<uint32>(IndexedVertices.size());
+	IndexedVertices.emplace_back(Position, Color);
+
+	for (int32 i = 0; i < ConeSegments; ++i)
+	{
+		Indices.push_back(BaseVertex + i);
+		Indices.push_back(BaseVertex + ((i + 1) % ConeSegments));
+		Indices.push_back(TipIdx);
+		Indices.push_back(BaseVertex + i);
+	}
+
+	AddArc(Position, Forward, Up,    ConeAngle, Radius, TipIdx, Color);
+	AddArc(Position, Forward, Right, ConeAngle, Radius, TipIdx, Color);
 }

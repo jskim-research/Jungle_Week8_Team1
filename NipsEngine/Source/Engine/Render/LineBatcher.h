@@ -92,6 +92,7 @@ public:
 	void AddSpotLight(const FVector& Position, const FVector& Direction, const FVector& DirectionRight, float AttenuationRadius, float InnerConeAngle, float OuterConeAngle);
 	void AddPointLight(const FVector& Position, float AttenuationRadius, const FVector& Right, const FVector& Up);
 	void AddDirectionalLight(const FVector& Position, const FVector& Direction, const FVector& DirectionRight);
+	void AddSingleCone(const FVector& Position, const FVector& Forward, const FVector& Right, const FVector& Up, float ConeAngle, float Radius, const FVector4& Color);
 
 private:
 	UMaterialInterface* Material = nullptr;

@@ -13,8 +13,28 @@ void USpotLightComponent::GetEditableProperties(TArray<FPropertyDescriptor>& Out
 {
     UPointLightComponent::GetEditableProperties(OutProps);
 
-    OutProps.push_back({ "Inner Cone Angle", EPropertyType::Float, &InnerConeAngle, 0.0f, 89.0f, 0.1f });
-    OutProps.push_back({ "Outer Cone Angle", EPropertyType::Float, &OuterConeAngle, 0.0f, 89.0f, 0.1f });
+    OutProps.push_back({ "Inner Cone Angle", EPropertyType::Float, &InnerConeAngle, 0.0f, 80.0f, 0.1f });
+    OutProps.push_back({ "Outer Cone Angle", EPropertyType::Float, &OuterConeAngle, 0.0f, 80.0f, 0.1f });
+}
+
+void USpotLightComponent::PostEditProperty(const char* PropertyName)
+{
+    UPointLightComponent::PostEditProperty(PropertyName);
+
+    if (strcmp(PropertyName, "Inner Cone Angle") == 0)
+    {
+        if (InnerConeAngle > OuterConeAngle)
+        {
+            OuterConeAngle = InnerConeAngle;
+        }
+    }
+    else if (strcmp(PropertyName, "Outer Cone Angle") == 0)
+    {
+        if (OuterConeAngle < InnerConeAngle)
+        {
+            InnerConeAngle = OuterConeAngle;
+        }
+    }
 }
 
 void USpotLightComponent::Serialize(FArchive& Ar)
