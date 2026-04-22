@@ -233,12 +233,6 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
     }
 
     Result.Diffuse += AmbientAccum;
-    
-    if (VisibleLightCount == 0)
-    {
-        Result.Diffuse = float3(0, 0, 1);
-        return Result;
-    }
 
     // =========================
     // 2. Local Lights (Point / Spot) - brute force
