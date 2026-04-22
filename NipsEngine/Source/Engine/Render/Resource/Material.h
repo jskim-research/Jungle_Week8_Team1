@@ -78,6 +78,7 @@ enum class ELightingModel : uint8
 	Gouraud = 0,
 	Lambert,
 	Phong,
+	Toon,
 };
 
 enum class EMaterialDomain : uint8

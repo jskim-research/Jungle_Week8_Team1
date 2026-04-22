@@ -1,6 +1,6 @@
 #include "UberSurface.hlsli"
 
-#if !defined(MATERIAL_DOMAIN_DECAL) && !defined(LIGHTING_MODEL_GOURAUD) && !defined(LIGHTING_MODEL_LAMBERT) && !defined(LIGHTING_MODEL_PHONG)
+#if !defined(MATERIAL_DOMAIN_DECAL) && !defined(LIGHTING_MODEL_GOURAUD) && !defined(LIGHTING_MODEL_LAMBERT) && !defined(LIGHTING_MODEL_PHONG) && !defined(LIGHTING_MODEL_TOON)
 #define LIGHTING_MODEL_PHONG 1
 #endif
 
@@ -354,10 +354,15 @@ FUberPSOutput mainPS(FUberPSInput Input)
 #elif defined(LIGHTING_MODEL_LAMBERT)
     Lighting = EvaluateLightingFromWorld(Surface.WorldPos, Surface.WorldNormal, Input.ClipPos.xy);
     Lighting.Specular = 0.0f.xxx;
+#elif defined(LIGHTING_MODEL_TOON)
+    Lighting.Diffuse = float3(1, 0, 0);
+    Lighting.Specular = 0.0f.xxx;
+
 #else
     Lighting = EvaluateLightingFromWorld(Surface.WorldPos, Surface.WorldNormal, Input.ClipPos.xy);
-#endif
 
+
+#endif
     return ComposeOutput(Surface, ApplyLighting(Surface, Lighting));
 }
 

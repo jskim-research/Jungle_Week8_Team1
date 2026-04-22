@@ -375,6 +375,7 @@ void FEditorMaterialWidget::RenderMaterialDetails(UPrimitiveComponent* Primitive
 
 		const ELightingModel LightingModels[] =
 		{
+			ELightingModel::Toon,
 			ELightingModel::Gouraud,
 			ELightingModel::Lambert,
 			ELightingModel::Phong
