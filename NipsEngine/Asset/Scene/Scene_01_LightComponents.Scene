@@ -1,46 +1,36 @@
 {
   "ClassName" : "UWorld",
   "Name" : "Scene_01_LightComponents",
-  "NextUUID" : 898,
+  "NextUUID" : 1113,
   "PerspectiveCamera" : {
-    "FOV" : 87.999947,
+    "FOV" : 87.999924,
     "FarClip" : 2000.000000,
-    "Location" : [-3.442410, 0.353100, 2.944693],
+    "Location" : [-2.778881, 2.244389, 2.823004],
     "NearClip" : 0.100000,
-    "Rotation" : [-4.391388, 9.340155, 25.322454]
+    "Rotation" : [-8.213623, 9.136939, 42.270924]
   },
   "Primitives" : {
-    "109" : {
-      "Editor Only" : false,
-      "Enable Tick" : true,
-      "Location" : [6.254951, -1.000000, 0.500000],
-      "Rotation" : [0.000000, 0.000000, 0.000000],
-      "Scale" : [1.000000, 1.000000, 1.000000],
-      "Type" : "USceneComponent"
-    },
-    "112" : {
+    "1036" : {
       "Editor Only" : false,
       "Enable Cull" : true,
       "Enable Tick" : true,
-      "Location" : [0.000000, 2.000000, 0.000000],
-      "Materials" : ["Material"],
-      "ObjStaticMeshAsset" : "Asset\\Mesh\\cube.obj",
-      "ParentUUID" : 109,
+      "Location" : [0.000000, 45.000000, 0.000000],
+      "Materials" : ["UnrealMaterial.253", "UnrealMaterial.098", "UnrealMaterial.001", "UnrealMaterial.003", "UnrealMaterial.171", "UnrealMaterial.172", "UnrealMaterial.254"],
+      "ObjStaticMeshAsset" : "Asset\\Mesh\\ContentExamples\\ContentExamples.obj",
       "Rotation" : [0.000000, 0.000000, 0.000000],
-      "Scale" : [0.600000, 0.600000, 0.600000],
+      "Scale" : [1.000000, 1.000000, 1.000000],
       "Scroll U" : 0.000000,
       "Scroll V" : 0.000000,
       "Type" : "UStaticMeshComponent",
       "Visible" : true
     },
-    "114" : {
+    "1039" : {
       "Editor Only" : false,
       "Enable Cull" : true,
       "Enable Tick" : true,
-      "Location" : [0.000000, 0.000000, 0.000000],
+      "Location" : [6.390457, -0.129137, 0.950000],
       "Materials" : ["DefaultWhite"],
       "ObjStaticMeshAsset" : "Asset\\Mesh\\sphere.obj",
-      "ParentUUID" : 109,
       "Rotation" : [0.000000, 0.000000, 0.000000],
       "Scale" : [1.000000, 1.000000, 1.000000],
       "Scroll U" : 0.000000,
@@ -48,37 +38,13 @@
       "Type" : "UStaticMeshComponent",
       "Visible" : true
     },
-    "126" : {
-      "Editor Only" : false,
-      "Enable Tick" : true,
-      "Location" : [6.254951, 9.351108, 0.500000],
-      "Rotation" : [0.000000, 0.000000, 0.000000],
-      "Scale" : [1.000000, 1.000000, 1.000000],
-      "Type" : "USceneComponent"
-    },
-    "127" : {
+    "1112" : {
       "Editor Only" : false,
       "Enable Cull" : true,
       "Enable Tick" : true,
-      "Location" : [0.000000, 2.000000, 0.000000],
-      "Materials" : ["Material"],
-      "ObjStaticMeshAsset" : "Asset\\Mesh\\cube.obj",
-      "ParentUUID" : 126,
-      "Rotation" : [0.000000, 0.000000, 0.000000],
-      "Scale" : [0.600000, 0.600000, 0.600000],
-      "Scroll U" : 0.000000,
-      "Scroll V" : 0.000000,
-      "Type" : "UStaticMeshComponent",
-      "Visible" : true
-    },
-    "128" : {
-      "Editor Only" : false,
-      "Enable Cull" : true,
-      "Enable Tick" : true,
-      "Location" : [0.000000, 0.000000, 0.000000],
+      "Location" : [6.390457, 10.303334, 0.950000],
       "Materials" : ["DefaultWhite"],
       "ObjStaticMeshAsset" : "Asset\\Mesh\\sphere.obj",
-      "ParentUUID" : 126,
       "Rotation" : [0.000000, 0.000000, 0.000000],
       "Scale" : [1.000000, 1.000000, 1.000000],
       "Scroll U" : 0.000000,
@@ -92,8 +58,8 @@
       "Intensity" : 1.000000,
       "LightColor" : [0.991561, 0.991561, 0.991561, 1.000000],
       "LightType" : 0,
-      "Location" : [6.500000, 0.000000, 2.000000],
-      "Rotation" : [-0.000000, 80.000092, -50.000122],
+      "Location" : [6.500000, -0.081518, 2.844147],
+      "Rotation" : [2.279291, 80.006638, -50.004211],
       "Scale" : [1.000000, 1.000000, 1.000000],
       "Type" : "UDirectionalLightComponent",
       "Visible" : true
@@ -104,7 +70,7 @@
       "Intensity" : 0.200000,
       "LightColor" : [1.000000, 1.000000, 1.000000, 1.000000],
       "LightType" : 3,
-      "Location" : [6.500000, 10.546972, 2.000000],
+      "Location" : [6.500000, 10.282189, 2.764575],
       "Rotation" : [0.000000, 0.000000, 0.000000],
       "Scale" : [1.000000, 1.000000, 1.000000],
       "Type" : "UAmbientLightComponent",
@@ -347,20 +313,6 @@
       "Rotation" : [-19.850739, -6.987732, -21.262726],
       "Scale" : [1.000000, 1.000000, 1.000000],
       "Type" : "USpotLightComponent",
-      "Visible" : true
-    },
-    "821" : {
-      "Editor Only" : false,
-      "Enable Cull" : true,
-      "Enable Tick" : true,
-      "Location" : [0.000000, 0.000000, 0.000000],
-      "Materials" : ["UnrealMaterial.098", "UnrealMaterial.001", "UnrealMaterial.003", "UnrealMaterial.171", "UnrealMaterial.172", "UnrealMaterial.253", "UnrealMaterial.254"],
-      "ObjStaticMeshAsset" : "Asset\\Mesh\\ContentExamples\\ContentExamples.obj",
-      "Rotation" : [0.000000, 0.000000, 0.000000],
-      "Scale" : [1.000000, 1.000000, 1.000000],
-      "Scroll U" : 0.000000,
-      "Scroll V" : 0.000000,
-      "Type" : "UStaticMeshComponent",
       "Visible" : true
     }
   },
