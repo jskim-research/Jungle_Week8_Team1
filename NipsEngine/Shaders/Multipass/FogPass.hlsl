@@ -28,17 +28,42 @@ VSOutput mainVS(uint vertexID : SV_VertexID)
     return output;
 }
 
-float ComputeFogTransmittance(FogLayerData fog, float rawDepth, float worldZ, float cameraDistance)
+float3 ReconstructWorldFarPosition(int2 ip)
 {
-    if (fog.FogDensity <= 0.0f)
+    float2 safeViewportSize = max(ViewportSize, float2(1.0f, 1.0f));
+    float2 uv = (float2(ip) + 0.5f) / safeViewportSize;
+    float2 ndc = float2(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f);
+
+    float4 clipFar = float4(ndc, 1.0f, 1.0f);
+    float4 worldFar = mul(clipFar, InverseViewProjection);
+    float safeW = (abs(worldFar.w) > 1.0e-4f) ? worldFar.w : 1.0f;
+    return worldFar.xyz / safeW;
+}
+
+float ComputeFogTransmittance(FogLayerData fog, float rawDepth, float3 fogReferenceWorldPos)
+{
+    if (fog.FogDensity <= 0.0f || fog.FogCutoffDistance <= 0.0f)
         return 1.0f;
 
-    if (cameraDistance >= fog.FogCutoffDistance)
+    float3 rayVector = fogReferenceWorldPos - CameraPosition.xyz;
+    float referenceDistance = length(rayVector);
+    if (referenceDistance <= 1.0e-4f)
         return 1.0f;
+
+    if (rawDepth < 1.0f && referenceDistance >= fog.FogCutoffDistance)
+        return 1.0f;
+
+    float3 rayDirection = rayVector / referenceDistance;
+    float sampleDistance = (rawDepth >= 1.0f) ? min(referenceDistance, fog.FogCutoffDistance) : referenceDistance;
+    float sampleWorldZ = (rawDepth >= 1.0f)
+        ? CameraPosition.z + rayDirection.z * sampleDistance
+        : fogReferenceWorldPos.z;
 
     float scaledDensity = fog.FogDensity * 0.1f;
-    float heightFactor = exp(-fog.HeightFalloff * max(worldZ - fog.FogHeight, 0.0f));
-    float travelDistance = (rawDepth >= 1.0f) ? 1000.0f : max(cameraDistance - fog.FogStartDistance, 0.0f);
+    float heightFactor = exp(-fog.HeightFalloff * max(sampleWorldZ - fog.FogHeight, 0.0f));
+    float travelDistance = max(sampleDistance - fog.FogStartDistance, 0.0f);
+    if (travelDistance <= 0.0f)
+        return 1.0f;
 
     float layerTransmittance = saturate(exp(-scaledDensity * heightFactor * travelDistance));
     float layerOpacity = min(saturate(1.0f - layerTransmittance), fog.FogMaxOpacity);
@@ -50,8 +75,12 @@ float4 mainPS(VSOutput input) : SV_TARGET
     int2 ip = int2(input.ClipPos.xy);
     float rawDepth = SceneDepth.Load(int3(ip, 0)).r;
     float4 prevPassColor = ScenePrevPassColor.Load(int3(ip, 0));
-    float3 worldPos = SceneWorldPos.Load(int3(ip, 0)).xyz;
-    float dist = length(worldPos - CameraPosition.xyz);
+    float3 fogReferenceWorldPos = SceneWorldPos.Load(int3(ip, 0)).xyz;
+    if (rawDepth >= 1.0f)
+    {
+        // Empty pixels keep cleared world position, so reconstruct a far-plane point on the view ray.
+        fogReferenceWorldPos = ReconstructWorldFarPosition(ip);
+    }
 
     const float MinTransmittance = 1e-4f;
     float totalOpticalDepth = 0.0f;
@@ -62,7 +91,7 @@ float4 mainPS(VSOutput input) : SV_TARGET
     for (uint fogIndex = 0; fogIndex < activeFogCount; ++fogIndex)
     {
         FogLayerData fog = FogLayers[fogIndex];
-        float layerTransmittance = ComputeFogTransmittance(fog, rawDepth, worldPos.z, dist);
+        float layerTransmittance = ComputeFogTransmittance(fog, rawDepth, fogReferenceWorldPos);
         if (layerTransmittance >= 1.0f)
             continue;
 
