@@ -1,6 +1,7 @@
 #include "SelectionMaskRenderPass.h"
 #include "Core/ResourceManager.h"
 #include "Render/Scene/RenderBus.h"
+#include "Render/Resource/Texture.h"
 
 bool FSelectionMaskRenderPass::Initialize()
 {
@@ -10,6 +11,7 @@ bool FSelectionMaskRenderPass::Initialize()
 bool FSelectionMaskRenderPass::Release()
 {
     ShaderBinding.reset();
+    BillboardShaderBinding.reset();
     return true;
 }
 
@@ -38,6 +40,20 @@ bool FSelectionMaskRenderPass::Begin(const FRenderPassContext* Context)
         if (ShaderBinding && Context->RenderBus)
         {
             ShaderBinding->ApplyFrameParameters(*Context->RenderBus);
+        }
+    }
+
+    UShader* BillboardMaskShader = FResourceManager::Get().GetShader("Shaders/BillboardSelectionMask.hlsl");
+    if (BillboardMaskShader)
+    {
+        if (!BillboardShaderBinding || BillboardShaderBinding->GetShader() != BillboardMaskShader)
+        {
+            BillboardShaderBinding = BillboardMaskShader->CreateBindingInstance(Context->Device);
+        }
+
+        if (BillboardShaderBinding && Context->RenderBus)
+        {
+            BillboardShaderBinding->ApplyFrameParameters(*Context->RenderBus);
         }
     }
 
@@ -75,10 +91,27 @@ bool FSelectionMaskRenderPass::DrawCommand(const FRenderPassContext* Context)
             continue;
         }
 
-        if (ShaderBinding)
+        if (Cmd.Type == ERenderCommandType::SelectionMask)
         {
-            ShaderBinding->ApplyPerObjectParameters(Cmd.PerObjectConstants);
-            ShaderBinding->Bind(Context->DeviceContext);
+            if (FShaderBindingInstance* Binding = ShaderBinding.get())
+            {
+                Binding->ApplyPerObjectParameters(Cmd.PerObjectConstants);
+                Binding->Bind(Context->DeviceContext);
+            }
+        }
+        else if (Cmd.Type == ERenderCommandType::BillboardSelectionMask)
+        {
+            if (FShaderBindingInstance* Binding = BillboardShaderBinding.get())
+            {
+                Binding->ApplyPerObjectParameters(Cmd.PerObjectConstants);
+                if (Cmd.Constants.Billboard.Texture)
+                {
+                    ID3D11SamplerState* Sampler = FResourceManager::Get().GetOrCreateSamplerState(ESamplerType::EST_Linear);
+                    Binding->SetSRV("DiffuseMap", Cmd.Constants.Billboard.Texture->GetSRV());
+                    Binding->SetSampler("BillboardSampler", Sampler);
+                }
+                Binding->Bind(Context->DeviceContext);
+            }
         }
 
         Context->DeviceContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);

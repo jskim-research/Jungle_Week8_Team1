@@ -555,7 +555,15 @@ bool FRenderCollector::CollectFromSelectedActor(AActor* Actor, const FShowFlags&
 
 		// Selection Mask
 		FRenderCommand MaskCmd = BaseCmd;
-		MaskCmd.Type = ERenderCommandType::SelectionMask;
+		if (primitiveComponent->GetPrimitiveType() == EPrimitiveType::EPT_Billboard)
+		{
+			MaskCmd.Type = ERenderCommandType::BillboardSelectionMask;
+			MaskCmd.Constants.Billboard.Texture = static_cast<UBillboardComponent*>(primitiveComponent)->GetTexture();
+		}
+		else
+		{
+			MaskCmd.Type = ERenderCommandType::SelectionMask;
+		}
 		RenderBus.AddCommand(ERenderPass::SelectionMask, MaskCmd);
 		bHasSelectionMask = true;
 

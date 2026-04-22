@@ -17,4 +17,5 @@ private:
 
 private:
     std::shared_ptr<FShaderBindingInstance> ShaderBinding;
+    std::shared_ptr<FShaderBindingInstance> BillboardShaderBinding;
 };

@@ -21,7 +21,7 @@ public:
 
 	void SetBillboardEnabled(bool bEnable) { bIsBillboard = bEnable; }
 	static constexpr EPrimitiveType PrimitiveType = EPrimitiveType::EPT_Billboard;
-	bool SupportsOutline() const override { return false; }
+	bool SupportsOutline() const override { return true; }
 
 	static FMatrix MakeBillboardWorldMatrix(
 		const FVector& WorldLocation,
