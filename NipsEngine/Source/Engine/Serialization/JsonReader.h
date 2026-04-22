@@ -34,17 +34,21 @@ struct FJsonReader : public FArchive
 		if (!Current.hasKey(Key.c_str()))
 		{
 			OutCount = 0;
+			ScopeStack.push_back(ScopeStack.back()); // dummy push to keep EndArray symmetric
+			ArrayIndexStack.push_back(0);
 			return;
 		}
 
 		json::JSON& Array = Current[Key.c_str()];
 		OutCount = (int32)Array.length();
 		ScopeStack.push_back(&Array);
+		ArrayIndexStack.push_back(0);
 	}
 
 	virtual void EndArray() override
 	{
 		if (ScopeStack.size() > 1) ScopeStack.pop_back();
+		if (ArrayIndexStack.size() > 1) ArrayIndexStack.pop_back();
 		CurrentKey.clear();
 	}
 
