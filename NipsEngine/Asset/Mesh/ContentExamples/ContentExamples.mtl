@@ -1,4 +1,4 @@
-# Blender 5.1.1 MTL File: 'usd_v3.blend'
+# Blender 5.1.1 MTL File: 'usd_v12.blend'
 # www.blender.org
 
 newmtl UnrealMaterial.001
@@ -25,16 +25,6 @@ newmtl UnrealMaterial.098
 Ns 0.000000
 Ka 1.000000 1.000000 1.000000
 Kd 0.020289 0.020289 0.020289
-Ks 0.500000 0.500000 0.500000
-Ke 0.000000 0.000000 0.000000
-Ni 1.500000
-d 1.000000
-illum 2
-
-newmtl UnrealMaterial.099
-Ns 0.000000
-Ka 1.000000 1.000000 1.000000
-Kd 0.000000 0.020289 0.049707
 Ks 0.500000 0.500000 0.500000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
