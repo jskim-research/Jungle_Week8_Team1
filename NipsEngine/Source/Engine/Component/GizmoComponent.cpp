@@ -378,9 +378,14 @@ void UGizmoComponent::UpdateAngularDrag(const FRay& Ray)
 
 	float DeltaAngle = Sign * AngleRadians;
 
-	HandleDrag(DeltaAngle);
+	constexpr float AngularThreshold = 0.001f; // 약 0.05도
 
-	LastIntersectionLocation = CurrentIntersectionLocation;
+	// 역치를 넘었을 때만 이전 위치에서 갱신됩니다.
+	if (std::abs(DeltaAngle) > AngularThreshold)
+    {
+        HandleDrag(DeltaAngle);
+        LastIntersectionLocation = CurrentIntersectionLocation;
+    }
 }
 
 void UGizmoComponent::UpdateHoveredAxis(int Index)
