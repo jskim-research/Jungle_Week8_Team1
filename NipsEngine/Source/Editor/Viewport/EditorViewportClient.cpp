@@ -219,6 +219,15 @@ void FEditorViewportClient::TickInput(float DeltaTime)
 	if (!bHasCamera)
 		return;
 
+	if (Settings)
+	{
+		FEditorWorldController& Controller = InputRouter.GetEditorWorldController();
+		Controller.SetMoveSpeed(Settings->CameraSpeed);
+		Controller.SetMoveSensitivity(Settings->CameraMoveSensitivity);
+		Controller.SetRotateSensitivity(Settings->CameraRotateSensitivity);
+		Controller.SetZoomSpeed(Settings->CameraZoomSpeed);
+	}
+
 	const float VX = State ? static_cast<float>(Viewport->GetRect().X) : 0.f;
     const float VY = State ? static_cast<float>(Viewport->GetRect().Y) : 0.f;
 

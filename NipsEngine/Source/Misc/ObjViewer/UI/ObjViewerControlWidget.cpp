@@ -29,7 +29,7 @@ void FObjViewerControlWidget::Render(float DeltaTime)
 			
 			ImGui::DragFloat("Panning Speed", &Settings.CameraMoveSensitivity, 0.01f, 0.01f, 0.5f, "%.3f", ImGuiSliderFlags_Logarithmic);
             ImGui::DragFloat("Rotation Speed", &Settings.CameraRotateSensitivity, 0.01f, 0.01f, 0.5f, "%.3f", ImGuiSliderFlags_Logarithmic);
-			ImGui::DragFloat("Dolly Speed", &Settings.CameraForwardSpeed, 5.0f, 100.0f, 2000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
+			ImGui::DragFloat("Zoom Speed", &Settings.CameraZoomSpeed, 5.0f, 100.0f, 2000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
 
 			if (ImGui::Button("Save Camera Position", ImVec2(-FLT_MIN, 0)))
 			{

@@ -56,6 +56,9 @@ namespace
     const ImVec4 ColorOrange = ImVec4(1.0f, 0.5f, 0.0f, 1.0f);
     const ImVec4 ColorYellow = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
     const ImVec4 ColorPink   = ImVec4(1.0f, 0.5f, 0.5f, 1.0f);
+	const ImVec4 ColorRed      = ImVec4(1.0f, 0.2f, 0.2f, 1.0f); // 미사용
+	const ImVec4 ColorPurple   = ImVec4(0.7f, 0.4f, 1.0f, 1.0f);
+	const ImVec4 ColorMint     = ImVec4(0.3f, 1.0f, 0.7f, 1.0f);
 }
 
 // 뷰포트 타입(Enum)을 UI에 표시할 문자열로 변환합니다.
@@ -153,24 +156,19 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
     ImGui::Text("Camera");
 
     ImGui::SetNextItemWidth(ItemWidth);
-    ImGui::SliderFloat("Move Sensitivity", &Settings.CameraMoveSensitivity, 0.1f, 5.0f, "%.1f");
+    ImGui::SliderFloat("Move Sensitivity", &Settings.CameraMoveSensitivity, 0.05f, 5.0f, "%.1f");
     
     ImGui::SetNextItemWidth(ItemWidth);
-    ImGui::SliderFloat("Rotate Sensitivity", &Settings.CameraRotateSensitivity, 0.1f, 5.0f, "%.1f");
+    ImGui::SliderFloat("Rotate Sensitivity", &Settings.CameraRotateSensitivity, 0.05f, 5.0f, "%.1f");
 
     if (EditorEngine)
     {
         FEditorViewportLayout& Layout = EditorEngine->GetViewportLayout();
         const int32 FocusedIdx = Layout.GetLastFocusedViewportIndex();
         FEditorViewportClient* FocusedClient = Layout.GetViewportClient(FocusedIdx);
-        float CameraMoveSpeed = FocusedClient->GetMoveSpeed();
 
-        ImGui::SetNextItemWidth(ItemWidth); // 너비 설정
-        if (ImGui::SliderFloat("Dolly Speed", &CameraMoveSpeed, 0.01f, 30.0f, "%.2f"))
-        {
-            FocusedClient->SetMoveSpeed(CameraMoveSpeed);
-            Settings.CameraDollySpeed = CameraMoveSpeed;
-        }
+        ImGui::SetNextItemWidth(ItemWidth);
+        ImGui::SliderFloat("Zoom Speed", &Settings.CameraZoomSpeed, 0.1f, 100.0f, "%.1f");
     }
 
     ImGui::Separator();
@@ -570,7 +568,7 @@ float FEditorViewportOverlayWidget::RenderNameTableWindow(int32 ViewportIndex, c
         const uint32 Count = Pool.GetEntryCount();
         const TArray<FString>& Entries = Pool.GetEntries();
 
-        ImGui::TextColored(ColorPaleBlue, "FName Table (%u entries)", Count);
+        ImGui::TextColored(ColorPurple, "FName Table (%u entries)", Count);
         ImGui::Separator();
 
         ImGui::BeginChild("##NTScroll", ImVec2(0.f, 0.f), false);
@@ -607,7 +605,7 @@ float FEditorViewportOverlayWidget::RenderLightCullWindow(int32 ViewportIndex, c
     {
         const FLightCullingDebugStats& S = FLightCullingPass::GetDebugStats();
         
-        ImGui::TextColored(ColorOrange, "Light Culling");
+        ImGui::TextColored(ColorMint, "Light Culling");
         ImGui::Separator();
         
         ImGui::TextColored(ColorPaleBlue, "- Lights: %u", S.LightCount);

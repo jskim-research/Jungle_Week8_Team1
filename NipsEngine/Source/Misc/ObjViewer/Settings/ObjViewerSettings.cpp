@@ -45,7 +45,6 @@ void FObjViewerSettings::SaveToFile(const FString& Path) const
 	JSON Viewport = Object();
 	Viewport[ObjViewerKey::CameraSpeed] = CameraSpeed;
 	Viewport[ObjViewerKey::CameraRotationSpeed] = CameraRotationSpeed;
-	Viewport[ObjViewerKey::CameraForwardSpeed] = CameraForwardSpeed;
 	Viewport[ObjViewerKey::CameraMoveSensitivity] = CameraMoveSensitivity;
 	Viewport[ObjViewerKey::CameraRotateSensitivity] = CameraRotateSensitivity;
 
@@ -114,8 +113,6 @@ void FObjViewerSettings::LoadFromFile(const FString& Path)
 			CameraSpeed = static_cast<float>(Viewport[ObjViewerKey::CameraSpeed].ToFloat());
 		if (Viewport.hasKey(ObjViewerKey::CameraRotationSpeed))
 			CameraRotationSpeed = static_cast<float>(Viewport[ObjViewerKey::CameraRotationSpeed].ToFloat());
-		if (Viewport.hasKey(ObjViewerKey::CameraForwardSpeed))
-			CameraForwardSpeed = static_cast<float>(Viewport[ObjViewerKey::CameraForwardSpeed].ToFloat());
 		if (Viewport.hasKey(ObjViewerKey::CameraMoveSensitivity))
 			CameraMoveSensitivity = static_cast<float>(Viewport[ObjViewerKey::CameraMoveSensitivity].ToFloat());
 		if (Viewport.hasKey(ObjViewerKey::CameraRotateSensitivity))

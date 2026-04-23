@@ -586,7 +586,7 @@ uint32 FObjLoader::GetOrCreateVertexIndex(const FObjRawIndex& RawIndex, TMap<FOb
 }
 
 // Static Mesh Raw Data를 단위 큐브 크기로 정규화합니다. 
-// - 원본 메시 파일과 서로 다른 binary cache를 갖습니다.
+// - 정규화하지 않은 메시 파일과 서로 다른 binary cache를 갖습니다.
 // - 개별 StaticMesh 컴포넌트에서 Import할 때 Normalize On Import 설정을 켜고 꺼서 조절할 수 있습니다.
 void FObjLoader::NormalizeObjRawData(FObjRawData& RawData)
 {

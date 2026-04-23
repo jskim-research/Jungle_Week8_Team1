@@ -279,22 +279,22 @@ void FObjViewerViewportClient::TickInteraction(float DeltaTime)
     }
 
 	// Viewer에서는 Zoom이 일어나는 대신 카메라를 전후로 이동한다.
-    const float ForwardSpeed = Settings ? Settings->CameraForwardSpeed : 500.f;
+    const float ZoomSpeed = Settings ? Settings->CameraZoomSpeed : 500.f;
     float ScrollNotches = InputSystem::Get().GetScrollNotches();
     if (ScrollNotches != 0.0f)
     {
 		ObjViewerModelInfo ModelInfo = GetModelInfo();
 		float ModelRadius = ModelInfo.ModelRadius;
-		float DynamicForwardSpeed = ForwardSpeed * ModelRadius;
+		float DynamicZoomSpeed = ZoomSpeed * ModelRadius;
 
 		if (Camera->GetProjectionType() == EViewportProjectionType::Orthographic)
 		{
-			float NewHeight = Camera->GetOrthoHeight() - ScrollNotches * DynamicForwardSpeed * DeltaTime;
+			float NewHeight = Camera->GetOrthoHeight() - ScrollNotches * DynamicZoomSpeed * DeltaTime;
 			Camera->SetOrthoHeight(MathUtil::Clamp(NewHeight, 0.1f, 1000.0f));
 		}
 		else
 		{
-			float MoveAmount = ScrollNotches * DynamicForwardSpeed * DeltaTime;
+			float MoveAmount = ScrollNotches * DynamicZoomSpeed * DeltaTime;
 			MoveCameraLocal(*Camera, FVector(MoveAmount, 0.0f, 0.0f));
 		}
 	}

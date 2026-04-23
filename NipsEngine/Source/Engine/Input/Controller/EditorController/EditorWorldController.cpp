@@ -190,7 +190,7 @@ void FEditorWorldController::OnRightMouseDrag(float DeltaX, float DeltaY)
     else
     {
         // Accumulate yaw/pitch and rebuild rotation quaternion
-        constexpr float RotationSpeed = 0.15f;
+        const float RotationSpeed = 0.15f * RotateSensitivity;
         Yaw   += DeltaX * RotationSpeed;
         Pitch -= DeltaY * RotationSpeed;
         Pitch  = MathUtil::Clamp(Pitch, -89.f, 89.f);
@@ -272,26 +272,28 @@ void FEditorWorldController::OnKeyDown(int VK)
 
     // WASD + QE movement — scale by current camera forward/right vectors
     FVector Move = FVector(0, 0, 0);
+    const float ActualMoveSpeed = MoveSpeed * MoveSensitivity;
     switch (VK)
     {
-    case 'W': Move += Camera->GetForwardVector() *  MoveSpeed * DeltaTime; break;
-    case 'S': Move += Camera->GetForwardVector() * -MoveSpeed * DeltaTime; break;
-    case 'D': Move += Camera->GetRightVector()   *  MoveSpeed * DeltaTime; break;
-    case 'A': Move += Camera->GetRightVector()   * -MoveSpeed * DeltaTime; break;
-    case 'E': Move += FVector(0, 0, 1)           *  MoveSpeed * DeltaTime; break;
-    case 'Q': Move += FVector(0, 0, 1)           * -MoveSpeed * DeltaTime; break;
+    case 'W': Move += Camera->GetForwardVector() *  ActualMoveSpeed * DeltaTime; break;
+    case 'S': Move += Camera->GetForwardVector() * -ActualMoveSpeed * DeltaTime; break;
+    case 'D': Move += Camera->GetRightVector()   *  ActualMoveSpeed * DeltaTime; break;
+    case 'A': Move += Camera->GetRightVector()   * -ActualMoveSpeed * DeltaTime; break;
+    case 'E': Move += FVector(0, 0, 1)           *  ActualMoveSpeed * DeltaTime; break;
+    case 'Q': Move += FVector(0, 0, 1)           * -ActualMoveSpeed * DeltaTime; break;
     }
     TargetLocation += Move;
 
     // Arrow key rotation
     constexpr float AngleVelocity = 60.f;
+    const float ActualRotateSpeed = AngleVelocity * RotateSensitivity;
     bool bRotationChanged = false;
     switch (VK)
     {
-    case VK_LEFT:  Yaw   -= AngleVelocity * DeltaTime; bRotationChanged = true; break;
-    case VK_RIGHT: Yaw   += AngleVelocity * DeltaTime; bRotationChanged = true; break;
-    case VK_UP:    Pitch += AngleVelocity * DeltaTime; bRotationChanged = true; break;
-    case VK_DOWN:  Pitch -= AngleVelocity * DeltaTime; bRotationChanged = true; break;
+    case VK_LEFT:  Yaw   -= ActualRotateSpeed * DeltaTime; bRotationChanged = true; break;
+    case VK_RIGHT: Yaw   += ActualRotateSpeed * DeltaTime; bRotationChanged = true; break;
+    case VK_UP:    Pitch += ActualRotateSpeed * DeltaTime; bRotationChanged = true; break;
+    case VK_DOWN:  Pitch -= ActualRotateSpeed * DeltaTime; bRotationChanged = true; break;
     }
     if (bRotationChanged)
     {
@@ -312,14 +314,15 @@ void FEditorWorldController::OnWheelScrolled(float Notch)
 
     if (Camera->IsOrthographic())
     {
-        float NewWidth = Camera->GetOrthoHeight() - Notch * 300.f * DeltaTime;
+        float NewWidth = Camera->GetOrthoHeight() - Notch * 300.f * MoveSensitivity * DeltaTime;
         Camera->SetOrthoHeight(MathUtil::Clamp(NewWidth, 0.1f, 1000.0f));
     }
     else
     {
-        constexpr float FovStep = 2.0f * MathUtil::DEG_TO_RAD;
-        float           NewFOV = Camera->GetFOV() - Notch * FovStep;
-        Camera->SetFOV(MathUtil::Clamp(NewFOV, 1.f * MathUtil::DEG_TO_RAD, 90.0f * MathUtil::DEG_TO_RAD));
+        FVector Forward = Camera->GetForwardVector();
+        FVector NewLocation = Camera->GetLocation() + Forward * Notch * ZoomSpeed;
+        Camera->SetLocation(NewLocation);
+        ResetTargetLocation();
     }
 }
 
@@ -333,9 +336,9 @@ void FEditorWorldController::OnMiddleMouseDrag(float DeltaX, float DeltaY)
     if (IS.GetKey(VK_CONTROL) || IS.GetKey(VK_MENU) || IS.GetKey(VK_SHIFT))
         return;
 
-    const float   PanScale = Camera->IsOrthographic()
+    const float   PanScale = (Camera->IsOrthographic()
                                  ? Camera->GetOrthoHeight() * 0.002f
-                                 : 20.0f;
+                                 : 20.0f) * MoveSensitivity;
     const FVector Right    = Camera->GetEffectiveRight();
     const FVector Up       = Camera->GetEffectiveUp();
     TargetLocation += Right * (-DeltaX * PanScale * DeltaTime) + Up * (DeltaY * PanScale * DeltaTime);
