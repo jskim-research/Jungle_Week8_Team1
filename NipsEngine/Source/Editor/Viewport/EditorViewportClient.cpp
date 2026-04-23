@@ -13,7 +13,7 @@
 #include "Object/ActorIterator.h"
 #include "Editor/Selection/SelectionManager.h"
 #include "Runtime/SceneView.h"
-#include "EditorUtils.h"
+#include "Utility/EditorUtils.h"
 #include "Math/Vector4.h"
 #include "Slate/SWidget.h"
 #include <algorithm>

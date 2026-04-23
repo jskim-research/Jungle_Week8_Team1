@@ -22,6 +22,9 @@
     <Filter Include="Source\Editor\UI">
       <UniqueIdentifier>{bc6f9cd9-3513-78f0-0505-1eb95e34498d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source\Editor\Utility">
+      <UniqueIdentifier>{3320ec64-d369-4fa6-65b2-42c05e9103e9}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source\Editor\Viewport">
       <UniqueIdentifier>{1a34369a-b65d-0692-a150-9209617bbd99}</UniqueIdentifier>
     </Filter>
@@ -265,6 +268,12 @@
     </ClCompile>
     <ClCompile Include="Source\Editor\UI\EditorWidget.cpp">
       <Filter>Source\Editor\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Utility\EditorComponentFactory.cpp">
+      <Filter>Source\Editor\Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Utility\EditorUtils.cpp">
+      <Filter>Source\Editor\Utility</Filter>
     </ClCompile>
     <ClCompile Include="Source\Editor\Viewport\EditorViewportClient.cpp">
       <Filter>Source\Editor\Viewport</Filter>
@@ -710,9 +719,6 @@
     <ClInclude Include="Source\Editor\EditorRenderPipeline.h">
       <Filter>Source\Editor</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Editor\EditorUtils.h">
-      <Filter>Source\Editor</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Editor\Selection\SelectionManager.h">
       <Filter>Source\Editor\Selection</Filter>
     </ClInclude>
@@ -751,6 +757,12 @@
     </ClInclude>
     <ClInclude Include="Source\Editor\UI\EditorWidget.h">
       <Filter>Source\Editor\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Utility\EditorComponentFactory.h">
+      <Filter>Source\Editor\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Utility\EditorUtils.h">
+      <Filter>Source\Editor\Utility</Filter>
     </ClInclude>
     <ClInclude Include="Source\Editor\Viewport\CursorOverlayState.h">
       <Filter>Source\Editor\Viewport</Filter>

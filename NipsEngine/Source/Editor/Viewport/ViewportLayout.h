@@ -2,7 +2,7 @@
 
 #include "Core/CoreTypes.h"
 #include "Core/Containers/StaticArray.h"
-#include "EditorUtils.h"
+#include "Utility/EditorUtils.h"
 #include "FSceneViewport.h"
 #include "EditorViewportClient.h"
 #include "Engine/Slate/SViewport.h"

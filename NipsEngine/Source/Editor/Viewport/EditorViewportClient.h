@@ -6,7 +6,7 @@
 #include "Runtime/ViewportClient.h"
 #include "Engine/Input/Controller/EditorController/EditorInputRouter.h"
 #include "Spatial/WorldSpatialIndex.h"
-#include "Editor/EditorUtils.h"
+#include "Editor/Utility/EditorUtils.h"
 #include "Editor/Viewport/ViewportCamera.h"
 
 enum EEditorViewportType

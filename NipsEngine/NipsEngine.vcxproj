@@ -217,6 +217,8 @@
     <ClCompile Include="Source\Editor\UI\EditorToolbarWidget.cpp" />
     <ClCompile Include="Source\Editor\UI\EditorViewportOverlayWidget.cpp" />
     <ClCompile Include="Source\Editor\UI\EditorWidget.cpp" />
+    <ClCompile Include="Source\Editor\Utility\EditorComponentFactory.cpp" />
+    <ClCompile Include="Source\Editor\Utility\EditorUtils.cpp" />
     <ClCompile Include="Source\Editor\Viewport\EditorViewportClient.cpp" />
     <ClCompile Include="Source\Editor\Viewport\FSceneViewport.cpp" />
     <ClCompile Include="Source\Editor\Viewport\ViewportCamera.cpp" />
@@ -367,7 +369,6 @@
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h" />
     <ClInclude Include="Source\Editor\EditorRenderPipeline.h" />
-    <ClInclude Include="Source\Editor\EditorUtils.h" />
     <ClInclude Include="Source\Editor\Selection\SelectionManager.h" />
     <ClInclude Include="Source\Editor\Settings\EditorSettings.h" />
     <ClInclude Include="Source\Editor\UI\EditorConsoleWidget.h" />
@@ -381,6 +382,8 @@
     <ClInclude Include="Source\Editor\UI\EditorToolbarWidget.h" />
     <ClInclude Include="Source\Editor\UI\EditorViewportOverlayWidget.h" />
     <ClInclude Include="Source\Editor\UI\EditorWidget.h" />
+    <ClInclude Include="Source\Editor\Utility\EditorComponentFactory.h" />
+    <ClInclude Include="Source\Editor\Utility\EditorUtils.h" />
     <ClInclude Include="Source\Editor\Viewport\CursorOverlayState.h" />
     <ClInclude Include="Source\Editor\Viewport\EditorViewportClient.h" />
     <ClInclude Include="Source\Editor\Viewport\FSceneViewport.h" />

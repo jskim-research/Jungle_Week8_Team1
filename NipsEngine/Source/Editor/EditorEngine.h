@@ -4,7 +4,7 @@
 
 #include "Editor/Viewport/EditorViewportClient.h"
 #include "Editor/Viewport/FSceneViewport.h"
-#include "Editor/EditorUtils.h"
+#include "Editor/Utility/EditorUtils.h"
 #include "Editor/UI/EditorMainPanel.h"
 #include "Editor/Settings/EditorSettings.h"
 #include "Editor/Selection/SelectionManager.h"
