@@ -20,5 +20,6 @@ struct FFrustum
     void UpdateFromCamera(const FMatrix& ViewProjection);
 
     EFrustumIntersectResult Intersects(const FAABB& Box) const;
+	bool IntersectsBoundingSphere(const FVector& Center, float Radius) const;
     bool Contains(const FVector& Point) const;
 };

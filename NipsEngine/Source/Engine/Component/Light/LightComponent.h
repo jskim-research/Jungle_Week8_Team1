@@ -30,7 +30,7 @@ public:
     const FColor& GetLightColor() const { return LightColor; }
     float GetIntensity() const { return Intensity; }
     bool IsVisible() const { return bVisible; }
-	bool IsCastShadows() const { return bCastShadows; }
+	bool IsCastShadows() const { return bCastShadows; } // DoesCastShadows() in UE5, 통일성을 위해 Is 유지
 
     void SetLightColor(const FColor& InColor) { LightColor = InColor; }
     void SetIntensity(float InIntensity) { Intensity = InIntensity; }

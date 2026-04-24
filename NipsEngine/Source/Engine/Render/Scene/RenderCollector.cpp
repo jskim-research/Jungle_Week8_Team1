@@ -190,7 +190,7 @@ void FRenderCollector::CollectWorld(UWorld* World, const FShowFlags& ShowFlags, 
 
 	if (!World) return;
 	
-	CollectLight(World, RenderBus);
+	CollectLight(World, RenderBus, ViewFrustum);
 
 	if (ViewFrustum)
 	{
@@ -263,6 +263,7 @@ void FRenderCollector::ResetDecalStats()
 	LastDecalStats = {};
 }
 
+// 조명을 Frustum Culling을 통해 수집한다.
 void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const FFrustum* ViewFrustum)
 {
     const TArray<FLightSlot>& LightSlots = World->GetWorldLightSlots();
@@ -315,6 +316,16 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 			{
 				continue;
 			}
+			
+			// View Frustum에 대한 Bounding Sphere 교차 검사
+			if (ViewFrustum)
+			{
+				FVector Center = PointLight->GetWorldLocation();
+				float Radius = PointLight->GetAttenuationRadius();
+				
+				if (!ViewFrustum->IntersectsBoundingSphere(Center, Radius))
+					continue;
+			}
 
 			RenderLight.Position = PointLight->GetWorldLocation();
 			RenderLight.Radius = PointLight->GetAttenuationRadius();
@@ -329,6 +340,16 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 			if (SpotLight == nullptr)
 			{
 				continue;
+			}
+			
+			// View Frustum에 대한 Bounding Sphere 교차 검사
+			if (ViewFrustum)
+			{
+				FVector Center = SpotLight->GetWorldLocation();
+				float Radius = SpotLight->GetAttenuationRadius();
+
+				if (!ViewFrustum->IntersectsBoundingSphere(Center, Radius))
+					continue;
 			}
 
 			const float InnerAngleDegrees = MathUtil::Clamp(SpotLight->GetInnerConeAngle(), 0.0f, 89.0f);
