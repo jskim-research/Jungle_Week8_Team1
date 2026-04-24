@@ -108,6 +108,8 @@ void ULightComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProp
     OutProps.push_back({ "Shadow Bias", EPropertyType::Float, &ShadowBias });
     OutProps.push_back({ "Shadow Slope Bias", EPropertyType::Float, &ShadowSlopeBias });
     OutProps.push_back({ "Shadow Sharpen", EPropertyType::Float, &ShadowSharpen });
+
+	// 참고: LightType은 사용자가 수정하지 못하도록 UI 노출에서 제외합니다.
 }
 
 void ULightComponent::Serialize(FArchive& Ar)

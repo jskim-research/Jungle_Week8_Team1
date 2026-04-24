@@ -21,36 +21,17 @@
     ImGui::Spacing();   \
     ImGui::Spacing();
 
-template <typename T>
-static void SpawnActor(UWorld* World, const FVector& Location)
+namespace
 {
-    T* Actor = World->SpawnActor<T>();
-    Actor->InitDefaultComponents();
-    Actor->SetActorLocation(Location);
-}
-
-void FEditorControlWidget::Initialize(UEditorEngine* InEditorEngine)
-{
-    FEditorWidget::Initialize(InEditorEngine);
-    SelectedPrimitiveType = 0;
-}
-
-void FEditorControlWidget::Render(float DeltaTime)
-{
-    (void)DeltaTime;
-    if (!EditorEngine)
+    // 월드에 특정 타입의 액터를 생성하고 초기화하는 템플릿 함수입니다.
+    template <typename T>
+    void SpawnActor(UWorld* World, const FVector& Location)
     {
-        return;
+        T* Actor = World->SpawnActor<T>();
+        Actor->InitDefaultComponents();
+        Actor->SetActorLocation(Location);
     }
 
-    ImGui::SetNextWindowCollapsed(false, ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(500.0f, 480.0f), ImGuiCond_Once);
-
-    ImGui::Begin("Jungle Control Panel");
-
-    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
-
-    // Spawn
     struct FSpawnEntry
     {
         const char* Label;
@@ -71,6 +52,30 @@ void FEditorControlWidget::Render(float DeltaTime)
         { "Sky Atmosphere", SpawnActor<ASkyAtmosphereActor> },
         { "Height Fog", SpawnActor<AHeightFogActor> },
     };
+}
+
+// 에디터 컨트롤 위젯을 초기화하고 기본 상태를 설정합니다.
+void FEditorControlWidget::Initialize(UEditorEngine* InEditorEngine)
+{
+    FEditorWidget::Initialize(InEditorEngine);
+    SelectedPrimitiveType = 0;
+}
+
+// 컨트롤 패널 UI를 렌더링하고 액터 생성 및 카메라 제어 기능을 처리합니다.
+void FEditorControlWidget::Render(float DeltaTime)
+{
+    (void)DeltaTime;
+    if (!EditorEngine)
+    {
+        return;
+    }
+
+    ImGui::SetNextWindowCollapsed(false, ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(500.0f, 480.0f), ImGuiCond_Once);
+
+    ImGui::Begin("Jungle Control Panel");
+
+    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
 
     if (ImGui::BeginCombo("Actor", PrimitiveTypes[SelectedPrimitiveType].Label))
     {
