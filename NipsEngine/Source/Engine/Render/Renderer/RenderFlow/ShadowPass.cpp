@@ -1,5 +1,6 @@
 ﻿#include "ShadowPass.h"
 #include "Render/Scene/ShadowLightSelector.h"
+#include "Core/ResourceManager.h"
 
 bool FShadowPass::Initialize()
 {
@@ -79,12 +80,70 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
 bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 {
-
-    Context->DeviceContext->OMSetRenderTargets(1, nullptr, ShadowMaps[0].Resource->DSVs[0]);
-
-
     if (bSkip)
         return true;
+
+    const FRenderBus* RenderBus = Context->RenderBus;
+
+    const TArray<FRenderCommand>& Commands = RenderBus->GetCommands(ERenderPass::Opaque);
+
+    if (Commands.empty())
+        return true;
+
+    Context->DeviceContext->ClearDepthStencilView(ShadowMaps[0].Resource->DSVs[0], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+    Context->DeviceContext->OMSetRenderTargets(0, nullptr, ShadowMaps[0].Resource->DSVs[0]);
+
+	UShader* Shader = FResourceManager::Get().GetShader("Shaders/Primitive.hlsl");
+
+    for (const FRenderCommand& Cmd : Commands)
+    {
+        if (Cmd.Type == ERenderCommandType::PostProcessOutline)
+        {
+            continue;
+        }
+
+        if (Cmd.MeshBuffer == nullptr || !Cmd.MeshBuffer->IsValid())
+        {
+            return false;
+        }
+
+        uint32 offset = 0;
+        ID3D11Buffer* vertexBuffer = Cmd.MeshBuffer->GetVertexBuffer().GetBuffer();
+        if (vertexBuffer == nullptr)
+        {
+            return false;
+        }
+
+        uint32 vertexCount = Cmd.MeshBuffer->GetVertexBuffer().GetVertexCount();
+        uint32 stride = Cmd.MeshBuffer->GetVertexBuffer().GetStride();
+        if (vertexCount == 0 || stride == 0)
+        {
+            return false;
+        }
+
+        if (Cmd.Material)
+        {
+            Cmd.Material->Bind(Context->DeviceContext, Context->RenderBus, &Cmd.PerObjectConstants, Shader, Context);
+        }
+
+        CheckOverrideViewMode(Context);
+
+        Context->DeviceContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
+
+        ID3D11Buffer* indexBuffer = Cmd.MeshBuffer->GetIndexBuffer().GetBuffer();
+        if (indexBuffer != nullptr)
+        {
+            uint32 indexStart = Cmd.SectionIndexStart;
+            uint32 indexCount = Cmd.SectionIndexCount;
+            Context->DeviceContext->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+            Context->DeviceContext->DrawIndexed(indexCount, indexStart, 0);
+        }
+        else
+        {
+            Context->DeviceContext->Draw(vertexCount, 0);
+        }
+    }
+
 	return true;
 }
 
