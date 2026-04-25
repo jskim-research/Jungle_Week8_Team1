@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Render/Resource/ShadowResource.h"
 
 enum class EShadowProjectionMode
 {
@@ -65,6 +66,13 @@ struct FShadowSlice
 struct FCascadeData
 {
     FMatrix LightViewProj;
+	// viewspace z (linearlized)
+    /*
+	if (depth < split[0]) use cascade 0;
+	else if (depth < split[1]) use cascade 1;
+	else if (depth < split[2]) use cascade 2;
+	else use cascade 3;
+	*/
     float SplitDepth;
 };
 

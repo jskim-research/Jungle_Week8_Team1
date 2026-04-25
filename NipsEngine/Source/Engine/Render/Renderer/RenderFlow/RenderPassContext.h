@@ -8,6 +8,7 @@ class FRenderBus;
 class FFontBatcher;
 class FSubUVBatcher;
 class FLineBatcher;
+class FShadowResourcePool;
 
 struct FRenderPassContext
 {
@@ -22,4 +23,6 @@ struct FRenderPassContext
     FLineBatcher* EditorLineBatcher = nullptr;
     ID3D11ShaderResourceView* SceneGlobalLightBufferSRV = nullptr;
     uint32 SceneGlobalLightCount = 0;
+    FShadowResourcePool* ShadowResourcePool = nullptr;
+
 };
