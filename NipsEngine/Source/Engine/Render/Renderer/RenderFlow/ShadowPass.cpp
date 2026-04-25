@@ -190,6 +190,7 @@ bool FShadowPass::BuildCascades(const FRenderPassContext* Context, const FShadow
             FVector Eye = Center - LightDir * 100.0f; // 뒤에서 바라보게
             FVector Target = Context->RenderBus->GetCameraPosition();
 
+
 			FVector Up = FVector(0, 0, 1);
             if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
             {
@@ -210,6 +211,40 @@ bool FShadowPass::BuildCascades(const FRenderPassContext* Context, const FShadow
 			OutCascadeDataArray.push_back(CascadeData);
         }
 		break;
+
+	case ELightType::LightType_Spot:
+        for (uint32 i = 0; i < Req.CascadeCount; i++)
+        {
+            FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
+            FCascadeData CascadeData;
+
+            FVector LightDir = Light.Direction; // normalize 되어 있어야 함
+
+            FVector Eye = Light.Position;
+            FVector Target = Eye + Light.Direction;
+
+            FVector Up = FVector(0, 0, 1);
+            if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
+            {
+                Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
+            }
+
+            CascadeData.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
+            CascadeData.SplitDepth = 1000;
+
+			float OuterAngleRad = acos(Light.SpotOuterCos); // 반각(half angle)
+            float FovRad = OuterAngleRad * 2.0f;            // 전체 FOV
+
+            CascadeData.LightProjection = FMatrix::MakePerspectiveFovLH(
+                FovRad,
+                1.0f,        // 정사각형 섀도우 맵
+                1.0f,        // Near
+                Light.Radius // Far = 라이트 반경
+            );
+
+            OutCascadeDataArray.push_back(CascadeData);
+        }
+        break;
     default:
         return false;
 	}
@@ -233,6 +268,19 @@ bool FShadowPass::BuildSlices(const FRenderPassContext* Context, const FShadowRe
             OutShadowSlices.push_back(ShadowSlice);
 		}
 		break;
+
+	case ELightType::LightType_Spot:
+		for (uint32 i = 0; i < Req.CascadeCount; i++)
+		{
+            FShadowSlice ShadowSlice;
+            // CSM 일 경우 Index 은 Cascade Index
+            ShadowSlice.Index = i;
+            ShadowSlice.Type = EShadowSliceType::CSM;
+            ShadowSlice.UVOffset = FVector2(0, 0);
+            ShadowSlice.UVScale = FVector2(1, 1);
+            OutShadowSlices.push_back(ShadowSlice);
+		}
+        break;
 	default:
         return false;
 	}
