@@ -129,12 +129,11 @@ FLightHandle UWorld::RegisterLight(ULightComponentBase* Comp)
 void UWorld::UnregisterLight(ULightComponentBase* Comp)
 {
     FLightHandle LightHandle = Comp->GetLightHandle();
-
-	if (WorldLightSlots[LightHandle.Index].Generation != LightHandle.Generation)
-	{
-		// 해당 Slot 에 다른 데이터 들어가있음
+	// LightHandle이 없거나, 해당 Slot에 다른 데이터가 들어가 있으면 등록 해제 취소
+    if (!LightHandle.IsValid() || WorldLightSlots[LightHandle.Index].Generation != LightHandle.Generation)
+    {
         return;
-	}
+    }
 
 	WorldLightSlots[LightHandle.Index].bAlive = false;
     WorldLightSlots[LightHandle.Index].LightData = nullptr;

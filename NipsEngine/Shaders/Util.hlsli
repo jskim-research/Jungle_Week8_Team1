@@ -18,8 +18,7 @@ float4 ApplyMVP(float4 Position, float4x4 MVP)
     return mul(Position, MVP);
 }
 
-// TODO : �ϴ� ���Ž� �־ �־��. ��� ������ ��
-// ������� CPU���� �ѱ⵵��
+// 가능하면 성능을 위해 역행렬 연산은 CPU에서 해서 넘기도록 한다.
 float3x3 Inverse3x3(float3x3 m)
 {
     float det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])

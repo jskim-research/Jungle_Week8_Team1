@@ -14,7 +14,6 @@ public:
 	// Viewport
 	float CameraSpeed = 10.f;
 	float CameraRotationSpeed = 60.f;
-	float CameraZoomSpeed = 300.f;
 	FVector InitViewPos = FVector(10, 0, 5);
 	FVector InitLookAt = FVector(0, 0, 0);
 
@@ -38,7 +37,7 @@ public:
 	// Camera Sensitivity
 	float CameraMoveSensitivity = 1.0f;
 	float CameraRotateSensitivity = 1.0f;
-	float CameraDollySpeed = 15.0f;
+	float CameraZoomSpeed = 5.0f;
 
 	// Spatial index / BVH maintenance
 	int32 SpatialBatchRefitMinDirtyCount = 8;

@@ -158,8 +158,8 @@ void UInterpToMovementComponent::Pong() {
 	// Backward
 	if (!bPing) return;
 	bPing = false;
-    CurrentPointID = (uint32)(ControlPoints.size() - 1);
-    NextPointID	   = (uint32)(ControlPoints.size() - 2);
+    CurrentPointID = static_cast<uint32>(ControlPoints.size() - 1);
+    NextPointID	   = static_cast<uint32>(ControlPoints.size() - 2);
 }
 
 void UInterpToMovementComponent::UpdateLerp(float DeltaTime) {

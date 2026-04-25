@@ -13,7 +13,7 @@
 #include "Object/ActorIterator.h"
 #include "Editor/Selection/SelectionManager.h"
 #include "Runtime/SceneView.h"
-#include "EditorUtils.h"
+#include "Utility/EditorUIUtils.h"
 #include "Math/Vector4.h"
 #include "Slate/SWidget.h"
 #include <algorithm>
@@ -218,6 +218,15 @@ void FEditorViewportClient::TickInput(float DeltaTime)
 {
 	if (!bHasCamera)
 		return;
+
+	if (Settings)
+	{
+		FEditorWorldController& Controller = InputRouter.GetEditorWorldController();
+		Controller.SetMoveSpeed(Settings->CameraSpeed);
+		Controller.SetMoveSensitivity(Settings->CameraMoveSensitivity);
+		Controller.SetRotateSensitivity(Settings->CameraRotateSensitivity);
+		Controller.SetZoomSpeed(Settings->CameraZoomSpeed);
+	}
 
 	const float VX = State ? static_cast<float>(Viewport->GetRect().X) : 0.f;
     const float VY = State ? static_cast<float>(Viewport->GetRect().Y) : 0.f;
@@ -459,8 +468,8 @@ void FEditorViewportClient::LockCursorToViewport()
     POINT Origin = { Viewport->GetRect().X, Viewport->GetRect().Y };
 	if (Window)
 		::ClientToScreen(Window->GetHWND(), &Origin);
-	InputSystem::Get().LockMouse(true, (float)Origin.x, (float)Origin.y,
-                                 (float)Viewport->GetRect().Width, (float)Viewport->GetRect().Height);
+	InputSystem::Get().LockMouse(true, static_cast<float>(Origin.x), static_cast<float>(Origin.y),
+                                 static_cast<float>(Viewport->GetRect().Width), static_cast<float>(Viewport->GetRect().Height));
 }
 
 bool FEditorViewportClient::TryProjectWorldToViewport(const FVector& WorldPos, float& OutViewportX, float& OutViewportY, float& OutDepth) const

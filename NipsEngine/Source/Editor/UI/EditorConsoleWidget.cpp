@@ -155,7 +155,7 @@ void FEditorConsoleWidget::ExecCommand(const char* CommandLine) {
 
 // History & Tab-Completion Callback____________________________________________________________
 int32 FEditorConsoleWidget::TextEditCallback(ImGuiInputTextCallbackData* Data) {
-	FEditorConsoleWidget* Console = (FEditorConsoleWidget*)Data->UserData;
+	FEditorConsoleWidget* Console = static_cast<FEditorConsoleWidget*>(Data->UserData);
 
 	// 백틱(`) 문자는 콘솔 토글 키이므로 입력창에 삽입하지 않음
 	if (Data->EventFlag == ImGuiInputTextFlags_CallbackCharFilter)

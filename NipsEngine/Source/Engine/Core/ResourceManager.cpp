@@ -1,4 +1,4 @@
-#include "Core/ResourceManager.h"
+﻿#include "Core/ResourceManager.h"
 
 #include "Core/Paths.h"
 #include "SimpleJSON/json.hpp"

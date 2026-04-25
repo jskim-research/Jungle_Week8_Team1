@@ -3,16 +3,17 @@
 #include "Component/BillboardComponent.h"
 #include "Render/Common/RenderTypes.h"
 #include "GameFramework/World.h"
+#include "Core/PropertyTypes.h"
 
 class ULightComponentBase : public USceneComponent
 {
 public:
     DECLARE_CLASS(ULightComponentBase, USceneComponent)
 
-    ULightComponentBase();
+    ULightComponentBase() = default;
     ~ULightComponentBase() override = default;
-
-    void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
+	
+	void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
     void PostEditProperty(const char* PropertyName) override;
 
     void PostDuplicate(UObject* Original) override;
@@ -29,6 +30,7 @@ public:
     const FColor& GetLightColor() const { return LightColor; }
     float GetIntensity() const { return Intensity; }
     bool IsVisible() const { return bVisible; }
+	bool IsCastShadows() const { return bCastShadows; } // DoesCastShadows() in UE5, 통일성을 위해 Is 유지
 
     void SetLightColor(const FColor& InColor) { LightColor = InColor; }
     void SetIntensity(float InIntensity) { Intensity = InIntensity; }
@@ -41,6 +43,7 @@ private:
     FColor LightColor = FColor(1.0f, 1.0f, 1.0f, 1.0f);
     float Intensity = 1.0f;
     bool bVisible = true;
+	bool bCastShadows = true;
 
 	FLightHandle LightHandle;
     UBillboardComponent* VisualizationComponent = nullptr;
@@ -57,8 +60,14 @@ public:
     ULightComponent();
     ~ULightComponent() override = default;
 
+	void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
     void Serialize(FArchive& Ar) override;
     void PostDuplicate(UObject* Original) override;
+
+	float GetShadowResolutionScale() const { return ShadowResolutionScale; }
+	float GetShadowBias() const { return ShadowBias; }
+	float GetShadowSlopeBias() const { return ShadowSlopeBias; }
+	float GetShadowSharpen() const { return ShadowSharpen; }
 
 public:
     ELightType GetLightType() const { return LightType; }
@@ -68,4 +77,9 @@ protected:
 
 private:
     ELightType LightType = ELightType::Max;
+
+	float ShadowResolutionScale = 1.0f;
+	float ShadowBias = 0.5f;
+	float ShadowSlopeBias = 0.5f;
+	float ShadowSharpen = 0.0f; 
 };

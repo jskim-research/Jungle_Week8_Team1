@@ -87,9 +87,9 @@ std::wstring FPaths::ToWide(const std::string& Utf8Str)
 std::string FPaths::ToUtf8(const std::wstring& WideStr)
 {
 	if (WideStr.empty()) return {};
-	int32_t Size = WideCharToMultiByte(CP_UTF8, 0, WideStr.c_str(), (int)WideStr.length(), nullptr, 0, nullptr, nullptr);
+	int32_t Size = WideCharToMultiByte(CP_UTF8, 0, WideStr.c_str(), static_cast<int>(WideStr.length()), nullptr, 0, nullptr, nullptr);
 	std::string Result(Size, '\0');
-	WideCharToMultiByte(CP_UTF8, 0, WideStr.c_str(), (int)WideStr.length(), Result.data(), Size, nullptr, nullptr);
+	WideCharToMultiByte(CP_UTF8, 0, WideStr.c_str(), static_cast<int>(WideStr.length()), Result.data(), Size, nullptr, nullptr);
 	return Result;
 }
 
@@ -145,6 +145,8 @@ std::string FPaths::ToAbsoluteString(const std::wstring &RelativePath)
 
 FString FPaths::Normalize(const FString& Path)
 {
-	std::filesystem::path Normalized(Path);
-	return Normalized.generic_string();
+    std::wstring WidePath = ToWide(Path);
+    std::filesystem::path NormalizedPath(WidePath);
+    std::wstring NormalizedWide = NormalizedPath.lexically_normal().generic_wstring();
+    return ToUtf8(NormalizedWide);
 }

@@ -169,7 +169,7 @@ void FD3DDevice::CreateDeviceAndSwapChain(HWND InHWindow)
 
 	SwapChain->GetDesc(&swapChainDesc);
 
-	ViewportInfo = { 0, 0, float(swapChainDesc.BufferDesc.Width), float(swapChainDesc.BufferDesc.Height), 0, 1 };
+	ViewportInfo = { 0, 0, static_cast<float>(swapChainDesc.BufferDesc.Width), static_cast<float>(swapChainDesc.BufferDesc.Height), 0, 1 };
 
 #if defined(_DEBUG)
 	if (Device)

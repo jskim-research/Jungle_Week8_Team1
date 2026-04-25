@@ -9,7 +9,7 @@ void FWindowsPlatformTime::InitTiming()
 	{
 		bInitialized = true;
 
-		double Frequency = (double)GetFrequency();
+		double Frequency = static_cast<double>(GetFrequency());
 		if (Frequency <= 0.0)
 		{
 			Frequency = 1.0;
@@ -24,7 +24,7 @@ float FWindowsPlatformTime::GetSecondsPerCycle()
 	{
 		InitTiming();
 	}
-	return (float)GSecondsPerCycle;
+	return static_cast<float>(GSecondsPerCycle);
 }
 uint64 FWindowsPlatformTime::GetFrequency()
 {
@@ -45,7 +45,7 @@ uint64 FWindowsPlatformTime::Cycles64()
 {
 	LARGE_INTEGER CycleCount;
 	QueryPerformanceCounter(&CycleCount);
-	return (uint64)CycleCount.QuadPart;
+	return static_cast<uint64>(CycleCount.QuadPart);
 }
 
 

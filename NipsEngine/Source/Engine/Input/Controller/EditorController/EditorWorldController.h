@@ -41,6 +41,12 @@ class FEditorWorldController : public IBaseEditorController
 
     float GetMoveSpeed() const { return MoveSpeed; }
     void  SetMoveSpeed(float InSpeed) { MoveSpeed = InSpeed; }
+    float GetMoveSensitivity() const { return MoveSensitivity; }
+    void  SetMoveSensitivity(float InSens) { MoveSensitivity = InSens; }
+    float GetRotateSensitivity() const { return RotateSensitivity; }
+    void  SetRotateSensitivity(float InSens) { RotateSensitivity = InSens; }
+    float GetZoomSpeed() const { return ZoomSpeed; }
+    void  SetZoomSpeed(float InSpeed) { ZoomSpeed = InSpeed; }
     FVector GetTargetLocation() const { return TargetLocation; }
     void  SetTargetLocation(FVector InTargetLoc) { TargetLocation = InTargetLoc; }
     void  ResetTargetLocation()
@@ -67,6 +73,9 @@ class FEditorWorldController : public IBaseEditorController
     float   Yaw   = 0.f;
     float   Pitch = 0.f;
     float   MoveSpeed = 15.f;
+    float   MoveSensitivity = 1.0f;
+    float   RotateSensitivity = 1.0f;
+    float   ZoomSpeed = 15.0f;
     FVector TargetLocation;
     bool    bTargetLocationInitialized = false;
 };

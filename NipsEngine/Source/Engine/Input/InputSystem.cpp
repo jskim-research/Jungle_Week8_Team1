@@ -155,7 +155,7 @@ POINT InputSystem::GetLeftDragVector() const
 float InputSystem::GetLeftDragDistance() const
 {
     POINT V = GetLeftDragVector();
-    return std::sqrt((float)(V.x * V.x + V.y * V.y));
+    return std::sqrt(static_cast<float>(V.x * V.x + V.y * V.y));
 }
 
 POINT InputSystem::GetMiddleDragVector() const
@@ -169,7 +169,7 @@ POINT InputSystem::GetMiddleDragVector() const
 float InputSystem::GetMiddleDragDistance() const
 {
     POINT V = GetMiddleDragVector();
-    return std::sqrt((float)V.x * V.x + V.y * V.y);
+    return std::sqrt(static_cast<float>(V.x) * V.x + V.y * V.y);
 }
 
 POINT InputSystem::GetRightDragVector() const
@@ -183,7 +183,7 @@ POINT InputSystem::GetRightDragVector() const
 float InputSystem::GetRightDragDistance() const
 {
     POINT V = GetRightDragVector();
-    return std::sqrt((float)(V.x * V.x + V.y * V.y));
+    return std::sqrt(static_cast<float>(V.x * V.x + V.y * V.y));
 }
 
 // --- Mouse lock ------------------------------------------------
@@ -194,7 +194,7 @@ void InputSystem::LockMouse(bool bLock, float x, float y, float w, float h)
     {
         auto WarpX = x + w * 0.5f;
 		auto WarpY = y + h * 0.5f;
-        LockedCenterScreen = {(LONG)WarpX, (LONG)WarpY};
+        LockedCenterScreen = {static_cast<LONG>(WarpX), static_cast<LONG>(WarpY)};
         SetCursorPos(LockedCenterScreen.x, LockedCenterScreen.y);
     }
 }

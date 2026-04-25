@@ -23,9 +23,11 @@ struct FLightSlot
 
 struct FLightHandle
 {
-    uint32 Index;
+    uint32 Index = 0xFFFFFFFF;
     // Invalidate 검증용
-    uint32 Generation;
+    uint32 Generation = 0;
+
+    bool IsValid() const { return Index != 0xFFFFFFFF; }
 };
 
 class UWorld : public UObject {
@@ -71,7 +73,7 @@ public:
 		 * 실제론 Actor - Component 생애주기를 잘 관리해줘야함
 		 */
 		const TArray<UActorComponent*>& Comps = Actor->GetComponents();
-        for (int32 i = (int32)Comps.size() - 1; i >= 0; --i)
+        for (int32 i = static_cast<int32>(Comps.size()) - 1; i >= 0; --i)
         {
             if (Comps[i])
                 Comps[i]->OnUnregister();

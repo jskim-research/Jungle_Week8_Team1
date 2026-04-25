@@ -227,7 +227,7 @@ void FEditorMainPanel::Update()
         if (IO.WantTextInput)
         {
             // InputText 포커스 중 — 기본 IME 컨텍스트 복원
-            ImmAssociateContextEx(hWnd, (HIMC)INVALID_HANDLE_VALUE, IACE_DEFAULT);
+            ImmAssociateContextEx(hWnd, static_cast<HIMC>(INVALID_HANDLE_VALUE), IACE_DEFAULT);
         }
         else
         {
@@ -277,8 +277,8 @@ void FEditorMainPanel::RenderViewportHostWindow()
             const ID3D11ShaderResourceView* SceneColorSRV = VP.GetOutSRV();
 
             ImVec2 Size = ImVec2(
-                (float)VP.GetRect().Width,
-                (float)VP.GetRect().Height);
+                static_cast<float>(VP.GetRect().Width),
+                static_cast<float>(VP.GetRect().Height));
 
             if (SceneColorSRV)
             {

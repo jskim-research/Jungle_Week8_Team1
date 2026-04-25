@@ -58,7 +58,7 @@ void FEditorViewportLayout::Init(FWindowsWindow* InWindow, UWorld* World, FSelec
 		ViewportWidgets[i].GetSceneViewport().GetClient()->SetViewportType(kViewportTypes[i]);
 		ViewportWidgets[i].GetSceneViewport().GetClient()->CreateCamera();
 		ViewportWidgets[i].GetSceneViewport().GetClient()->ApplyCameraMode();
-		ViewportWidgets[i].GetSceneViewport().GetClient()->SetMoveSpeed(S.CameraDollySpeed);
+		ViewportWidgets[i].GetSceneViewport().GetClient()->SetMoveSpeed(S.CameraZoomSpeed);
 	}
 }
 

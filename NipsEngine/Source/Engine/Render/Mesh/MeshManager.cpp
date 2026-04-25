@@ -55,17 +55,17 @@ void FEditorMeshLibrary::CreateRotationGizmo()
 	// 각 축(X, Y, Z)에 대해 고리 생성
 	for (int axis = 0; axis < 3; ++axis)
 	{
-		uint32 StartVertexIdx = (uint32)vertices.size();
+		uint32 StartVertexIdx = static_cast<uint32>(vertices.size());
 
 		for (int i = 0; i <= Segments; ++i)
 		{
-			float longitude = (float)i / Segments * 2.0f * MathUtil::PI;
+			float longitude = static_cast<float>(i) / Segments * 2.0f * MathUtil::PI;
 			float sinLong = sin(longitude);
 			float cosLong = cos(longitude);
 
 			for (int j = 0; j < TubeSegments; ++j)
 			{
-				float latitude = (float)j / TubeSegments * 2.0f * MathUtil::PI;
+				float latitude = static_cast<float>(j) / TubeSegments * 2.0f * MathUtil::PI;
 				float sinLat = sin(latitude);
 				float cosLat = cos(latitude);
 
@@ -125,7 +125,7 @@ void FEditorMeshLibrary::CreateScaleGizmo()
 	FVector dirs[3] = { FVector(1,0,0), FVector(0,1,0), FVector(0,0,1) };
 
 	auto AddBox = [&](const FVector& Center, const FVector& Extent, const FColor& Color, int SubID) {
-		uint32 StartIdx = (uint32)vertices.size();
+		uint32 StartIdx = static_cast<uint32>(vertices.size());
 		FVector p[8] = {
 			Center + FVector(-Extent.X, -Extent.Y, -Extent.Z), Center + FVector(Extent.X, -Extent.Y, -Extent.Z),
 			Center + FVector(Extent.X, Extent.Y, -Extent.Z),   Center + FVector(-Extent.X, Extent.Y, -Extent.Z),
@@ -180,7 +180,7 @@ void FEditorMeshLibrary::CreateTranslationGizmo()
 
 	for (int32 axis = 0; axis < 3; ++axis)
 	{
-		int32 axisStartVertex = (int32)vertices.size();
+		int32 axisStartVertex = static_cast<int32>(vertices.size());
 
 		auto GetRotatedPos = [&](float x, float y, float z) -> FVector {
 			FVector P(x, y, z);
@@ -207,7 +207,7 @@ void FEditorMeshLibrary::CreateTranslationGizmo()
 			FVector(0, 0, totalLength);
 
 		vertices.push_back({ TipPos, colors[axis], axis });
-		int32 tipIndex = (int32)vertices.size() - 1;
+		int32 tipIndex = static_cast<int32>(vertices.size()) - 1;
 
 		// === 추가 1: cone 밑면 중심점 ===
 		FVector baseCenterPos = (axis == 0) ? FVector(stemLength, 0, 0) :
@@ -215,7 +215,7 @@ void FEditorMeshLibrary::CreateTranslationGizmo()
 			FVector(0, 0, stemLength);
 
 		vertices.push_back({ baseCenterPos, colors[axis], axis });
-		int32 baseCenterIndex = (int32)vertices.size() - 1;
+		int32 baseCenterIndex = static_cast<int32>(vertices.size()) - 1;
 
 		for (int32 i = 0; i < segments; ++i)
 		{

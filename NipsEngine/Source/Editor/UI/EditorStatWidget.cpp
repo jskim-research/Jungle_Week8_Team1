@@ -1,4 +1,4 @@
-#include "Editor/UI/EditorStatWidget.h"
+﻿#include "Editor/UI/EditorStatWidget.h"
 
 #include "Core/Logging/Stats.h"
 #include "Core/Logging/GPUProfiler.h"
@@ -98,7 +98,7 @@ void FEditorStatWidget::RenderStatTable(const char* TableID, const TArray<FStatE
 		switch (OutSortColumn)
 		{
 		case 0: return OutSortDescending ? (strcmp(A.Name, B.Name) > 0) : (strcmp(A.Name, B.Name) < 0);
-		case 1: ValA = (double)A.CallCount; ValB = (double)B.CallCount; break;
+		case 1: ValA = static_cast<double>(A.CallCount); ValB = static_cast<double>(B.CallCount); break;
 		case 2: ValA = A.TotalTime;  ValB = B.TotalTime;  break;
 		case 3: ValA = A.GetAvgTime(); ValB = B.GetAvgTime(); break;
 		case 4: ValA = A.MaxTime;    ValB = B.MaxTime;    break;

@@ -42,7 +42,7 @@ struct FArchive
 template <typename T>
 FArchive& operator<<(FArchive& Ar, TArray<T>& Array)
 {
-	int32 Num = (int32)Array.size();
+	int32 Num = static_cast<int32>(Array.size());
 
 	Ar.BeginArray(Ar.GetCurrentKey(), Num);
 

@@ -131,6 +131,7 @@ void UEditorEngine::StartPlaySession()
     if (!FocusedWorld) return;
 
     FocusedClient->SaveCameraSnapshot();
+
 	// 주의! Editor State는 실제 에디터의 상태가 아닌, 현재 에디터가 포커스한 뷰포트의 상태를 의미합니다.
     SetEditorState(EViewportPlayState::Playing); 
 

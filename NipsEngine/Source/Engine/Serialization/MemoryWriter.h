@@ -17,7 +17,7 @@ struct FMemoryWriter : public FArchive
 
 	virtual void Serialize(void* Value, uint32 Size) override
 	{
-		if (Offset + Size > (uint32)Bytes.size())
+		if (Offset + Size > static_cast<uint32>(Bytes.size()))
 		{
 			Bytes.resize(Offset + Size);
 		}

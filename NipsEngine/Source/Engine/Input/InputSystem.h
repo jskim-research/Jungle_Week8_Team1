@@ -65,7 +65,7 @@ class InputSystem : public TSingleton<InputSystem>
     int   GetScrollDelta() const { return PrevScrollDelta; }
     bool  ScrolledUp() const { return PrevScrollDelta > 0; }
     bool  ScrolledDown() const { return PrevScrollDelta < 0; }
-    float GetScrollNotches() const { return PrevScrollDelta / (float)WHEEL_DELTA; }
+    float GetScrollNotches() const { return PrevScrollDelta / static_cast<float>(WHEEL_DELTA); }
 
     // Window focus
     void SetOwnerWindow(HWND InHWnd) { OwnerHWnd = InHWnd; }

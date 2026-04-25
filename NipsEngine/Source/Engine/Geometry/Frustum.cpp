@@ -100,6 +100,21 @@ FFrustum::EFrustumIntersectResult FFrustum::Intersects(const FAABB& Box) const
     return bAllInside ? EFrustumIntersectResult::Inside : EFrustumIntersectResult::Intersect;
 }
 
+// Frustum 6개 무한평면에 대해 구의 중심까지의 거리를 비교하고, 원이 평면 바깥쪽(-Radius)이면 교차하지 않는다.
+// - 교차 여부를 판정할 필요가 없으므로 연산 최적화를 위해 단순 bool return합니다.
+bool FFrustum::IntersectsBoundingSphere(const FVector& Center, float Radius) const
+{
+	for (const FPlane& Plane : Planes)
+    {
+        const float Distance = Plane.GetSignedDistanceToPoint(Center);
+
+        if (Distance < -Radius)
+            return false;
+    }
+
+    return true;
+}
+
 bool FFrustum::Contains(const FVector& Point) const
 {
     for (const FPlane& Plane : Planes)
