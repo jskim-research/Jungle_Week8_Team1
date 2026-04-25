@@ -289,6 +289,9 @@
     <ClCompile Include="Source\Engine\Object\Object.cpp" />
     <ClCompile Include="Source\Engine\Render\FontBatcher.cpp" />
     <ClCompile Include="Source\Engine\Render\LineBatcher.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\ShadowResource.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\ShadowResourcePool.cpp" />
+    <ClCompile Include="Source\Engine\Render\Scene\ShadowLightSelector.cpp" />
     <ClCompile Include="Source\Engine\Render\SubUVBatcher.cpp" />
     <ClCompile Include="Source\Engine\Render\Device\D3DDevice.cpp" />
     <ClCompile Include="Source\Engine\Render\Mesh\MeshManager.cpp" />
@@ -485,8 +488,12 @@
     <ClInclude Include="Source\Engine\Object\Object.h" />
     <ClInclude Include="Source\Engine\Object\ObjectFactory.h" />
     <ClInclude Include="Source\Engine\Object\ObjectIterator.h" />
+    <ClInclude Include="Source\Engine\Render\Common\ShadowTypes.h" />
     <ClInclude Include="Source\Engine\Render\FontBatcher.h" />
     <ClInclude Include="Source\Engine\Render\LineBatcher.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\ShadowResource.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\ShadowResourcePool.h" />
+    <ClInclude Include="Source\Engine\Render\Scene\ShadowLightSelector.h" />
     <ClInclude Include="Source\Engine\Render\SubUVBatcher.h" />
     <ClInclude Include="Source\Engine\Render\Common\ComPtr.h" />
     <ClInclude Include="Source\Engine\Render\Common\RenderTypes.h" />
