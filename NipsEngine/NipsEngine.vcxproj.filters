@@ -714,6 +714,9 @@
       <Filter>ThirdParty\ImGui</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\ShadowResource.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\ShadowResourcePool.cpp" />
+    <ClCompile Include="Source\Engine\Render\Scene\ShadowLightSelector.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h">
@@ -1361,5 +1364,9 @@
     <ClInclude Include="ThirdParty\SimpleJSON\json.hpp">
       <Filter>ThirdParty\SimpleJSON</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Engine\Render\Resource\ShadowResource.h" />
+    <ClInclude Include="Source\Engine\Render\Common\ShadowTypes.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\ShadowResourcePool.h" />
+    <ClInclude Include="Source\Engine\Render\Scene\ShadowLightSelector.h" />
   </ItemGroup>
 </Project>

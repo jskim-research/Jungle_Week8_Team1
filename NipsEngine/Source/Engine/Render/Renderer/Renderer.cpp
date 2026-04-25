@@ -260,6 +260,7 @@ void FRenderer::Render(const FRenderBus& InRenderBus)
     RenderPassContext->SubUVBatcher = &SubUVBatcher;
     RenderPassContext->GridLineBatcher = &GridLineBatcher;
     RenderPassContext->EditorLineBatcher = &EditorLineBatcher;
+    RenderPassContext->ShadowResourcePool = &ShadowResourcePool;
 	UpdateSceneLightBuffer(InRenderBus);
 	RenderPipeline.Render(RenderPassContext.get());
 	
