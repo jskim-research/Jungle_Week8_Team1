@@ -18,4 +18,6 @@ private:
     FShadowLightSelector ShadowLightSelector;
     TArray<FShadowMap> ShadowMaps;
     bool bSkip = false;
+
+    std::shared_ptr<FShaderBindingInstance> ShaderBinding;
 };

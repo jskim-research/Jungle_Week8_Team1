@@ -65,7 +65,8 @@ struct FShadowSlice
 
 struct FCascadeData
 {
-    FMatrix LightViewProj;
+    FMatrix LightView;
+    FMatrix LightProjection;
 	// viewspace z (linearlized)
     /*
 	if (depth < split[0]) use cascade 0;
