@@ -200,8 +200,6 @@ struct alignas(16) FGPULight
 
     FVector Direction = FVector::ZeroVector;
     float   Padding0 = 0.0f;
-
-
 };
 
 using FRenderLight = FGPULight;

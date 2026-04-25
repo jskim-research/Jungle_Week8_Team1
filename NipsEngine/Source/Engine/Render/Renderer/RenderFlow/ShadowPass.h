@@ -15,6 +15,16 @@ protected:
     bool End(const FRenderPassContext* Context);
 
 private:
+    bool MakeShadowMap(const FRenderPassContext* Context, const FShadowRequest& Req, FShadowMap& OutShadowMap);
+	// Light VP, Split Depth 정보 반환
+	// CSM 을 안 쓰는 경우 length = 1
+    bool BuildCascades(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FCascadeData>& OutCascadeDataArray);
+	// Cascade, Cubemap Index, Atlas Slot 등 Map 별 정보 반환
+	bool BuildSlices(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowSlice>& OutShadowSlices);
+    // Desc에 맞는 적절한 Resource 반환
+	bool AcquireResource(const FRenderPassContext* Context, const FShadowRequestDesc& Req, FShadowResource** OutShadowResource);
+    
+private:
     FShadowLightSelector ShadowLightSelector;
     TArray<FShadowMap> ShadowMaps;
     bool bSkip = false;

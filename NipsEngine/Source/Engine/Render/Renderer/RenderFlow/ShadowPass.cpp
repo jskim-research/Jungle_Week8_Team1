@@ -36,8 +36,13 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		}
         ShadowMaps.clear();
 	}
+
     bSkip = false;
-	std::vector<FShadowRequest> ShadowRequests = ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights());
+
+	/***************/
+    /*  Selection  */
+    /***************/
+    std::vector<FShadowRequest> ShadowRequests = ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights());
 
 	if (ShadowRequests.empty())
     {
@@ -45,67 +50,28 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
         return true;
 	}
 
-	// 테스트 용도로 첫 번째만 사용
-    FCascadeData CascadeData;
-    FShadowSlice ShadowSlice;
-
-	FShadowRequestDesc Desc;
-
-	// 테스트 용도로 Directional Light 만 제대로 해놨음
-	switch (ShadowRequests[0].Type)
+	/****************/
+    /*  Allocation  */
+    /****************/
+    for (const FShadowRequest& ShadowRequest : ShadowRequests)
 	{
-    case ELightType::LightType_Directional:
-    {
-        Desc.AllocationMode = EShadowAllocationMode::ArrayBased; // CSM
-        Desc.MapType = EShadowMapType::Depth2D;
-        Desc.Resolution = ShadowRequests[0].Resolution;
-        Desc.CascadeCount = 1; // 일단은 한 장씩만 사용
+        FShadowMap ShadowMap;
+		if (MakeShadowMap(Context, ShadowRequest, ShadowMap))
+	        ShadowMaps.push_back(ShadowMap);
+	}
 
-        FVector LightDir = Context->RenderBus->GetLights()[ShadowRequests[0].LightId].Direction;
-        LightDir.Normalize();
-
-        // 카메라 기준
-        FVector CameraPos = Context->RenderBus->GetCameraPosition();
-        FVector Target = CameraPos;
-
-        // 카메라 기준으로 뒤에서 본다
-        float Distance = 500.0f; // 임시 (나중에 Frustum 기반으로 바꿔야 함)
-        FVector LightPos = Target - LightDir * Distance;
-
-        CascadeData.LightView = FMatrix::MakeViewLookAtLH(LightPos, Target);
-
-        // 테스트 용도로 Orthographic 가정
-        CascadeData.LightProjection = FMatrix::Identity;
-        CascadeData.SplitDepth = 1000;
-
-        ShadowSlice.Index = 0;
-        ShadowSlice.Type = EShadowSliceType::CSM;
-        ShadowSlice.UVOffset = FVector2(0, 0);
-        ShadowSlice.UVScale = FVector2(1, 1);
-        break;
-    }
-	default:
-		// Ambient 등은 따로 처리 안함
+	if (ShadowMaps.empty())
+	{
         bSkip = true;
         return true;
 	}
 
-	FShadowMap ShadowMap;
-
-	ShadowMap.Resource = Context->ShadowResourcePool->Acquire(Context->Device, Desc);
-    ShadowMap.MapType = Desc.MapType;
-	// 테스트 용도 -> Cascade Count = 1
-	ShadowMap.Cascades.push_back(CascadeData);
-    ShadowMap.Slices.push_back(ShadowSlice);
-
-	ShadowMaps.push_back(ShadowMap);
-
-	OutSRV = ShadowMap.Resource->SRV;
+	OutSRV = ShadowMaps[0].Resource->SRV;
     OutRTV = nullptr;
 
     ShaderBinding->ApplyFrameParameters(*Context->RenderBus);
-    // ShaderBinding->SetMatrix4("View", CascadeData.LightView);
-    // ShaderBinding->SetMatrix4("Projection", CascadeData.LightProjection);
+    ShaderBinding->SetMatrix4("View", ShadowMaps[0].Cascades[0].LightView);
+    ShaderBinding->SetMatrix4("Projection", ShadowMaps[0].Cascades[0].LightProjection);
 
 	return true;
 }
@@ -154,7 +120,6 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
         if (Cmd.Material)
         {
             UShader* Shader = FResourceManager::Get().GetShader("Shaders/Primitive.hlsl");
-            // Cmd.Material->Bind(Context->DeviceContext, Context->RenderBus, &Cmd.PerObjectConstants, Shader, Context);
             ShaderBinding->ApplyPerObjectParameters(Cmd.PerObjectConstants);
             ShaderBinding->Bind(Context->DeviceContext);
         }
@@ -185,4 +150,98 @@ bool FShadowPass::End(const FRenderPassContext* Context)
     if (bSkip)
         return true;
 	return true;
+}
+
+bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadowRequest& Req, FShadowMap& OutShadowMap)
+{
+    FShadowRequestDesc Desc;
+    Desc.AllocationMode = EShadowAllocationMode::ArrayBased; // CSM
+    Desc.MapType = EShadowMapType::Depth2D;
+    Desc.Resolution = Req.Resolution;
+    Desc.CascadeCount = 1; // 일단은 한 장씩만 사용
+
+    if (!AcquireResource(Context, Desc, &OutShadowMap.Resource))
+        return false;
+    if (!BuildCascades(Context, Req, OutShadowMap.Cascades))
+        return false;
+    if (!BuildSlices(Context, Req, OutShadowMap.Slices))
+        return false;
+    OutShadowMap.MapType = Desc.MapType;
+
+    return true;
+}
+
+bool FShadowPass::BuildCascades(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FCascadeData>& OutCascadeDataArray)
+{
+	switch (Req.Type)
+	{
+    case ELightType::LightType_Directional:
+        for (uint32 i = 0; i < Req.CascadeCount; i++)
+        {
+            FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
+            FCascadeData CascadeData;
+
+			FVector LightDir = Light.Direction; // normalize 되어 있어야 함
+
+            FVector Center = Context->RenderBus->GetCameraPosition();
+            /**
+             * 테스트용으로 넣어뒀고, 실제로는 Scene AABB 크기에 맞춰서 설정해야함 
+             */
+            FVector Eye = Center - LightDir * 100.0f; // 뒤에서 바라보게
+            FVector Target = Context->RenderBus->GetCameraPosition();
+
+			FVector Up = FVector(0, 0, 1);
+            if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
+            {
+                Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
+            }
+
+            CascadeData.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
+            float OrthoSize = 1024.0f;
+            CascadeData.LightProjection = FMatrix::MakeOrthographicLH(
+                OrthoSize, // Width
+                OrthoSize, // Height
+                1.0f,      // Near
+                2000.0f    // Far (Eye에서 500 뒤에 있으니 충분히 크게)
+            );
+
+            CascadeData.SplitDepth = 1000;
+
+			OutCascadeDataArray.push_back(CascadeData);
+        }
+		break;
+    default:
+        return false;
+	}
+	
+	return true;
+}
+
+bool FShadowPass::BuildSlices(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowSlice>& OutShadowSlices)
+{
+	switch (Req.Type)
+	{
+    case ELightType::LightType_Directional:
+		for (uint32 i = 0; i < Req.CascadeCount; i++)
+        {
+            FShadowSlice ShadowSlice;
+			// CSM 일 경우 Index 은 Cascade Index
+            ShadowSlice.Index = i;
+            ShadowSlice.Type = EShadowSliceType::CSM;
+            ShadowSlice.UVOffset = FVector2(0, 0);
+            ShadowSlice.UVScale = FVector2(1, 1);
+            OutShadowSlices.push_back(ShadowSlice);
+		}
+		break;
+	default:
+        return false;
+	}
+
+	return true;
+}
+
+bool FShadowPass::AcquireResource(const FRenderPassContext* Context, const FShadowRequestDesc& Desc, FShadowResource** OutShadowResource)
+{
+    *OutShadowResource = Context->ShadowResourcePool->Acquire(Context->Device, Desc);
+    return true;
 }

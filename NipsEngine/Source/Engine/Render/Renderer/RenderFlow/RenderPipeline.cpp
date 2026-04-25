@@ -89,7 +89,6 @@ bool FRenderPipeline::Initialize()
     RenderPasses.push_back(SkyRenderPass);
     RenderPasses.push_back(ToonOutlineRenderPass);
 	RenderPasses.push_back(OpaqueRenderPass);
-
 	RenderPasses.push_back(DecalRenderPass);
     // SceneColor를 만든 뒤 fog/fxaa 전에 덮어쓸 수 있는 view mode 확장 지점이다.
     RenderPasses.push_back(BufferVisualizationRenderPass);
