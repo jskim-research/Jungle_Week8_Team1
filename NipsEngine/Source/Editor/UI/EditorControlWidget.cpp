@@ -143,6 +143,7 @@ void FEditorControlWidget::Render(float DeltaTime)
     if (ImGui::DragFloat3("Camera Location", CameraLocation, 0.1f, 0.0f, 0.0f, "%.1f"))
     {
         Camera->SetLocation(FVector(CameraLocation[0], CameraLocation[1], CameraLocation[2]));
+        EditorEngine->GetViewportLayout().GetViewportClient(0)->SyncCameraTarget();
     }
 
     FVector CamRot = Camera->GetRotation().Rotator().Euler();

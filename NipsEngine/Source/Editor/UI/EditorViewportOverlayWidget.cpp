@@ -162,7 +162,7 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
             float CameraMoveSpeed = FocusedClient->GetMoveSpeed();
 
             SetControlWidth(); // 너비 설정
-            ImGui::SliderFloat("Zoom Speed", &Settings.CameraZoomSpeed, 0.01f, 100.0f, "%.2f");
+            ImGui::SliderFloat("Zoom Speed", &Settings.CameraZoomSpeed, 0.01f, 30.0f, "%.2f");
         }
     }
 
