@@ -39,6 +39,7 @@ enum class EPrimitiveType
 
 enum class ERenderPass : uint32
 {
+	DepthPrepass,
 	Sky,
     Shadow,
 	Opaque,

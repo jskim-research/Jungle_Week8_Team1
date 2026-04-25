@@ -21,6 +21,8 @@ class FPostProcessOutlineRenderPass;
 class FOpaqueRenderPass;
 class FLightCullingPass;
 class FBaseRenderPass;
+class FDepthPrepass;
+
 
 class FRenderPipeline
 {
@@ -49,6 +51,7 @@ private:
     std::shared_ptr<FDepthLessRenderPass> DepthLessRenderPass;
     std::shared_ptr<FPostProcessOutlineRenderPass> PostProcessOutlineRenderPass;
     std::shared_ptr<FToonOutlineRenderPass> ToonOutlineRenderPass;
+    std::shared_ptr<FDepthPrepass> DepthPrepass;
 
     ID3D11ShaderResourceView* OutSRV = nullptr;
     ID3D11RenderTargetView* OutRTV = nullptr;

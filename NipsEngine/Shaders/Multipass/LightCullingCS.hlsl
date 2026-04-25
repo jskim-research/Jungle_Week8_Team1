@@ -31,8 +31,13 @@ cbuffer LightCullingConstants : register(b0)
 };
 
 StructuredBuffer<FLightDataCS> SceneLights : register(t0);
+
 RWStructuredBuffer<uint> TileVisibleLightCount : register(u0);
 RWStructuredBuffer<uint> TileVisibleLightIndices : register(u1);
+
+groupshared uint groupMinZ; // 타일 내 최솟값 (uint reinterpret)
+groupshared uint groupMaxZ; // 타일 내 최댓값 (uint reinterpret)
+groupshared uint hitCount; // 타일 내 조명 교차 수 (히트맵용)
 
 // GroupShared: 타일에서 살아남은 라이트 인덱스
 groupshared uint gs_VisibleLightCount;
@@ -62,6 +67,8 @@ void mainCS(
     if (GroupIndex == 0)
     {
         gs_VisibleLightCount = 0;
+        hitCount = 0;
+
     }
     GroupMemoryBarrierWithGroupSync();
 

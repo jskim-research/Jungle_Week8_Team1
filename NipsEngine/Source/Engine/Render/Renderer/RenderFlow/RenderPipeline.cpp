@@ -16,9 +16,13 @@
 #include "DepthLessRenderPass.h"
 #include "PostProcessOutlineRenderPass.h"
 #include "ToonOutlineRenderPass.h"
+#include "DepthPrepass.h"
 
 bool FRenderPipeline::Initialize()
 {
+    DepthPrepass = std::make_shared<FDepthPrepass>();
+    DepthPrepass->Initialize();
+
     LightCullingPass = std::make_shared<FLightCullingPass>();
     LightCullingPass->Initialize();
 
@@ -78,13 +82,17 @@ bool FRenderPipeline::Initialize()
 	 * 각 Render Pass 는 자신의 출력 SRV/RTV 를 다음 패스로 넘긴다.
 	 * 마지막 패스가 남긴 OutSRV/OutRTV 가 RenderTargets.FinalSRV/FinalRTV 가 된다.
 	 */
+    RenderPasses.push_back(DepthPrepass);
+    
     RenderPasses.push_back(LightCullingPass);
     RenderPasses.push_back(SkyRenderPass);
     RenderPasses.push_back(ToonOutlineRenderPass);
+	
 	RenderPasses.push_back(OpaqueRenderPass);
 
+	
 	RenderPasses.push_back(DecalRenderPass);
-    // SceneColor를 만든 뒤 fog/fxaa 전에 덮어쓸 수 있는 view mode 확장 지점이다.
+     //SceneColor를 만든 뒤 fog/fxaa 전에 덮어쓸 수 있는 view mode 확장 지점이다.
     RenderPasses.push_back(BufferVisualizationRenderPass);
 
     RenderPasses.push_back(FogRenderPass);
@@ -98,6 +106,7 @@ bool FRenderPipeline::Initialize()
     RenderPasses.push_back(EditorRenderPass);
     RenderPasses.push_back(DepthLessRenderPass);
     RenderPasses.push_back(PostProcessOutlineRenderPass);
+	
 
     return true;
 }
