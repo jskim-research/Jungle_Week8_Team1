@@ -26,7 +26,10 @@ namespace
         float ViewportWidth = 0.0f;
         float ViewportHeight = 0.0f;
         uint32 IsOrthographic = 0;
-        float Padding = 0.0f;
+        uint32 Enable25DCulling;
+        float NearZ;
+        float FarZ;
+        FVector2 Padding;
     };
 
 	struct FLightCullingLight
@@ -73,6 +76,18 @@ bool FLightCullingPass::Release()
     LightBufferCapacity = 0;
     TileBufferCapacity = 0;
     GLightCullingOutputs = {};
+
+	DebugHitMapTexture.Reset();
+    DebugHitMapUAV.Reset();
+    DebugHitMapSRV.Reset();
+
+    PerTilePointLightIndexMaskBuffer.Reset();
+    PerTilePointLightIndexMaskOutUAV.Reset();
+    PerTilePointLightIndexMaskSRV.Reset();
+
+    CulledPointLightIndexMaskBuffer.Reset();
+    CulledPointLightIndexMaskOUTUAV.Reset();
+
     return true;
 }
 
@@ -126,7 +141,9 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     {
         return false;
     }
-	
+    if (!Ensure25DResources(Context->Device, static_cast<uint32>(Width), static_cast<uint32>(Height), TileCount))
+        return false;
+
 	TArray<FLightCullingLight> CullingLights;
     const TArray<FRenderLight>& SceneLights = Context->RenderBus->GetLights();
     const FVector& CameraPos = Context->RenderBus->GetCameraPosition();
@@ -205,6 +222,24 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     Constants.ViewportWidth = Width;
     Constants.ViewportHeight = Height;
     Constants.IsOrthographic = Context->RenderBus->IsOrthographic() ? 1 : 0;
+    Constants.Enable25DCulling = true;
+	if (Constants.IsOrthographic)
+	{
+        float A = Constants.Projection[2][2];
+        float B = Constants.Projection[3][2];
+
+        Constants.FarZ = -B / A;
+        Constants.NearZ = B / (1.0f - A);
+
+	}
+    else
+    {
+        float A = Constants.Projection[2][2];
+        float B = Constants.Projection[3][2];
+
+        Constants.FarZ = -B / A;
+        Constants.NearZ = (1.0f - B) / A;
+	}
 
     D3D11_MAPPED_SUBRESOURCE MappedCB = {};
     if (FAILED(Context->DeviceContext->Map(CullingConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedCB)))
@@ -220,15 +255,28 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     ID3D11Buffer* CBuffers[] = { CullingConstantBuffer.Get() };
     Context->DeviceContext->CSSetConstantBuffers(0, 1, CBuffers);
 
-    ID3D11ShaderResourceView* SRVs[] = { LightCount > 0 ? LightBufferSRV.Get() : nullptr };
-    Context->DeviceContext->CSSetShaderResources(0, 1, SRVs);
+
+    ID3D11ShaderResourceView* DSV = Context->RenderTargets->SceneDepthSRV;
+    ID3D11ShaderResourceView* SRVs[] = { LightCount > 0 ? LightBufferSRV.Get() : nullptr, DSV };
+    Context->DeviceContext->CSSetShaderResources(0, 2, SRVs);
 
     UINT ClearValues[4] = { 0u, 0u, 0u, 0u };
+    FLOAT ClearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     Context->DeviceContext->ClearUnorderedAccessViewUint(TileLightCountUAV.Get(), ClearValues);
     Context->DeviceContext->ClearUnorderedAccessViewUint(TileLightIndexUAV.Get(), ClearValues);
+    Context->DeviceContext->ClearUnorderedAccessViewUint(PerTilePointLightIndexMaskOutUAV.Get(), ClearValues); // 2.5d 리소스 바인딩
+    Context->DeviceContext->ClearUnorderedAccessViewUint(CulledPointLightIndexMaskOUTUAV.Get(), ClearValues);  // 2.5d 리소스 바인딩
+    Context->DeviceContext->ClearUnorderedAccessViewFloat(DebugHitMapUAV.Get(), ClearColor);                   // 2.5d 리소스 바인딩
 
-    ID3D11UnorderedAccessView* UAVs[] = { TileLightCountUAV.Get(), TileLightIndexUAV.Get() };
-    Context->DeviceContext->CSSetUnorderedAccessViews(0, 2, UAVs, nullptr);
+	ID3D11UnorderedAccessView* UAVs[6] = { nullptr };
+    UAVs[0] = TileLightCountUAV.Get();
+    UAVs[1] = TileLightIndexUAV.Get();
+    UAVs[2] = nullptr;
+    UAVs[3] = CulledPointLightIndexMaskOUTUAV.Get();
+    UAVs[4] = PerTilePointLightIndexMaskOutUAV.Get();
+    UAVs[5] = DebugHitMapUAV.Get();
+
+    Context->DeviceContext->CSSetUnorderedAccessViews(0, 6, UAVs, nullptr);
 
     Context->DeviceContext->Dispatch(TileCountX, TileCountY, 1);
 
@@ -249,11 +297,11 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
 
 bool FLightCullingPass::End(const FRenderPassContext* Context)
 {
-    ID3D11ShaderResourceView* NullSRVs[] = { nullptr };
-    Context->DeviceContext->CSSetShaderResources(0, 1, NullSRVs);
+    ID3D11ShaderResourceView* NullSRVs[2] = { nullptr, nullptr };
+    Context->DeviceContext->CSSetShaderResources(0, 2, NullSRVs);
 
-    ID3D11UnorderedAccessView* NullUAVs[] = { nullptr, nullptr };
-    Context->DeviceContext->CSSetUnorderedAccessViews(0, 2, NullUAVs, nullptr);
+    ID3D11UnorderedAccessView* NullUAVs[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+    Context->DeviceContext->CSSetUnorderedAccessViews(0, 6, NullUAVs, nullptr);
 
     ID3D11Buffer* NullCBs[] = { nullptr };
     Context->DeviceContext->CSSetConstantBuffers(0, 1, NullCBs);
@@ -261,6 +309,75 @@ bool FLightCullingPass::End(const FRenderPassContext* Context)
     return true;
 }
 
+bool FLightCullingPass::Ensure25DResources(ID3D11Device* Device, uint32 Width, uint32 Height, uint32 TileCount)
+{
+    // 이미 생성되어 있고 해상도/타일개수가 변하지 않았다면 스킵 (간단한 예외처리)
+    if (DebugHitMapTexture != nullptr && PerTilePointLightIndexMaskBuffer != nullptr)
+        return true;
+
+    // ----------------------------------------------------
+    // 1. Debug HitMap Texture & UAV/SRV 생성
+    // ----------------------------------------------------
+    D3D11_TEXTURE2D_DESC TexDesc = {};
+    TexDesc.Width = Width;
+    TexDesc.Height = Height;
+    TexDesc.MipLevels = 1;
+    TexDesc.ArraySize = 1;
+    TexDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT; // float4 히트맵용
+    TexDesc.SampleDesc.Count = 1;
+    TexDesc.Usage = D3D11_USAGE_DEFAULT;
+    TexDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+
+    if (FAILED(Device->CreateTexture2D(&TexDesc, nullptr, &DebugHitMapTexture)))
+        return false;
+    if (FAILED(Device->CreateUnorderedAccessView(DebugHitMapTexture.Get(), nullptr, DebugHitMapUAV.GetAddressOf())))
+        return false;
+    if (FAILED(Device->CreateShaderResourceView(DebugHitMapTexture.Get(), nullptr, DebugHitMapSRV.GetAddressOf())))
+        return false;
+
+    // ----------------------------------------------------
+    // 2. Per-Tile Mask Buffer 생성 (각 타일당 16개의 버킷(512조명/32비트))
+    // ----------------------------------------------------
+    const uint32 BucketsPerTile = MaxLocalLightNum / 32; // 512 / 32 = 16
+    const uint32 TotalMaskElements = TileCount * BucketsPerTile;
+
+    D3D11_BUFFER_DESC MaskBufDesc = {};
+    MaskBufDesc.Usage = D3D11_USAGE_DEFAULT;
+    MaskBufDesc.ByteWidth = sizeof(uint32) * TotalMaskElements;
+    MaskBufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+    MaskBufDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    MaskBufDesc.StructureByteStride = sizeof(uint32);
+
+    if (FAILED(Device->CreateBuffer(&MaskBufDesc, nullptr, &PerTilePointLightIndexMaskBuffer)))
+        return false;
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC MaskUavDesc = {};
+    MaskUavDesc.Format = DXGI_FORMAT_UNKNOWN;
+    MaskUavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    MaskUavDesc.Buffer.NumElements = TotalMaskElements;
+    if (FAILED(Device->CreateUnorderedAccessView(PerTilePointLightIndexMaskBuffer.Get(), &MaskUavDesc, PerTilePointLightIndexMaskOutUAV.GetAddressOf())))
+        return false;
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC MaskSrvDesc = {};
+    MaskSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+    MaskSrvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+    MaskSrvDesc.Buffer.NumElements = TotalMaskElements;
+    if (FAILED(Device->CreateShaderResourceView(PerTilePointLightIndexMaskBuffer.Get(), &MaskSrvDesc, PerTilePointLightIndexMaskSRV.GetAddressOf())))
+        return false;
+
+    // ----------------------------------------------------
+    // 3. Culled Global Mask Buffer 생성 (전체 누적 OR용, 1타일 분량이면 충분함)
+    // ----------------------------------------------------
+    MaskBufDesc.ByteWidth = sizeof(uint32) * BucketsPerTile;
+    if (FAILED(Device->CreateBuffer(&MaskBufDesc, nullptr, &CulledPointLightIndexMaskBuffer)))
+        return false;
+
+    MaskUavDesc.Buffer.NumElements = BucketsPerTile;
+    if (FAILED(Device->CreateUnorderedAccessView(CulledPointLightIndexMaskBuffer.Get(), &MaskUavDesc, CulledPointLightIndexMaskOUTUAV.GetAddressOf())))
+        return false;
+
+    return true;
+}
 bool FLightCullingPass::EnsureComputeShader(ID3D11Device* Device)
 {
     if (ComputeShader)

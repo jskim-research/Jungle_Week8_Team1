@@ -43,6 +43,8 @@ private:
     bool EnsureTileBuffers(ID3D11Device* Device, uint32 RequiredTileCount);
     bool EnsureConstantBuffer(ID3D11Device* Device);
     void EmitDebugStats(const FRenderPassContext* Context, uint32 TileCountX, uint32 TileCountY);
+    bool Ensure25DResources(ID3D11Device* Device, uint32 Width, uint32 Height, uint32 TileCount);
+
 
 private:
     TComPtr<ID3D11ComputeShader> ComputeShader;
@@ -56,6 +58,21 @@ private:
     TComPtr<ID3D11UnorderedAccessView> TileLightIndexUAV;
     TComPtr<ID3D11ShaderResourceView> TileLightIndexSRV;
     TComPtr<ID3D11Buffer> CullingConstantBuffer;
+
+	//2.5d 자원 추가
+    TComPtr<ID3D11Texture2D> DebugHitMapTexture;
+    TComPtr<ID3D11UnorderedAccessView> DebugHitMapUAV;
+    TComPtr<ID3D11ShaderResourceView> DebugHitMapSRV;
+
+    // ---- PerTile Mask Buffer (UAV u1 / SRV for PS) ----
+    TComPtr<ID3D11Buffer> PerTilePointLightIndexMaskBuffer;
+    TComPtr<ID3D11UnorderedAccessView> PerTilePointLightIndexMaskOutUAV;
+    TComPtr<ID3D11ShaderResourceView> PerTilePointLightIndexMaskSRV;
+
+    // ---- Culled (OR 누적) Mask Buffer (UAV u2, Shadow Map용) ----
+    TComPtr<ID3D11Buffer> CulledPointLightIndexMaskBuffer;
+    TComPtr<ID3D11UnorderedAccessView> CulledPointLightIndexMaskOUTUAV;
+
 
     uint32 LightBufferCapacity = 0;
     uint32 TileBufferCapacity = 0;
