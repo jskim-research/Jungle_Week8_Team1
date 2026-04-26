@@ -33,6 +33,7 @@ public:
 	// Grid
 	float GridSpacing = 1.0f;
 	int32 GridHalfLineCount = 100;
+	FGridRenderSettings GridRenderSettings = MakeDefaultGridRenderSettings();
 
 	// Camera Sensitivity
 	float CameraMoveSensitivity = 1.0f;

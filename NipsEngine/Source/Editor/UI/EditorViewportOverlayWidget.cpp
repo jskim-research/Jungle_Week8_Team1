@@ -167,12 +167,28 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
     }
 
     // Grid Settings
-    if (BeginSettingsSection("Grid Settings", false))
+    if (BeginSettingsSection("Grid / Axis Settings", false))
     {
         SetControlWidth();
         ImGui::SliderFloat("Spacing", &Settings.GridSpacing, 0.1f, 10.0f, "%.1f");
         SetControlWidth();
         ImGui::SliderInt("Half Line Count", &Settings.GridHalfLineCount, 10, 500);
+        SetControlWidth();
+        ImGui::SliderFloat("Line Thickness", &Settings.GridRenderSettings.LineThickness, 0.0f, 4.0f, "%.2f");
+        SetControlWidth();
+        ImGui::SliderFloat("Major Line Thickness", &Settings.GridRenderSettings.MajorLineThickness, 0.0f, 6.0f, "%.2f");
+        SetControlWidth();
+        ImGui::SliderInt("Major Line Interval", &Settings.GridRenderSettings.MajorLineInterval, 1, 50);
+        SetControlWidth();
+        ImGui::SliderFloat("Minor Intensity", &Settings.GridRenderSettings.MinorIntensity, 0.0f, 1.5f, "%.2f");
+        SetControlWidth();
+        ImGui::SliderFloat("Major Intensity", &Settings.GridRenderSettings.MajorIntensity, 0.0f, 1.5f, "%.2f");
+        SetControlWidth();
+        ImGui::SliderFloat("Axis Thickness", &Settings.GridRenderSettings.AxisThickness, 0.0f, 8.0f, "%.2f");
+        SetControlWidth();
+        ImGui::SliderFloat("Axis Intensity", &Settings.GridRenderSettings.AxisIntensity, 0.0f, 1.5f, "%.2f");
+        SetControlWidth();
+        ImGui::SliderFloat("Axis Length Scale", &Settings.GridRenderSettings.AxisLengthScale, 0.25f, 4.0f, "%.2f");
     }
 
     if (BeginSettingsSection("BVH Settings", false))

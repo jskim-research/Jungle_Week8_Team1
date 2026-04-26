@@ -44,6 +44,14 @@ namespace EditorKey
 	constexpr const char* Grid = "Grid";
 	constexpr const char* GridSpacing = "GridSpacing";
 	constexpr const char* GridHalfLineCount = "GridHalfLineCount";
+	constexpr const char* GridLineThickness = "GridLineThickness";
+	constexpr const char* GridMajorLineThickness = "GridMajorLineThickness";
+	constexpr const char* GridMajorLineInterval = "GridMajorLineInterval";
+	constexpr const char* GridMinorIntensity = "GridMinorIntensity";
+	constexpr const char* GridMajorIntensity = "GridMajorIntensity";
+	constexpr const char* GridAxisThickness = "GridAxisThickness";
+	constexpr const char* GridAxisIntensity = "GridAxisIntensity";
+	constexpr const char* GridAxisLengthScale = "GridAxisLengthScale";
 
 	// Spatial index / BVH maintenance
 	constexpr const char* SpatialIndex = "SpatialIndex";
@@ -102,6 +110,14 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 	JSON GridObj = Object();
 	GridObj[EditorKey::GridSpacing] = GridSpacing;
 	GridObj[EditorKey::GridHalfLineCount] = GridHalfLineCount;
+	GridObj[EditorKey::GridLineThickness] = GridRenderSettings.LineThickness;
+	GridObj[EditorKey::GridMajorLineThickness] = GridRenderSettings.MajorLineThickness;
+	GridObj[EditorKey::GridMajorLineInterval] = GridRenderSettings.MajorLineInterval;
+	GridObj[EditorKey::GridMinorIntensity] = GridRenderSettings.MinorIntensity;
+	GridObj[EditorKey::GridMajorIntensity] = GridRenderSettings.MajorIntensity;
+	GridObj[EditorKey::GridAxisThickness] = GridRenderSettings.AxisThickness;
+	GridObj[EditorKey::GridAxisIntensity] = GridRenderSettings.AxisIntensity;
+	GridObj[EditorKey::GridAxisLengthScale] = GridRenderSettings.AxisLengthScale;
 	Root[EditorKey::Grid] = GridObj;
 
 	// Spatial index / BVH maintenance
@@ -240,9 +256,25 @@ void FEditorSettings::LoadFromFile(const FString& Path)
 		JSON GridObj = Root[EditorKey::Grid];
 
 		if (GridObj.hasKey(EditorKey::GridSpacing))
-			GridSpacing = static_cast<float>(GridObj[EditorKey::GridSpacing].ToFloat());
+			GridSpacing = std::clamp(static_cast<float>(GridObj[EditorKey::GridSpacing].ToFloat()), 0.01f, 100.0f);
 		if (GridObj.hasKey(EditorKey::GridHalfLineCount))
-			GridHalfLineCount = GridObj[EditorKey::GridHalfLineCount].ToInt();
+			GridHalfLineCount = std::clamp<int32>(GridObj[EditorKey::GridHalfLineCount].ToInt(), 1, 5000);
+		if (GridObj.hasKey(EditorKey::GridLineThickness))
+			GridRenderSettings.LineThickness = std::clamp(static_cast<float>(GridObj[EditorKey::GridLineThickness].ToFloat()), 0.0f, 8.0f);
+		if (GridObj.hasKey(EditorKey::GridMajorLineThickness))
+			GridRenderSettings.MajorLineThickness = std::clamp(static_cast<float>(GridObj[EditorKey::GridMajorLineThickness].ToFloat()), 0.0f, 12.0f);
+		if (GridObj.hasKey(EditorKey::GridMajorLineInterval))
+			GridRenderSettings.MajorLineInterval = std::clamp<int32>(GridObj[EditorKey::GridMajorLineInterval].ToInt(), 1, 100);
+		if (GridObj.hasKey(EditorKey::GridMinorIntensity))
+			GridRenderSettings.MinorIntensity = std::clamp(static_cast<float>(GridObj[EditorKey::GridMinorIntensity].ToFloat()), 0.0f, 2.0f);
+		if (GridObj.hasKey(EditorKey::GridMajorIntensity))
+			GridRenderSettings.MajorIntensity = std::clamp(static_cast<float>(GridObj[EditorKey::GridMajorIntensity].ToFloat()), 0.0f, 2.0f);
+		if (GridObj.hasKey(EditorKey::GridAxisThickness))
+			GridRenderSettings.AxisThickness = std::clamp(static_cast<float>(GridObj[EditorKey::GridAxisThickness].ToFloat()), 0.0f, 12.0f);
+		if (GridObj.hasKey(EditorKey::GridAxisIntensity))
+			GridRenderSettings.AxisIntensity = std::clamp(static_cast<float>(GridObj[EditorKey::GridAxisIntensity].ToFloat()), 0.0f, 2.0f);
+		if (GridObj.hasKey(EditorKey::GridAxisLengthScale))
+			GridRenderSettings.AxisLengthScale = std::clamp(static_cast<float>(GridObj[EditorKey::GridAxisLengthScale].ToFloat()), 0.1f, 10.0f);
 	}
 
 	// Spatial index / BVH maintenance

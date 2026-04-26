@@ -42,3 +42,29 @@ struct FShowFlags
     bool bDecals = true;
     bool bFog = true;
 };
+
+struct FGridRenderSettings
+{
+    float LineThickness;
+    float MajorLineThickness;
+    int32 MajorLineInterval;
+    float MinorIntensity;
+    float MajorIntensity;
+    float AxisThickness;
+    float AxisIntensity;
+    float AxisLengthScale;
+};
+
+constexpr FGridRenderSettings MakeDefaultGridRenderSettings()
+{
+    return {
+        1.0f,  // LineThickness
+        1.25f, // MajorLineThickness
+        10,    // MajorLineInterval
+        0.45f, // MinorIntensity
+        0.9f,  // MajorIntensity
+        1.5f,  // AxisThickness
+        1.0f,  // AxisIntensity
+        1.0f,  // AxisLengthScale
+    };
+}

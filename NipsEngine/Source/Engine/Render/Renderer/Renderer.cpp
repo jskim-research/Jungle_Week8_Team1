@@ -44,6 +44,8 @@ void FRenderer::Create(HWND hWindow)
     FResourceManager::Get().LoadShader("Shaders/Multipass/FXAAPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
     FResourceManager::Get().LoadShader("Shaders/ShaderFont.hlsl", "VS", "PS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
     FResourceManager::Get().LoadShader("Shaders/ShaderLine.hlsl", "mainVS", "mainPS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
+    FResourceManager::Get().LoadShader("Shaders/ShaderGrid.hlsl", "GridVS", "GridPS", nullptr, 0, nullptr);
+    FResourceManager::Get().LoadShader("Shaders/ShaderAxis.hlsl", "VS", "PS", nullptr, 0, nullptr);
     FResourceManager::Get().LoadShader("Shaders/ShaderBillboard.hlsl", "mainVS", "mainPS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
     FResourceManager::Get().LoadShader("Shaders/Multipass/ToonOutlinePass.hlsl", "mainVS", "mainPS", NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout), nullptr);
 }
@@ -401,24 +403,11 @@ void FRenderer::ReleaseViewportResource(FSceneViewport* VP, int32 Index)
 // ============================================================
 void FRenderer::InitializePassBatchers()
 {
-	// --- Grid 패스: 월드 그리드 + 축 → GridLineBatcher ---
+	// --- Grid 패스: ShaderGrid/ShaderAxis가 직접 procedural draw ---
     PassBatchers[(uint32)ERenderPass::Grid] = {
         /*.Clear   =*/[this]()
         { GridLineBatcher.Clear(); },
-        /*.Collect =*/[this](const FRenderCommand& Cmd, const FRenderBus& Bus)
-        {
-			if (Cmd.Type == ERenderCommandType::Grid)
-			{
-				const FVector CameraPos = Bus.GetView().GetInverse().GetOrigin();
-				const FVector CameraFwd = Bus.GetCameraForward();
-
-				GridLineBatcher.AddWorldHelpers(
-					Bus.GetShowFlags(),
-					Cmd.Constants.Grid.GridSpacing,
-					Cmd.Constants.Grid.GridHalfLineCount,
-					CameraPos, CameraFwd,
-					Cmd.Constants.Grid.bOrthographic);
-			} },
+        /*.Collect =*/[](const FRenderCommand&, const FRenderBus&) {},
     };
 
 	// --- Font 패스: 텍스트 → FontBatcher ---

@@ -7,6 +7,7 @@
 */
 
 #include "Render/Common/RenderTypes.h"
+#include "Render/Common/ViewTypes.h"
 #include "Render/Resource/Buffer.h"
 #include "Render/Resource/Material.h"
 #include "Render/Device/D3DDevice.h"
@@ -91,6 +92,7 @@ struct FGridConstants
 	float GridSpacing;
 	int32 GridHalfLineCount;
 	bool  bOrthographic;
+	FGridRenderSettings RenderSettings;
 	float Padding0[1];
 };
 
