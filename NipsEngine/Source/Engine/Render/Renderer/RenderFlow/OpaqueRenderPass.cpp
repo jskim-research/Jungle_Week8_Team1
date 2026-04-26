@@ -65,6 +65,8 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
         return true;
 
     UShader* ShaderOverride = ResolveOpaqueShaderOverride(Context);
+    ID3D11DepthStencilState* ReadOnlyDepthStencilState =
+        FResourceManager::Get().GetOrCreateDepthStencilState(EDepthStencilType::DepthReadOnly);
 
     SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
 
@@ -98,6 +100,8 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
         {
             Cmd.Material->Bind(Context->DeviceContext, Context->RenderBus, &Cmd.PerObjectConstants, ShaderOverride, Context);
         }
+
+        Context->DeviceContext->OMSetDepthStencilState(ReadOnlyDepthStencilState, 0);
 
 		SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
 

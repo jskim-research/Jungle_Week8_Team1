@@ -1,4 +1,5 @@
-#include "DecalRenderPass.h"
+﻿#include "DecalRenderPass.h"
+#include "Core/ResourceManager.h"
 #include "Render/Scene/RenderBus.h"
 #include "Render/Resource/RenderResources.h"
 #include "Render/Resource/Material.h"
@@ -62,6 +63,8 @@ bool FDecalRenderPass::DrawCommand(const FRenderPassContext* Context)
     }
 
     SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
+    ID3D11DepthStencilState* ReadOnlyDepthStencilState =
+        FResourceManager::Get().GetOrCreateDepthStencilState(EDepthStencilType::DepthReadOnly);
 
     for (const FRenderCommand& Cmd : Commands)
     {
@@ -94,6 +97,8 @@ bool FDecalRenderPass::DrawCommand(const FRenderPassContext* Context)
                 Context,
                 &Cmd.DecalConstants);
         }
+
+        Context->DeviceContext->OMSetDepthStencilState(ReadOnlyDepthStencilState, 0);
 
         SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
 

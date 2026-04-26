@@ -14,6 +14,7 @@
 #include "GridRenderPass.h"
 #include "EditorRenderPass.h"
 #include "DepthLessRenderPass.h"
+#include "DepthPrepassRenderPass.h"
 #include "PostProcessOutlineRenderPass.h"
 #include "ToonOutlineRenderPass.h"
 #include "ShadowPass.h"
@@ -66,6 +67,9 @@ bool FRenderPipeline::Initialize()
     DepthLessRenderPass = std::make_shared<FDepthLessRenderPass>();
     DepthLessRenderPass->Initialize();
 
+    DepthPrepassRenderPass = std::make_shared<FDepthPrepassRenderPass>();
+    DepthPrepassRenderPass->Initialize();
+
     PostProcessOutlineRenderPass = std::make_shared<FPostProcessOutlineRenderPass>();
     PostProcessOutlineRenderPass->Initialize();
 
@@ -85,6 +89,7 @@ bool FRenderPipeline::Initialize()
     // RenderPasses.push_back(ShadowPass);
 
     RenderPasses.push_back(LightCullingPass);
+    RenderPasses.push_back(DepthPrepassRenderPass);
     RenderPasses.push_back(SkyRenderPass);
     RenderPasses.push_back(ToonOutlineRenderPass);
 	RenderPasses.push_back(OpaqueRenderPass);
@@ -229,6 +234,12 @@ void FRenderPipeline::Release()
     {
         DepthLessRenderPass->Release();
         DepthLessRenderPass.reset();
+    }
+
+    if (DepthPrepassRenderPass)
+    {
+        DepthPrepassRenderPass->Release();
+        DepthPrepassRenderPass.reset();
     }
 
     if (PostProcessOutlineRenderPass)

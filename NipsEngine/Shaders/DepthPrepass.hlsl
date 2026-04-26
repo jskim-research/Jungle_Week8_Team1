@@ -9,3 +9,7 @@ float4 DepthPrepassVS(VSInput input) : SV_POSITION
 {
     return ApplyMVP(input.Position);
 }
+
+void DepthPrepassPS()
+{
+}
