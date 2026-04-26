@@ -328,8 +328,8 @@ float3 ApplyShadow(FUberSurfaceData Surface, float3 ColorAfterLighting)
     
     float ShadowFactor = (ShadowLightDepth >= CurrentDepth) ? 1.0 : 0.0;
     
-    // return ColorAfterLighting * ShadowFactor;
-    return float3(ShadowLightDepth, ShadowLightDepth, ShadowLightDepth);
+    return ColorAfterLighting * ShadowFactor;
+    // return float3(ShadowLightDepth, ShadowLightDepth, ShadowLightDepth);
     // return float3(CurrentDepth, CurrentDepth, CurrentDepth);
     // return float3(ShadowUV, 0);
 }

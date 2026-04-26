@@ -328,20 +328,12 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 
             FVector Eye = Light.Position;
             FVector Target = Eye + Light.Direction;
-
             FVector Up = FVector(0, 0, 1);
 
-            // Z-up과 너무 평행할 때
             if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
             {
-                Up = FVector(1, 0, 0);
+                Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
             }
-
-            // Up이 LightDir과 수직인지 보장
-            FVector Right = FVector::CrossProduct(Up, LightDir);
-            Right.Normalize();
-            Up = FVector::CrossProduct(LightDir, Right);
-            Up.Normalize();
 
             ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
             ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
@@ -352,7 +344,7 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
             ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
                 FovRad,
                 1.0f,        // 정사각형 섀도우 맵
-                0.1f,        // Near
+                1.0f,        // Near
                 Light.Radius // Far = 라이트 반경
             );
 
