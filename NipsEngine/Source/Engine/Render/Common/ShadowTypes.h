@@ -53,17 +53,18 @@ enum class EShadowAllocationMode
               // engine-critical shadow에 사용.
 };
 
+// GPU에 그리는 최소 단위 (draw 1회)
 struct FShadowSlice
 {
     EShadowSliceType Type;
-    // FShadowMap 의 Cascade Index => Cascades[Index] 가 LightViewProj 등 보관
-    uint32 Index; // Cascade / Face / Atlas slot index (Type 에 따라 분기)
+	// FShadowMap.Views[Index] (e.g., Cubemap 일 경우 6개)
+    uint32 Index; 
 
     FVector2 UVOffset;
     FVector2 UVScale;
 };
 
-struct FCascadeData
+struct FShadowViewInfo
 {
     FMatrix LightView;
     FMatrix LightProjection;
@@ -73,6 +74,9 @@ struct FCascadeData
 	else if (depth < split[1]) use cascade 1;
 	else if (depth < split[2]) use cascade 2;
 	else use cascade 3;
+
+	Cascade 랑 Cube View Info 들을 합치면서 View Info 에 병합됨
+	CSM 을 따로 안 쓰면 SplitDepth = Far;
 	*/
     float SplitDepth;
 };
@@ -80,7 +84,7 @@ struct FCascadeData
 struct FShadowMap
 {
     // 기본 1개
-    std::vector<FCascadeData> Cascades;
+    std::vector<FShadowViewInfo> Views;
 
     // 소유권은 Renderer Resource Pool 이 가짐
     FShadowResource* Resource;

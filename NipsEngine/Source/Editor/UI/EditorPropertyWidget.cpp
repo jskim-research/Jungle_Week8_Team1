@@ -713,7 +713,6 @@ void FEditorPropertyWidget::RenderLightPreview()
     ImTextureID TexID = reinterpret_cast<ImTextureID>(
         const_cast<ID3D11ShaderResourceView*>(SRV));
 
-    // 패널 너비에 맞춰 16:9 비율로 크기 조정
     float PanelWidth = ImGui::GetContentRegionAvail().x;
     ImGui::Image(TexID, ImVec2(PanelWidth, PanelWidth));
     ImGui::Spacing();

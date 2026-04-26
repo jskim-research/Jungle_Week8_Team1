@@ -17,9 +17,9 @@ protected:
 
 private:
     bool MakeShadowMap(const FRenderPassContext* Context, const FShadowRequest& Req, FShadowMap& OutShadowMap);
-	// Light VP, Split Depth 정보 반환
-	// CSM 을 안 쓰는 경우 length = 1
-    bool BuildCascades(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FCascadeData>& OutCascadeDataArray);
+	// View 정보 (Light View, Projection, Split Depth) 반환
+	// 예를 들어 Cubemap 인 경우 6개
+    bool BuildViews(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowViewInfo>& OutViewInfoArray);
 	// Cascade, Cubemap Index, Atlas Slot 등 Map 별 정보 반환
 	bool BuildSlices(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowSlice>& OutShadowSlices);
     // Desc에 맞는 적절한 Resource 반환
