@@ -6,57 +6,57 @@ REGISTER_FACTORY(UActorComponent)
 
 void UActorComponent::BeginPlay()
 {
-    if (bAutoActivate)
-    {
-        Activate();
-    }
+	if (bAutoActivate)
+	{
+		Activate();
+	}
 }
 
 void UActorComponent::Activate()
 {
-    bCanEverTick = true;
+	bCanEverTick = true;
 }
 
 void UActorComponent::Deactivate()
 {
-    bCanEverTick = false;
+	bCanEverTick = false;
 }
 
 void UActorComponent::ExecuteTick(float DeltaTime)
 {
-    if (bCanEverTick == false || bIsActive == false)
-    {
-        return;
-    }
+	if (bCanEverTick == false || bIsActive == false)
+	{
+		return;
+	}
 
-    TickComponent(DeltaTime);
+	TickComponent(DeltaTime);
 }
 
 void UActorComponent::SetActive(bool bNewActive)
 {
-    if (bNewActive == bIsActive)
-    {
-        return;
-    }
+	if (bNewActive == bIsActive)
+	{
+		return;
+	}
 
-    bIsActive = bNewActive;
+	bIsActive = bNewActive;
 
-    if (bIsActive)
-    {
-        Activate();
-    }
-    else
-    {
-        Deactivate();
-    }
+	if (bIsActive)
+	{
+		Activate();
+	}
+	else
+	{
+		Deactivate();
+	}
 }
 
 void UActorComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
 {
-    // OutProps.push_back({"Active", EPropertyType::Bool, &bIsActive});
-    // OutProps.push_back({"Auto Activate", EPropertyType::Bool, &bAutoActivate});
-    OutProps.push_back({"Enable Tick", EPropertyType::Bool, &bCanEverTick});
-    OutProps.push_back({"Editor Only", EPropertyType::Bool, &bIsEditorOnly});
+	// OutProps.push_back({"Active", EPropertyType::Bool, &bIsActive});
+	// OutProps.push_back({"Auto Activate", EPropertyType::Bool, &bAutoActivate});
+	OutProps.push_back({"Enable Tick", EPropertyType::Bool, &bCanEverTick});
+	OutProps.push_back({"Editor Only", EPropertyType::Bool, &bIsEditorOnly});
 }
 
 void UActorComponent::Serialize(FArchive& Ar)

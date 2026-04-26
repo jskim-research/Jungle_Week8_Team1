@@ -22,16 +22,16 @@ UDecalComponent::UDecalComponent()
 	Mat->RasterizerType = ERasterizerType::SolidBackCull;
 	Mat->SamplerType = ESamplerType::EST_Linear;
 
-    bEnableCull = false;
+	bEnableCull = false;
 }
 
 // Material 포인터는 프로퍼티 시스템에 노출되지 않으므로 직접 복사합니다.
 // LifeTime 은 런타임 상태이므로 복사하지 않습니다 (BeginPlay 에서 0 으로 초기화).
 void UDecalComponent::PostDuplicate(UObject* Original)
 {
-    UPrimitiveComponent::PostDuplicate(Original);
+	UPrimitiveComponent::PostDuplicate(Original);
 
-    const UDecalComponent* Orig = Cast<UDecalComponent>(Original);
+	const UDecalComponent* Orig = Cast<UDecalComponent>(Original);
 	SetMaterial(Orig->GetMaterial()); // 얕은 복사 — ResourceManager 가 소유
 }
 

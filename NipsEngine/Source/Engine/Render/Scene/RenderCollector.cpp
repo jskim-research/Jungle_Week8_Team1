@@ -123,15 +123,15 @@ namespace
 		switch (PrimitiveComponent->GetPrimitiveType())
 		{
 		case EPrimitiveType::EPT_Billboard:
-        {
-            const UBillboardComponent* BillboardComponent = static_cast<const UBillboardComponent*>(PrimitiveComponent);
-            return BuildQuadAABB(UBillboardComponent::MakeBillboardWorldMatrix(
-                BillboardComponent->GetWorldLocation(),
-                FVector(0.00f, BillboardComponent->GetWidth(), BillboardComponent->GetHeight()),
-                RenderBus.GetCameraForward(),
-                RenderBus.GetCameraRight(),
-                RenderBus.GetCameraUp()));
-        }
+		{
+			const UBillboardComponent* BillboardComponent = static_cast<const UBillboardComponent*>(PrimitiveComponent);
+			return BuildQuadAABB(UBillboardComponent::MakeBillboardWorldMatrix(
+				BillboardComponent->GetWorldLocation(),
+				FVector(0.00f, BillboardComponent->GetWidth(), BillboardComponent->GetHeight()),
+				RenderBus.GetCameraForward(),
+				RenderBus.GetCameraRight(),
+				RenderBus.GetCameraUp()));
+		}
 		case EPrimitiveType::EPT_Text:
 		{
 			const UTextRenderComponent* TextComp = static_cast<const UTextRenderComponent*>(PrimitiveComponent);
@@ -248,7 +248,7 @@ void FRenderCollector::CollectWorld(UWorld* World, const FShowFlags& ShowFlags, 
 			}
 
 			++LastCullingStats.FallbackPassedPrimitiveCount;
-            CollectFromComponent(Primitive, ShowFlags, ViewMode, RenderBus, World->GetWorldType());
+			CollectFromComponent(Primitive, ShowFlags, ViewMode, RenderBus, World->GetWorldType());
 		}
 	}
 }
@@ -266,12 +266,12 @@ void FRenderCollector::ResetDecalStats()
 // 조명을 Frustum Culling을 통해 수집한다.
 void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const FFrustum* ViewFrustum)
 {
-    const TArray<FLightSlot>& LightSlots = World->GetWorldLightSlots();
+	const TArray<FLightSlot>& LightSlots = World->GetWorldLightSlots();
 
 	for (const FLightSlot& Slot : LightSlots)
 	{
-        if (!Slot.bAlive || !Slot.LightData)
-            continue;
+		if (!Slot.bAlive || !Slot.LightData)
+			continue;
 
 		const ULightComponent* LightComponent = Cast<ULightComponent>(Slot.LightData);
 		if (LightComponent == nullptr || !LightComponent->IsVisible())
@@ -300,13 +300,13 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 			RenderBus.AddLight(RenderLight);
 
 			// TODO: PIE에서도 화살표를 보여주고 있음.. PIE 월드를 감지할 필요가 있다.
-            LineBatcher->AddDirectionalLight(
-                LightComponent->GetWorldLocation(),
-                RenderLight.Direction * -1.0f,
-                LightComponent->GetRightVector(),
+			LineBatcher->AddDirectionalLight(
+				LightComponent->GetWorldLocation(),
+				RenderLight.Direction * -1.0f,
+				LightComponent->GetRightVector(),
 				LightComponent->GetLightColor().ToVector4()
 			);
-            break;
+			break;
 		}
 
 		case ELightType::LightType_Point:
@@ -409,7 +409,7 @@ void FRenderCollector::CollectSelection(const TArray<AActor*>& SelectedActors, c
 
 		UMaterial* Material = Cast<UMaterial>(PostProcessCmd.Material);
 		Material->SetVector2("OutlineViewportSize", RenderBus.GetViewportSize());
-        Material->SetVector2("OutlineViewportOrigin", RenderBus.GetViewportOrigin());
+		Material->SetVector2("OutlineViewportOrigin", RenderBus.GetViewportOrigin());
 		Material->DepthStencilType = EDepthStencilType::Default;
 		Material->RasterizerType = ERasterizerType::SolidBackCull;
 		Material->BlendType = EBlendType::AlphaBlend;
@@ -595,48 +595,48 @@ bool FRenderCollector::CollectFromSelectedActor(AActor* Actor, const FShowFlags&
 		CollectBVHInternalNodeAABBs(primitiveComponent, ShowFlags, RenderBus, SeenBVHNodeIndices);
 	}
 
-    // 선택된 Light Components의 Bounding 시각화
-    for (UActorComponent* Component : Actor->GetComponents())
-    {
-        const ULightComponent* LightComponent = Cast<ULightComponent>(Component);
-        if (LightComponent == nullptr || !LightComponent->IsVisible())
-        {
-            continue;
-        }
+	// 선택된 Light Components의 Bounding 시각화
+	for (UActorComponent* Component : Actor->GetComponents())
+	{
+		const ULightComponent* LightComponent = Cast<ULightComponent>(Component);
+		if (LightComponent == nullptr || !LightComponent->IsVisible())
+		{
+			continue;
+		}
 
-        switch (LightComponent->GetLightType())
-        {
-        case ELightType::LightType_Directional:
-        case ELightType::LightType_AmbientLight:
-        {
-            break;
-        }
+		switch (LightComponent->GetLightType())
+		{
+		case ELightType::LightType_Directional:
+		case ELightType::LightType_AmbientLight:
+		{
+			break;
+		}
 
-        case ELightType::LightType_Point:
-        {
-            const UPointLightComponent* PointLightComponent = Cast<UPointLightComponent>(LightComponent);
-            LineBatcher->AddPointLight(
-                PointLightComponent->GetWorldLocation(),
-                PointLightComponent->GetAttenuationRadius(),
-                PointLightComponent->GetRightVector(),
-                PointLightComponent->GetUpVector());
-            break;
-        }
+		case ELightType::LightType_Point:
+		{
+			const UPointLightComponent* PointLightComponent = Cast<UPointLightComponent>(LightComponent);
+			LineBatcher->AddPointLight(
+				PointLightComponent->GetWorldLocation(),
+				PointLightComponent->GetAttenuationRadius(),
+				PointLightComponent->GetRightVector(),
+				PointLightComponent->GetUpVector());
+			break;
+		}
 
-        case ELightType::LightType_Spot:
-        {
-            const USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(LightComponent);
-            LineBatcher->AddSpotLight(
-                SpotLightComponent->GetWorldLocation(),
-                SpotLightComponent->GetUpVector() * -1.0f,
-                SpotLightComponent->GetRightVector() * -1.0f,
-                SpotLightComponent->GetAttenuationRadius(),
-                SpotLightComponent->GetInnerConeAngle(),
-                SpotLightComponent->GetOuterConeAngle());
-            break;
-        }
-        }
-    }
+		case ELightType::LightType_Spot:
+		{
+			const USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(LightComponent);
+			LineBatcher->AddSpotLight(
+				SpotLightComponent->GetWorldLocation(),
+				SpotLightComponent->GetUpVector() * -1.0f,
+				SpotLightComponent->GetRightVector() * -1.0f,
+				SpotLightComponent->GetAttenuationRadius(),
+				SpotLightComponent->GetInnerConeAngle(),
+				SpotLightComponent->GetOuterConeAngle());
+			break;
+		}
+		}
+	}
 
 	return bHasSelectionMask;
 }
@@ -668,23 +668,23 @@ void FRenderCollector::CollectFromComponent(UPrimitiveComponent* Primitive, cons
 		if (!StaticMesh || !StaticMesh->HasValidMeshData()) return;
 
 		// 1. 카메라 정보 및 AABB 가져오기
-        FVector CameraPos = RenderBus.GetCameraPosition();
-        FMatrix ProjMatrix = RenderBus.GetProj();
-        FAABB Bounds = StaticMeshComp->GetWorldAABB();
-        const int32 ValidLODCount = StaticMesh->GetValidLODCount();
+		FVector CameraPos = RenderBus.GetCameraPosition();
+		FMatrix ProjMatrix = RenderBus.GetProj();
+		FAABB Bounds = StaticMeshComp->GetWorldAABB();
+		const int32 ValidLODCount = StaticMesh->GetValidLODCount();
 
-        // 2. LOD 레벨 계산
+		// 2. LOD 레벨 계산
 		int32 SelectedLOD = 0; // 기본값은 항상 원본(최고 화질)
-        if (ShowFlags.bEnableLOD)
-        {
-            SelectedLOD = SelectLODLevel(CameraPos, Bounds, ProjMatrix, ValidLODCount);
-        }
+		if (ShowFlags.bEnableLOD)
+		{
+			SelectedLOD = SelectLODLevel(CameraPos, Bounds, ProjMatrix, ValidLODCount);
+		}
 
 		FMeshBuffer* MeshBuffer = MeshBufferManager.GetStaticMeshBuffer(StaticMesh, SelectedLOD);
-        if (!MeshBuffer) return;
+		if (!MeshBuffer) return;
 
-        const FStaticMesh* MeshData = StaticMesh->GetMeshData(SelectedLOD);
-        const TArray<FStaticMeshSection>& Sections = MeshData->Sections;
+		const FStaticMesh* MeshData = StaticMesh->GetMeshData(SelectedLOD);
+		const TArray<FStaticMeshSection>& Sections = MeshData->Sections;
 
 		for (int32 SectionIdx = 0; SectionIdx < static_cast<int32>(Sections.size()); ++SectionIdx)
 		{
@@ -717,17 +717,17 @@ void FRenderCollector::CollectFromComponent(UPrimitiveComponent* Primitive, cons
 
 			if (Material->GetEffectiveLightingModel() == ELightingModel::Toon)
 			{
-                FRenderCommand OutlineCmd = {};
-                OutlineCmd.Type = ERenderCommandType::ToonOutline;
-                OutlineCmd.MeshBuffer = MeshBuffer;
-                OutlineCmd.PerObjectConstants = FPerObjectConstants{
-                    Primitive->GetWorldMatrix()
-                };
-                OutlineCmd.SectionIndexStart = Section.StartIndex;
-                OutlineCmd.SectionIndexCount = Section.IndexCount;
-                OutlineCmd.Material = Material;
+				FRenderCommand OutlineCmd = {};
+				OutlineCmd.Type = ERenderCommandType::ToonOutline;
+				OutlineCmd.MeshBuffer = MeshBuffer;
+				OutlineCmd.PerObjectConstants = FPerObjectConstants{
+					Primitive->GetWorldMatrix()
+				};
+				OutlineCmd.SectionIndexStart = Section.StartIndex;
+				OutlineCmd.SectionIndexCount = Section.IndexCount;
+				OutlineCmd.Material = Material;
 
-                RenderBus.AddCommand(ERenderPass::ToonOutline, OutlineCmd);
+				RenderBus.AddCommand(ERenderPass::ToonOutline, OutlineCmd);
 			}
 		}
 
@@ -884,27 +884,27 @@ void FRenderCollector::CollectFromComponent(UPrimitiveComponent* Primitive, cons
 		break;
 	}
 
-    case EPrimitiveType::EPT_FOG:
-    {
-        if (!ShowFlags.bFog)
-            return;
-        UHeightFogComponent* HeightFogComp = static_cast<UHeightFogComponent*>(Primitive);
+	case EPrimitiveType::EPT_FOG:
+	{
+		if (!ShowFlags.bFog)
+			return;
+		UHeightFogComponent* HeightFogComp = static_cast<UHeightFogComponent*>(Primitive);
 
-        FRenderCommand Cmd = {};
-        Cmd.Type = ERenderCommandType::Primitive;
-        Cmd.Constants.Fog.FogDensity = HeightFogComp->GetFogDensity();
-        Cmd.Constants.Fog.FogColor = HeightFogComp->GetFogInscatteringColor();
-        Cmd.Constants.Fog.HeightFalloff = HeightFogComp->GetHeightFalloff();
-        Cmd.Constants.Fog.FogHeight = HeightFogComp->GetFogHeight();
-        Cmd.Constants.Fog.FogStartDistance = HeightFogComp->GetFogStartDistance();
-        Cmd.Constants.Fog.FogMaxOpacity = HeightFogComp->GetFogMaxOpacity();
-        Cmd.Constants.Fog.FogCutoffDistance = HeightFogComp->GetFogCutoffDistance();
-        //Cmd.BlendState = EBlendState::AlphaBlend;
-        //Cmd.DepthStencilState = EDepthStencilState::Default;
+		FRenderCommand Cmd = {};
+		Cmd.Type = ERenderCommandType::Primitive;
+		Cmd.Constants.Fog.FogDensity = HeightFogComp->GetFogDensity();
+		Cmd.Constants.Fog.FogColor = HeightFogComp->GetFogInscatteringColor();
+		Cmd.Constants.Fog.HeightFalloff = HeightFogComp->GetHeightFalloff();
+		Cmd.Constants.Fog.FogHeight = HeightFogComp->GetFogHeight();
+		Cmd.Constants.Fog.FogStartDistance = HeightFogComp->GetFogStartDistance();
+		Cmd.Constants.Fog.FogMaxOpacity = HeightFogComp->GetFogMaxOpacity();
+		Cmd.Constants.Fog.FogCutoffDistance = HeightFogComp->GetFogCutoffDistance();
+		//Cmd.BlendState = EBlendState::AlphaBlend;
+		//Cmd.DepthStencilState = EDepthStencilState::Default;
 
-        RenderBus.AddCommand(ERenderPass::Fog, Cmd);
-        break;
-    }
+		RenderBus.AddCommand(ERenderPass::Fog, Cmd);
+		break;
+	}
 	case EPrimitiveType::EPT_SKY:
 	{
 		if (!RenderBus.GetCommands(ERenderPass::Sky).empty())

@@ -149,27 +149,27 @@ constexpr uint32 MaxFogLayerCount = 32;
 struct FFogConstants
 {
 	FVector4 FogColor;
-    float    FogDensity;
-    float    HeightFalloff;
-    float        FogHeight;
-    float        FogStartDistance;
-    float        FogCutoffDistance;
-    float        FogMaxOpacity;
-    float        Padding[2];
+	float    FogDensity;
+	float    HeightFalloff;
+	float        FogHeight;
+	float        FogStartDistance;
+	float        FogCutoffDistance;
+	float        FogMaxOpacity;
+	float        Padding[2];
 };
 
 struct FFogPassConstants
 {
-    uint32 FogCount = 0;
-    float  Padding0[3] = {0.0f, 0.0f, 0.0f};
-    FFogConstants Layers[MaxFogLayerCount] = {};
+	uint32 FogCount = 0;
+	float  Padding0[3] = {0.0f, 0.0f, 0.0f};
+	FFogConstants Layers[MaxFogLayerCount] = {};
 };
 
 struct FFXAAConstants
 {
-    float InvResolution[2]; // (1/Width, 1/Height)
-    uint32 bEnabled;       // 0: off, 1: on
-    float  Padding;
+	float InvResolution[2]; // (1/Width, 1/Height)
+	uint32 bEnabled;       // 0: off, 1: on
+	float  Padding;
 };
 
 struct FSkyConstants
@@ -189,19 +189,19 @@ struct FSkyConstants
 
 struct alignas(16) FGPULight
 {
-    uint32 Type = static_cast<uint32>(ELightType::Max);
-    float  Intensity = 0.0f;
-    float  Radius = 0.0f;
-    float  FalloffExponent = 1.0f;
+	uint32 Type = static_cast<uint32>(ELightType::Max);
+	float  Intensity = 0.0f;
+	float  Radius = 0.0f;
+	float  FalloffExponent = 1.0f;
 
-    FVector Color = FVector::ZeroVector;
-    float   SpotInnerCos = 0.0f;
+	FVector Color = FVector::ZeroVector;
+	float   SpotInnerCos = 0.0f;
 
-    FVector Position = FVector::ZeroVector;
-    float   SpotOuterCos = 0.0f;
+	FVector Position = FVector::ZeroVector;
+	float   SpotOuterCos = 0.0f;
 
-    FVector Direction = FVector::ZeroVector;
-    float   Padding0 = 0.0f;
+	FVector Direction = FVector::ZeroVector;
+	float   Padding0 = 0.0f;
 };
 
 using FRenderLight = FGPULight;
@@ -225,9 +225,9 @@ struct FRenderCommand
 		FFontConstants Font;
 		FSubUVConstants SubUV;
 		FBillboardConstants Billboard;
-        FSkyConstants Sky;
-        FFogConstants Fog;
-        FFXAAConstants FXAA;
+		FSkyConstants Sky;
+		FFogConstants Fog;
+		FFXAAConstants FXAA;
 	} Constants;
 
 	ERenderCommandType Type = ERenderCommandType::Primitive;

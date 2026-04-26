@@ -6,7 +6,7 @@
 
 struct FTopoUVBounds 
 {
-    float MinU, MaxU, MinV, MaxV;
+	float MinU, MaxU, MinV, MaxV;
 };
 
 struct FTopologicalVertex

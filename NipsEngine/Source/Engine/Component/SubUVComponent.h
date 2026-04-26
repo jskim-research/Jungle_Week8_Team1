@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "PrimitiveComponent.h"
 #include "Core/ResourceTypes.h"
@@ -40,9 +40,9 @@ public:
 	float GetWidth()  const { return Width; }
 	float GetHeight() const { return Height; }
 
-    static FMatrix MakeBillboardWorldMatrix(const FVector& WorldLocation, const FVector& WorldScale, const FVector& CameraForward, const FVector& CameraRight, const FVector& CameraUp);
+	static FMatrix MakeBillboardWorldMatrix(const FVector& WorldLocation, const FVector& WorldScale, const FVector& CameraForward, const FVector& CameraRight, const FVector& CameraUp);
 
-    // --- Property / Serialization ---
+	// --- Property / Serialization ---
 	void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
 	void PostEditProperty(const char* PropertyName) override;
 

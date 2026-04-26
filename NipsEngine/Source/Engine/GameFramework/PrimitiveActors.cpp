@@ -73,8 +73,8 @@ void ASubUVActor::InitDefaultComponents()
 {
 	SetTickInEditor(true); // Editor Tick을 받도록 변경
 
-    auto* SubUV = AddComponent<USubUVComponent>();
-    SetRootComponent(SubUV);
+	auto* SubUV = AddComponent<USubUVComponent>();
+	SetRootComponent(SubUV);
 	SubUV->SetParticle(FName("Explosion"));
 	SubUV->SetSpriteSize(2.0f, 2.0f);
 	SubUV->SetFrameRate(30.f);

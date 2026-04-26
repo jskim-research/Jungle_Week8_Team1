@@ -12,23 +12,23 @@ class SSplitterH;
 class SSplitterCross : public SWidget
 {
 public:
-    void SetSplitterV(SSplitterV* InV) { SplitterV = InV; }
-    void SetSplitterH(SSplitterH* InH) { SplitterH = InH; }
+	void SetSplitterV(SSplitterV* InV) { SplitterV = InV; }
+	void SetSplitterH(SSplitterH* InH) { SplitterH = InH; }
 
-    // SSplitterV 가로 바 ∩ SSplitterH 세로 바 의 교차 영역을 반환합니다.
-    FRect GetCrossRect() const;
+	// SSplitterV 가로 바 ∩ SSplitterH 세로 바 의 교차 영역을 반환합니다.
+	FRect GetCrossRect() const;
 
-    SWidget* HitTest(int32 X, int32 Y) override;
+	SWidget* HitTest(int32 X, int32 Y) override;
 
-    bool OnMouseButtonDown(int32 Button, int32 X, int32 Y) override;
-    bool OnMouseMove(int32 X, int32 Y) override;
-    bool OnMouseButtonUp(int32 Button, int32 X, int32 Y) override;    
+	bool OnMouseButtonDown(int32 Button, int32 X, int32 Y) override;
+	bool OnMouseMove(int32 X, int32 Y) override;
+	bool OnMouseButtonUp(int32 Button, int32 X, int32 Y) override;    
 
-    bool IsDragging() const { return bDragging; }
+	bool IsDragging() const { return bDragging; }
 
 private:
-    SSplitterV* SplitterV = nullptr;
-    SSplitterH* SplitterH = nullptr;  // TopSplitterH (BotSplitterH 와 linked)
+	SSplitterV* SplitterV = nullptr;
+	SSplitterH* SplitterH = nullptr;  // TopSplitterH (BotSplitterH 와 linked)
 
-    bool bDragging = false;
+	bool bDragging = false;
 };

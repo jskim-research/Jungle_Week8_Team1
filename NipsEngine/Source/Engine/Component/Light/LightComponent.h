@@ -8,61 +8,61 @@
 class ULightComponentBase : public USceneComponent
 {
 public:
-    DECLARE_CLASS(ULightComponentBase, USceneComponent)
+	DECLARE_CLASS(ULightComponentBase, USceneComponent)
 
-    ULightComponentBase() = default;
-    ~ULightComponentBase() override = default;
+	ULightComponentBase() = default;
+	~ULightComponentBase() override = default;
 	
 	void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
-    void PostEditProperty(const char* PropertyName) override;
+	void PostEditProperty(const char* PropertyName) override;
 
-    void PostDuplicate(UObject* Original) override;
+	void PostDuplicate(UObject* Original) override;
 
-    void Serialize(FArchive& Ar) override;
+	void Serialize(FArchive& Ar) override;
 
-    void BeginPlay() override;
-    void EndPlay() override;
+	void BeginPlay() override;
+	void EndPlay() override;
 
-    void OnRegister() override;
-    void OnUnregister() override;
+	void OnRegister() override;
+	void OnUnregister() override;
 
 public:
-    const FColor& GetLightColor() const { return LightColor; }
-    float GetIntensity() const { return Intensity; }
-    bool IsVisible() const { return bVisible; }
+	const FColor& GetLightColor() const { return LightColor; }
+	float GetIntensity() const { return Intensity; }
+	bool IsVisible() const { return bVisible; }
 	bool IsCastShadows() const { return bCastShadows; } // DoesCastShadows() in UE5, 통일성을 위해 Is 유지
 
-    void SetLightColor(const FColor& InColor) { LightColor = InColor; }
-    void SetIntensity(float InIntensity) { Intensity = InIntensity; }
-    void SetVisible(bool bInVisible) { bVisible = bInVisible; }
+	void SetLightColor(const FColor& InColor) { LightColor = InColor; }
+	void SetIntensity(float InIntensity) { Intensity = InIntensity; }
+	void SetVisible(bool bInVisible) { bVisible = bInVisible; }
 	
 	const FLightHandle& GetLightHandle() const { return LightHandle; }
-    void SetLightHandle(const FLightHandle& InLightHandle) { LightHandle = InLightHandle; }
+	void SetLightHandle(const FLightHandle& InLightHandle) { LightHandle = InLightHandle; }
 
 private:
-    FColor LightColor = FColor(1.0f, 1.0f, 1.0f, 1.0f);
-    float Intensity = 1.0f;
-    bool bVisible = true;
+	FColor LightColor = FColor(1.0f, 1.0f, 1.0f, 1.0f);
+	float Intensity = 1.0f;
+	bool bVisible = true;
 	bool bCastShadows = true;
 
 	FLightHandle LightHandle;
-    UBillboardComponent* VisualizationComponent = nullptr;
+	UBillboardComponent* VisualizationComponent = nullptr;
 
 protected:
-    virtual FString GetVisualizationTexturePath() const { return {}; }
+	virtual FString GetVisualizationTexturePath() const { return {}; }
 };
 
 class ULightComponent : public ULightComponentBase
 {
 public:
-    DECLARE_CLASS(ULightComponent, ULightComponentBase)
+	DECLARE_CLASS(ULightComponent, ULightComponentBase)
 
-    ULightComponent();
-    ~ULightComponent() override = default;
+	ULightComponent();
+	~ULightComponent() override = default;
 
 	void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
-    void Serialize(FArchive& Ar) override;
-    void PostDuplicate(UObject* Original) override;
+	void Serialize(FArchive& Ar) override;
+	void PostDuplicate(UObject* Original) override;
 
 	float GetShadowResolutionScale() const { return ShadowResolutionScale; }
 	float GetShadowBias() const { return ShadowBias; }
@@ -70,13 +70,13 @@ public:
 	float GetShadowSharpen() const { return ShadowSharpen; }
 
 public:
-    ELightType GetLightType() const { return LightType; }
+	ELightType GetLightType() const { return LightType; }
 
 protected:
-    void SetLightType(ELightType InLightType) { LightType = InLightType; }
+	void SetLightType(ELightType InLightType) { LightType = InLightType; }
 
 private:
-    ELightType LightType = ELightType::Max;
+	ELightType LightType = ELightType::Max;
 
 	float ShadowResolutionScale = 1.0f;
 	float ShadowBias = 0.5f;

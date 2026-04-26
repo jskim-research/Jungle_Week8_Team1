@@ -7,19 +7,19 @@
 
 struct FFrustum
 {
-    FPlane Planes[6];
+	FPlane Planes[6];
 
-    enum class EFrustumIntersectResult
-    {
-        Outside,
-        Intersect,
-        Inside
-    };
+	enum class EFrustumIntersectResult
+	{
+		Outside,
+		Intersect,
+		Inside
+	};
 
-    void UpdateFromCamera(const FMatrix& View, const FMatrix& Projection);
-    void UpdateFromCamera(const FMatrix& ViewProjection);
+	void UpdateFromCamera(const FMatrix& View, const FMatrix& Projection);
+	void UpdateFromCamera(const FMatrix& ViewProjection);
 
-    EFrustumIntersectResult Intersects(const FAABB& Box) const;
+	EFrustumIntersectResult Intersects(const FAABB& Box) const;
 	bool IntersectsBoundingSphere(const FVector& Center, float Radius) const;
-    bool Contains(const FVector& Point) const;
+	bool Contains(const FVector& Point) const;
 };

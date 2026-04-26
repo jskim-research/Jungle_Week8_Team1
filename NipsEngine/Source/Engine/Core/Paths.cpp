@@ -3,51 +3,51 @@
 
 std::wstring FPaths::RootDir()
 {
-    static std::wstring Cached;
-    if (Cached.empty())
-    {
-        WCHAR Buffer[MAX_PATH];
-        GetModuleFileNameW(nullptr, Buffer, MAX_PATH);
-        std::filesystem::path ExeDir = std::filesystem::path(Buffer).parent_path();
+	static std::wstring Cached;
+	if (Cached.empty())
+	{
+		WCHAR Buffer[MAX_PATH];
+		GetModuleFileNameW(nullptr, Buffer, MAX_PATH);
+		std::filesystem::path ExeDir = std::filesystem::path(Buffer).parent_path();
 
-        // 1. 배포 환경: exe 파일과 같은 폴더에 바로 Shaders/ 가 있는 경우
-        if (std::filesystem::exists(ExeDir / L"Shaders"))
-        {
-            Cached = ExeDir.generic_wstring() + L"/";
-        }
-        else
-        {
-            // 2. 개발 환경: 빌드 깊이에 무관하게 exe 상위를 루트까지 순회하며 탐색
-            //    (Bin/ObjViewer/, x64/Release/, Bin/Debug/x64/ 등 깊이가 달라도 대응)
-            bool bFound = false;
-            std::filesystem::path SearchDir = ExeDir;
+		// 1. 배포 환경: exe 파일과 같은 폴더에 바로 Shaders/ 가 있는 경우
+		if (std::filesystem::exists(ExeDir / L"Shaders"))
+		{
+			Cached = ExeDir.generic_wstring() + L"/";
+		}
+		else
+		{
+			// 2. 개발 환경: 빌드 깊이에 무관하게 exe 상위를 루트까지 순회하며 탐색
+			//    (Bin/ObjViewer/, x64/Release/, Bin/Debug/x64/ 등 깊이가 달라도 대응)
+			bool bFound = false;
+			std::filesystem::path SearchDir = ExeDir;
 
-            while (SearchDir.has_parent_path())
-            {
-                SearchDir = SearchDir.parent_path();
+			while (SearchDir.has_parent_path())
+			{
+				SearchDir = SearchDir.parent_path();
 
-                if (std::filesystem::exists(SearchDir / L"Shaders"))
-                {
-                    Cached = SearchDir.generic_wstring() + L"/";
-                    bFound = true;
-                    break;
-                }
+				if (std::filesystem::exists(SearchDir / L"Shaders"))
+				{
+					Cached = SearchDir.generic_wstring() + L"/";
+					bFound = true;
+					break;
+				}
 
-                // 드라이브 루트까지 올라갔으면 중단
-                if (SearchDir == SearchDir.root_path())
-                {
-                    break;
-                }
-            }
+				// 드라이브 루트까지 올라갔으면 중단
+				if (SearchDir == SearchDir.root_path())
+				{
+					break;
+				}
+			}
 
-            // 3. 어디서도 못 찾으면 CWD Fallback
-            if (!bFound)
-            {
-                Cached = std::filesystem::current_path().generic_wstring() + L"/";
-            }
-        }
-    }
-    return Cached;
+			// 3. 어디서도 못 찾으면 CWD Fallback
+			if (!bFound)
+			{
+				Cached = std::filesystem::current_path().generic_wstring() + L"/";
+			}
+		}
+	}
+	return Cached;
 }
 
 // 나머지 함수는 동일 ...
@@ -145,8 +145,8 @@ std::string FPaths::ToAbsoluteString(const std::wstring &RelativePath)
 
 FString FPaths::Normalize(const FString& Path)
 {
-    std::wstring WidePath = ToWide(Path);
-    std::filesystem::path NormalizedPath(WidePath);
-    std::wstring NormalizedWide = NormalizedPath.lexically_normal().generic_wstring();
-    return ToUtf8(NormalizedWide);
+	std::wstring WidePath = ToWide(Path);
+	std::filesystem::path NormalizedPath(WidePath);
+	std::wstring NormalizedWide = NormalizedPath.lexically_normal().generic_wstring();
+	return ToUtf8(NormalizedWide);
 }

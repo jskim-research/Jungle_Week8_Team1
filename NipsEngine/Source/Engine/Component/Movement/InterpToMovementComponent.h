@@ -17,8 +17,8 @@ public:
 	// Overrides
 	void				BeginPlay() override;
 	void				TickComponent(float DeltaTime) override;
-    void				GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
-    void				PostDuplicate(UObject* Original) override;
+	void				GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
+	void				PostDuplicate(UObject* Original) override;
 	float				GetMaxSpeed() const override { return 0; };
 
 	// Control Point Management

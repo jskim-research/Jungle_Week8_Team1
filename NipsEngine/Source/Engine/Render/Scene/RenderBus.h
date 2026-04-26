@@ -25,11 +25,11 @@ public:
 	// Getter, Setter
 	void SetViewProjection(const FMatrix& InView, const FMatrix& InProj);
 	void SetRenderSettings(const EViewMode NewViewMode, const FShowFlags NewShowFlags);
-    void SetCameraState(const FCameraState& InCameraState) { CameraState = InCameraState; }
+	void SetCameraState(const FCameraState& InCameraState) { CameraState = InCameraState; }
 
 	const FMatrix& GetView() const { return View; }
-    const FMatrix& GetProj() const { return Proj; }
-    const FCameraState& GetCameraState() const { return CameraState; }
+	const FMatrix& GetProj() const { return Proj; }
+	const FCameraState& GetCameraState() const { return CameraState; }
 	const FVector& GetCameraPosition() const { return CameraPosition;  }
 	const FVector& GetCameraForward() const { return CameraForward; }
 	const FVector& GetCameraUp() const { return CameraUp; }

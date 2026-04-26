@@ -30,7 +30,7 @@ void FEditorMeshLibrary::Initialize()
 		CreateRotationGizmo();
 	}
 
-    bIsInitialized = true;
+	bIsInitialized = true;
 }
 
 void FEditorMeshLibrary::CreateRotationGizmo()

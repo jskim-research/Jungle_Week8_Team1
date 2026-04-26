@@ -75,114 +75,114 @@ static EWorldType StringToWorldType(const string& Str)
 // ============================================================
 
 void FSceneSaveManager::SaveSceneAsJSON(const string& InSceneName, FWorldContext& WorldContext,
-                                        const FEditorCameraState* CameraState)
+										const FEditorCameraState* CameraState)
 {
-    using namespace json;
-    if (!WorldContext.World) return;
+	using namespace json;
+	if (!WorldContext.World) return;
 
-    string FinalName = InSceneName.empty() ? "Save_" + GetCurrentTimeStamp() : InSceneName;
-    std::wstring SceneDir = GetSceneDirectory();
-    std::filesystem::path FileDestination = std::filesystem::path(SceneDir) / (FPaths::ToWide(FinalName) + SceneExtension);
-    std::filesystem::create_directories(SceneDir);
+	string FinalName = InSceneName.empty() ? "Save_" + GetCurrentTimeStamp() : InSceneName;
+	std::wstring SceneDir = GetSceneDirectory();
+	std::filesystem::path FileDestination = std::filesystem::path(SceneDir) / (FPaths::ToWide(FinalName) + SceneExtension);
+	std::filesystem::create_directories(SceneDir);
 
-    JSON Root = json::Object();
-    Root[SceneKeys::Version] = 4;
-    Root[SceneKeys::Name] = FinalName;
-    Root[SceneKeys::ClassName] = WorldContext.World->GetTypeInfo()->name;
-    Root[SceneKeys::WorldType] = WorldTypeToString(WorldContext.WorldType);
-    Root[SceneKeys::PerspectiveCamera] = SerializeCameraState(CameraState);
-    Root[SceneKeys::Primitives] = SerializeWorldToPrimitives(WorldContext.World, WorldContext);
-    Root[SceneKeys::NextUUID] = static_cast<int>(EngineStatics::GetNextUUID());
+	JSON Root = json::Object();
+	Root[SceneKeys::Version] = 4;
+	Root[SceneKeys::Name] = FinalName;
+	Root[SceneKeys::ClassName] = WorldContext.World->GetTypeInfo()->name;
+	Root[SceneKeys::WorldType] = WorldTypeToString(WorldContext.WorldType);
+	Root[SceneKeys::PerspectiveCamera] = SerializeCameraState(CameraState);
+	Root[SceneKeys::Primitives] = SerializeWorldToPrimitives(WorldContext.World, WorldContext);
+	Root[SceneKeys::NextUUID] = static_cast<int>(EngineStatics::GetNextUUID());
 
-    std::ofstream File(FileDestination);
-    if (File.is_open()) {
-        File << Root.dump();
-        File.flush();
-        File.close();
-    }
+	std::ofstream File(FileDestination);
+	if (File.is_open()) {
+		File << Root.dump();
+		File.flush();
+		File.close();
+	}
 }
 
 json::JSON FSceneSaveManager::SerializeWorldToPrimitives(UWorld* World, const FWorldContext& Ctx)
 {
-    json::JSON Primitives = json::Object();
-    if (ULevel* PersistentLevel = World->GetPersistentLevel())
-    {
-        for (AActor* Actor : PersistentLevel->GetActors())
-        {
-            if (!Actor) continue;
-            if (USceneComponent* RootComp = Actor->GetRootComponent())
-            {
-                CollectComponentsFlat(RootComp, 0, Primitives);
-                //Primitives[std::to_string(RootComp->GetUUID())]["ActorClass"] = Actor->GetTypeInfo()->name;
-                CollectNonSceneComponents(Actor, Primitives);
-            }
-        }
-    }
-    return Primitives;
+	json::JSON Primitives = json::Object();
+	if (ULevel* PersistentLevel = World->GetPersistentLevel())
+	{
+		for (AActor* Actor : PersistentLevel->GetActors())
+		{
+			if (!Actor) continue;
+			if (USceneComponent* RootComp = Actor->GetRootComponent())
+			{
+				CollectComponentsFlat(RootComp, 0, Primitives);
+				//Primitives[std::to_string(RootComp->GetUUID())]["ActorClass"] = Actor->GetTypeInfo()->name;
+				CollectNonSceneComponents(Actor, Primitives);
+			}
+		}
+	}
+	return Primitives;
 }
 
 // 재귀 함수: Comp 및 모든 자손 컴포넌트를 OutPrimitives 에 평탄하게 수집
 // ParentID == 0 은 부모 없음(루트 컴포넌트)을 의미 (UUID는 1부터 시작)
 void FSceneSaveManager::CollectComponentsFlat(USceneComponent* Comp, uint32 ParentID, json::JSON& OutPrimitives)
 {
-    if (Comp->IsTransient()) { return; }
-    if (Comp->IsVisualizationComponent()) { return; }
+	if (Comp->IsTransient()) { return; }
+	if (Comp->IsVisualizationComponent()) { return; }
 
-    json::JSON PrimObj = json::Object();
+	json::JSON PrimObj = json::Object();
 
-    // 타입 이름 매핑
-    FString ClassName = Comp->GetTypeInfo()->name;
-    if (ClassName == "UStaticMeshComponent") ClassName = "StaticMeshComp";
-    PrimObj[SceneKeys::Type] = ClassName;
+	// 타입 이름 매핑
+	FString ClassName = Comp->GetTypeInfo()->name;
+	if (ClassName == "UStaticMeshComponent") ClassName = "StaticMeshComp";
+	PrimObj[SceneKeys::Type] = ClassName;
 
-    // 루트가 아닌 경우에만 ParentUUID 기록
-    if (ParentID != 0)
-        PrimObj[SceneKeys::ParentUUID] = static_cast<int>(ParentID);
+	// 루트가 아닌 경우에만 ParentUUID 기록
+	if (ParentID != 0)
+		PrimObj[SceneKeys::ParentUUID] = static_cast<int>(ParentID);
 
-    // 프로퍼티 기반 직렬화
-    TArray<FPropertyDescriptor> Descriptors;
-    Comp->GetEditableProperties(Descriptors);
-    for (const auto& Prop : Descriptors)
-    {
-        FString OutKey = Prop.Name;
-        if (strcmp(Prop.Name, "StaticMesh") == 0) OutKey = "ObjStaticMeshAsset";
-        PrimObj[OutKey] = SerializePropertyValue(Prop);
-    }
+	// 프로퍼티 기반 직렬화
+	TArray<FPropertyDescriptor> Descriptors;
+	Comp->GetEditableProperties(Descriptors);
+	for (const auto& Prop : Descriptors)
+	{
+		FString OutKey = Prop.Name;
+		if (strcmp(Prop.Name, "StaticMesh") == 0) OutKey = "ObjStaticMeshAsset";
+		PrimObj[OutKey] = SerializePropertyValue(Prop);
+	}
 
-    const uint32 MyUUID = Comp->GetUUID();
-    OutPrimitives[std::to_string(MyUUID)] = PrimObj;
+	const uint32 MyUUID = Comp->GetUUID();
+	OutPrimitives[std::to_string(MyUUID)] = PrimObj;
 
-    // 자식 컴포넌트 재귀 수집
-    for (USceneComponent* Child : Comp->GetChildren())
-        CollectComponentsFlat(Child, MyUUID, OutPrimitives);
+	// 자식 컴포넌트 재귀 수집
+	for (USceneComponent* Child : Comp->GetChildren())
+		CollectComponentsFlat(Child, MyUUID, OutPrimitives);
 }
 
 // Actor가 소유한 비씬 ActorComponent(MovementComponent 등)를 Primitives 맵에 직렬화한다.
 // OwnerRootUUID를 기록해 역직렬화 시 대응하는 Actor를 찾을 수 있도록 한다.
 void FSceneSaveManager::CollectNonSceneComponents(AActor* Actor, json::JSON& OutPrimitives)
 {
-    USceneComponent* RootComp = Actor->GetRootComponent();
-    if (!RootComp) return;
+	USceneComponent* RootComp = Actor->GetRootComponent();
+	if (!RootComp) return;
 
-    const uint32 RootUUID = RootComp->GetUUID();
+	const uint32 RootUUID = RootComp->GetUUID();
 
-    for (UActorComponent* Comp : Actor->GetComponents())
-    {
-        if (!Comp) continue;
-        if (Comp->IsA<USceneComponent>()) continue; // SceneComponent 트리는 이미 처리됨
+	for (UActorComponent* Comp : Actor->GetComponents())
+	{
+		if (!Comp) continue;
+		if (Comp->IsA<USceneComponent>()) continue; // SceneComponent 트리는 이미 처리됨
 		if (Comp->IsTransient()) continue; // 직렬화가 꺼진 컴포넌트는 저장하지 않음
 
-        json::JSON CompObj = json::Object();
-        CompObj[SceneKeys::Type] = Comp->GetTypeInfo()->name;
-        CompObj[SceneKeys::OwnerRootUUID] = static_cast<int>(RootUUID);
+		json::JSON CompObj = json::Object();
+		CompObj[SceneKeys::Type] = Comp->GetTypeInfo()->name;
+		CompObj[SceneKeys::OwnerRootUUID] = static_cast<int>(RootUUID);
 
-        TArray<FPropertyDescriptor> Descriptors;
-        Comp->GetEditableProperties(Descriptors);
-        for (const auto& Prop : Descriptors)
-            CompObj[Prop.Name] = SerializePropertyValue(Prop);
+		TArray<FPropertyDescriptor> Descriptors;
+		Comp->GetEditableProperties(Descriptors);
+		for (const auto& Prop : Descriptors)
+			CompObj[Prop.Name] = SerializePropertyValue(Prop);
 
-        OutPrimitives[std::to_string(Comp->GetUUID())] = CompObj;
-    }
+		OutPrimitives[std::to_string(Comp->GetUUID())] = CompObj;
+	}
 }
 
 /* @brief 현재 사용하지 않는 함수, 추후 Actor-Component 단위로 계층화를 시켜야 한다면 이쪽을 사용 */
@@ -272,13 +272,13 @@ json::JSON FSceneSaveManager::SerializePropertyValue(const FPropertyDescriptor& 
 		arr.append(static_cast<double>(v[2]));
 		return arr;
 	}
-    case EPropertyType::Color: {
-        float* v = static_cast<float*>(Prop.ValuePtr);
-        JSON arr = json::Array();
-        arr.append(static_cast<double>(v[0]));
-        arr.append(static_cast<double>(v[1]));
-        arr.append(static_cast<double>(v[2]));
-        return arr;
+	case EPropertyType::Color: {
+		float* v = static_cast<float*>(Prop.ValuePtr);
+		JSON arr = json::Array();
+		arr.append(static_cast<double>(v[0]));
+		arr.append(static_cast<double>(v[1]));
+		arr.append(static_cast<double>(v[2]));
+		return arr;
 	}
 	case EPropertyType::Vec4: {
 		float* v = static_cast<float*>(Prop.ValuePtr);
@@ -355,32 +355,32 @@ json::JSON FSceneSaveManager::SerializeCameraState(const FEditorCameraState* Cam
 
 void FSceneSaveManager::LoadSceneFromJSON(const string& filepath, FWorldContext& OutWorldContext, FEditorCameraState* OutCameraState)
 {
-    using json::JSON;
-    std::ifstream File(std::filesystem::path(FPaths::ToWide(filepath)));
-    if (!File.is_open()) return;
+	using json::JSON;
+	std::ifstream File(std::filesystem::path(FPaths::ToWide(filepath)));
+	if (!File.is_open()) return;
 
-    string FileContent((std::istreambuf_iterator<char>(File)), std::istreambuf_iterator<char>());
-    JSON root = JSON::Load(FileContent);
+	string FileContent((std::istreambuf_iterator<char>(File)), std::istreambuf_iterator<char>());
+	JSON root = JSON::Load(FileContent);
 
-    string ClassName = root.hasKey(SceneKeys::ClassName) ? root[SceneKeys::ClassName].ToString() : "UWorld";
-    UObject* WorldObj = FObjectFactory::Get().Create(ClassName);
-    if (!WorldObj || !WorldObj->IsA<UWorld>()) return;
+	string ClassName = root.hasKey(SceneKeys::ClassName) ? root[SceneKeys::ClassName].ToString() : "UWorld";
+	UObject* WorldObj = FObjectFactory::Get().Create(ClassName);
+	if (!WorldObj || !WorldObj->IsA<UWorld>()) return;
 
-    UWorld* World = static_cast<UWorld*>(WorldObj);
-    EWorldType WorldType = root.hasKey(SceneKeys::WorldType) ? StringToWorldType(root[SceneKeys::WorldType].ToString()) : EWorldType::Editor;
+	UWorld* World = static_cast<UWorld*>(WorldObj);
+	EWorldType WorldType = root.hasKey(SceneKeys::WorldType) ? StringToWorldType(root[SceneKeys::WorldType].ToString()) : EWorldType::Editor;
 
-    DeserializeCameraState(root, OutCameraState);
+	DeserializeCameraState(root, OutCameraState);
 
-    // Primitives 파싱 (평탄화 포맷)
-    if (root.hasKey(SceneKeys::Primitives))
-        DeserializePrimitivesToWorld(root[SceneKeys::Primitives], World);
+	// Primitives 파싱 (평탄화 포맷)
+	if (root.hasKey(SceneKeys::Primitives))
+		DeserializePrimitivesToWorld(root[SceneKeys::Primitives], World);
 
-    // UUID 카운터 복원 — 저장 시점의 NextUUID 이후 값부터 새 오브젝트에 할당
-    if (root.hasKey(SceneKeys::NextUUID))
-        EngineStatics::ResetUUIDGeneration(root[SceneKeys::NextUUID].ToInt());
+	// UUID 카운터 복원 — 저장 시점의 NextUUID 이후 값부터 새 오브젝트에 할당
+	if (root.hasKey(SceneKeys::NextUUID))
+		EngineStatics::ResetUUIDGeneration(root[SceneKeys::NextUUID].ToInt());
 
-    OutWorldContext.WorldType = WorldType;
-    OutWorldContext.World = World;
+	OutWorldContext.WorldType = WorldType;
+	OutWorldContext.World = World;
 }
 
 void FSceneSaveManager::Save(const FString& FilePath, FWorldContext& WorldContext, const FEditorCameraState* CameraState)
@@ -574,8 +574,8 @@ void FSceneSaveManager::Load(const FString& FilePath, FWorldContext& OutWorldCon
 		
 		AActor* NewActor = Cast<AActor>(FObjectFactory::Get().Create(InferActorClass(CompType)));
 		if (NewActor)
-        {
-            NewActor->SetWorld(World);
+		{
+			NewActor->SetWorld(World);
 			NewActor->InitDefaultComponents();
 			if (ULevel* Level = World->GetPersistentLevel())
 				Level->AddActor(NewActor);
@@ -650,152 +650,152 @@ void FSceneSaveManager::Load(const FString& FilePath, FWorldContext& OutWorldCon
 
 void FSceneSaveManager::DeserializePrimitivesToWorld(json::JSON& PrimitivesNode, UWorld* World)
 {
-    // ---------------------------------------------------------------
-    // 1단계: 씬/비씬 노드 분류
-    // OwnerRootUUID 키가 있으면 비씬 ActorComponent, 없으면 SceneComponent
-    // ---------------------------------------------------------------
-    std::unordered_map<uint32, json::JSON*> SceneNodeMap;
-    std::unordered_map<uint32, json::JSON*> NonSceneNodeMap;
-    std::unordered_map<uint32, std::vector<uint32>> ChildrenMap;
-    std::vector<uint32> RootUUIDs;
+	// ---------------------------------------------------------------
+	// 1단계: 씬/비씬 노드 분류
+	// OwnerRootUUID 키가 있으면 비씬 ActorComponent, 없으면 SceneComponent
+	// ---------------------------------------------------------------
+	std::unordered_map<uint32, json::JSON*> SceneNodeMap;
+	std::unordered_map<uint32, json::JSON*> NonSceneNodeMap;
+	std::unordered_map<uint32, std::vector<uint32>> ChildrenMap;
+	std::vector<uint32> RootUUIDs;
 
-    for (auto& Pair : PrimitivesNode.ObjectRange())
-    {
-        uint32 UUID = static_cast<uint32>(std::stoul(Pair.first));
+	for (auto& Pair : PrimitivesNode.ObjectRange())
+	{
+		uint32 UUID = static_cast<uint32>(std::stoul(Pair.first));
 
-        if (Pair.second.hasKey(SceneKeys::OwnerRootUUID))
-        {
-            NonSceneNodeMap[UUID] = &Pair.second;
-        }
-        else
-        {
-            SceneNodeMap[UUID] = &Pair.second;
+		if (Pair.second.hasKey(SceneKeys::OwnerRootUUID))
+		{
+			NonSceneNodeMap[UUID] = &Pair.second;
+		}
+		else
+		{
+			SceneNodeMap[UUID] = &Pair.second;
 
-            if (Pair.second.hasKey(SceneKeys::ParentUUID))
-            {
-                uint32 ParentID = static_cast<uint32>(Pair.second[SceneKeys::ParentUUID].ToInt());
-                ChildrenMap[ParentID].push_back(UUID);
-            }
-            else
-            {
-                RootUUIDs.push_back(UUID);
-            }
-        }
-    }
+			if (Pair.second.hasKey(SceneKeys::ParentUUID))
+			{
+				uint32 ParentID = static_cast<uint32>(Pair.second[SceneKeys::ParentUUID].ToInt());
+				ChildrenMap[ParentID].push_back(UUID);
+			}
+			else
+			{
+				RootUUIDs.push_back(UUID);
+			}
+		}
+	}
 
-    // 타입 문자열로 Actor 클래스 이름 추론
-    auto InferActorClass = [](const string& CompType) -> string
-    {
-        if (CompType.front() == 'U' && CompType.size() > 10 &&
-            CompType.substr(CompType.size() - 9) == "Component")
-        {
-            return "A" + CompType.substr(1, CompType.size() - 10) + "Actor";
-        }
-        return "AActor";
-    };
+	// 타입 문자열로 Actor 클래스 이름 추론
+	auto InferActorClass = [](const string& CompType) -> string
+	{
+		if (CompType.front() == 'U' && CompType.size() > 10 &&
+			CompType.substr(CompType.size() - 9) == "Component")
+		{
+			return "A" + CompType.substr(1, CompType.size() - 10) + "Actor";
+		}
+		return "AActor";
+	};
 
-    // UUID → SceneComponent* 맵: SceneComponentRef 역직렬화에 사용
-    std::unordered_map<uint32, USceneComponent*> UUIDToSceneComp;
-    // 루트SceneComponent UUID → Actor* 맵: 비씬 컴포넌트 귀속에 사용
-    std::unordered_map<uint32, AActor*> RootUUIDToActor;
+	// UUID → SceneComponent* 맵: SceneComponentRef 역직렬화에 사용
+	std::unordered_map<uint32, USceneComponent*> UUIDToSceneComp;
+	// 루트SceneComponent UUID → Actor* 맵: 비씬 컴포넌트 귀속에 사용
+	std::unordered_map<uint32, AActor*> RootUUIDToActor;
 
-    // ---------------------------------------------------------------
-    // 2단계: SceneComponent 트리 복원 (기존 로직 + UUID 맵 구축)
-    // ---------------------------------------------------------------
-    std::function<void(uint32, USceneComponent*, AActor*)> CreateSceneComponent;
-    CreateSceneComponent = [&](uint32 UUID, USceneComponent* ParentComp, AActor* Owner)
-    {
-        auto NodeIt = SceneNodeMap.find(UUID);
-        if (NodeIt == SceneNodeMap.end()) return;
+	// ---------------------------------------------------------------
+	// 2단계: SceneComponent 트리 복원 (기존 로직 + UUID 맵 구축)
+	// ---------------------------------------------------------------
+	std::function<void(uint32, USceneComponent*, AActor*)> CreateSceneComponent;
+	CreateSceneComponent = [&](uint32 UUID, USceneComponent* ParentComp, AActor* Owner)
+	{
+		auto NodeIt = SceneNodeMap.find(UUID);
+		if (NodeIt == SceneNodeMap.end()) return;
 
-        json::JSON& PrimJSON = *NodeIt->second;
-        if (!PrimJSON.hasKey(SceneKeys::Type)) return;
+		json::JSON& PrimJSON = *NodeIt->second;
+		if (!PrimJSON.hasKey(SceneKeys::Type)) return;
 
-        string CompType = PrimJSON[SceneKeys::Type].ToString();
-        if (CompType == "StaticMeshComp") CompType = "UStaticMeshComponent";
+		string CompType = PrimJSON[SceneKeys::Type].ToString();
+		if (CompType == "StaticMeshComp") CompType = "UStaticMeshComponent";
 
-        USceneComponent* Comp = nullptr;
-        if (!ParentComp)
-        {
-            // 루트 컴포넌트: 대응하는 Actor 생성
-            // ActorClass가 저장되어 있으면 그대로, 없으면 컴포넌트 타입으로 추론 (하위 호환)
-            //string ActorClass = PrimJSON.hasKey("ActorClass")
-            //    ? PrimJSON["ActorClass"].ToString()
-            //    : InferActorClass(CompType);
-            //UObject* Obj = FObjectFactory::Get().Create(ActorClass);
-            UObject* Obj = FObjectFactory::Get().Create(InferActorClass(CompType));
-            AActor* NewActor = Cast<AActor>(Obj);
-            if (!NewActor) return;
+		USceneComponent* Comp = nullptr;
+		if (!ParentComp)
+		{
+			// 루트 컴포넌트: 대응하는 Actor 생성
+			// ActorClass가 저장되어 있으면 그대로, 없으면 컴포넌트 타입으로 추론 (하위 호환)
+			//string ActorClass = PrimJSON.hasKey("ActorClass")
+			//    ? PrimJSON["ActorClass"].ToString()
+			//    : InferActorClass(CompType);
+			//UObject* Obj = FObjectFactory::Get().Create(ActorClass);
+			UObject* Obj = FObjectFactory::Get().Create(InferActorClass(CompType));
+			AActor* NewActor = Cast<AActor>(Obj);
+			if (!NewActor) return;
 
-            NewActor->InitDefaultComponents();
-            NewActor->SetWorld(World);
-            if (ULevel* Level = World->GetPersistentLevel())
-                Level->AddActor(NewActor);
+			NewActor->InitDefaultComponents();
+			NewActor->SetWorld(World);
+			if (ULevel* Level = World->GetPersistentLevel())
+				Level->AddActor(NewActor);
 
-            Comp  = NewActor->GetRootComponent();
-            Owner = NewActor;
+			Comp  = NewActor->GetRootComponent();
+			Owner = NewActor;
 
-            RootUUIDToActor[UUID] = NewActor;
-        }
-        else
-        {
-            // 자식 컴포넌트: 직접 생성 후 부모에 연결
-            UObject* Obj = FObjectFactory::Get().Create(CompType);
-            if (!Obj || !Obj->IsA<USceneComponent>()) return;
+			RootUUIDToActor[UUID] = NewActor;
+		}
+		else
+		{
+			// 자식 컴포넌트: 직접 생성 후 부모에 연결
+			UObject* Obj = FObjectFactory::Get().Create(CompType);
+			if (!Obj || !Obj->IsA<USceneComponent>()) return;
 
-            Comp = static_cast<USceneComponent*>(Obj);
-            Owner->RegisterComponent(Comp);
-            Comp->AttachToComponent(ParentComp);
-        }
+			Comp = static_cast<USceneComponent*>(Obj);
+			Owner->RegisterComponent(Comp);
+			Comp->AttachToComponent(ParentComp);
+		}
 
-        // UUID → SceneComponent 매핑 등록
-        UUIDToSceneComp[UUID] = Comp;
+		// UUID → SceneComponent 매핑 등록
+		UUIDToSceneComp[UUID] = Comp;
 
-        // 프로퍼티 기반 역직렬화 (SceneComponentRef는 아직 연결 불필요)
-        DeserializeProperties(Comp, PrimJSON, nullptr);
-        Comp->MarkTransformDirty();
+		// 프로퍼티 기반 역직렬화 (SceneComponentRef는 아직 연결 불필요)
+		DeserializeProperties(Comp, PrimJSON, nullptr);
+		Comp->MarkTransformDirty();
 
-        // 자식 컴포넌트 재귀 생성
-        auto ChildIt = ChildrenMap.find(UUID);
-        if (ChildIt != ChildrenMap.end())
-        {
-            for (uint32 ChildUUID : ChildIt->second)
-                CreateSceneComponent(ChildUUID, Comp, Owner);
-        }
-    };
+		// 자식 컴포넌트 재귀 생성
+		auto ChildIt = ChildrenMap.find(UUID);
+		if (ChildIt != ChildrenMap.end())
+		{
+			for (uint32 ChildUUID : ChildIt->second)
+				CreateSceneComponent(ChildUUID, Comp, Owner);
+		}
+	};
 
-    for (uint32 RootUUID : RootUUIDs)
-        CreateSceneComponent(RootUUID, nullptr, nullptr);
+	for (uint32 RootUUID : RootUUIDs)
+		CreateSceneComponent(RootUUID, nullptr, nullptr);
 
-    // ---------------------------------------------------------------
-    // 3단계: 비씬 ActorComponent 복원 (UUID 맵이 완성된 후 실행)
-    // SceneComponentRef 속성(예: UpdatedComponent)을 UUID로 해석한다.
-    // ---------------------------------------------------------------
-    for (auto& [UUID, NodePtr] : NonSceneNodeMap)
-    {
-        json::JSON& CompJSON = *NodePtr;
-        if (!CompJSON.hasKey(SceneKeys::Type)) continue;
+	// ---------------------------------------------------------------
+	// 3단계: 비씬 ActorComponent 복원 (UUID 맵이 완성된 후 실행)
+	// SceneComponentRef 속성(예: UpdatedComponent)을 UUID로 해석한다.
+	// ---------------------------------------------------------------
+	for (auto& [UUID, NodePtr] : NonSceneNodeMap)
+	{
+		json::JSON& CompJSON = *NodePtr;
+		if (!CompJSON.hasKey(SceneKeys::Type)) continue;
 
-        uint32 OwnerRootUUID = static_cast<uint32>(CompJSON[SceneKeys::OwnerRootUUID].ToInt());
-        auto ActorIt = RootUUIDToActor.find(OwnerRootUUID);
-        if (ActorIt == RootUUIDToActor.end()) continue;
+		uint32 OwnerRootUUID = static_cast<uint32>(CompJSON[SceneKeys::OwnerRootUUID].ToInt());
+		auto ActorIt = RootUUIDToActor.find(OwnerRootUUID);
+		if (ActorIt == RootUUIDToActor.end()) continue;
 
-        AActor* OwnerActor = ActorIt->second;
-        string CompType = CompJSON[SceneKeys::Type].ToString();
+		AActor* OwnerActor = ActorIt->second;
+		string CompType = CompJSON[SceneKeys::Type].ToString();
 
-        UObject* Obj = FObjectFactory::Get().Create(CompType);
-        if (!Obj || !Obj->IsA<UActorComponent>()) continue;
-        if (Obj->IsA<USceneComponent>()) continue; // 안전장치
+		UObject* Obj = FObjectFactory::Get().Create(CompType);
+		if (!Obj || !Obj->IsA<UActorComponent>()) continue;
+		if (Obj->IsA<USceneComponent>()) continue; // 안전장치
 
-        UActorComponent* Comp = static_cast<UActorComponent*>(Obj);
-        OwnerActor->RegisterComponent(Comp);
+		UActorComponent* Comp = static_cast<UActorComponent*>(Obj);
+		OwnerActor->RegisterComponent(Comp);
 
-        // SceneComponentRef 포함 모든 프로퍼티 역직렬화
-        DeserializeProperties(Comp, CompJSON, &UUIDToSceneComp);
-    }
+		// SceneComponentRef 포함 모든 프로퍼티 역직렬화
+		DeserializeProperties(Comp, CompJSON, &UUIDToSceneComp);
+	}
 
-    if (World)
-        World->SyncSpatialIndex();
+	if (World)
+		World->SyncSpatialIndex();
 }
 
 /* @brief 현재 사용하지 않는 함수, 추후 Actor-Component 단위로 계층화를 시켜야 한다면 이쪽을 사용 */
@@ -829,7 +829,7 @@ USceneComponent* FSceneSaveManager::DeserializeSceneComponentTree(json::JSON& No
 }
 
 void FSceneSaveManager::DeserializeProperties(UActorComponent* Comp, json::JSON& PropsJSON,
-                                              const std::unordered_map<uint32, USceneComponent*>* UUIDToSceneComp)
+											  const std::unordered_map<uint32, USceneComponent*>* UUIDToSceneComp)
 {
 	TArray<FPropertyDescriptor> Descriptors;
 	Comp->GetEditableProperties(Descriptors);
@@ -847,7 +847,7 @@ void FSceneSaveManager::DeserializeProperties(UActorComponent* Comp, json::JSON&
 }
 
 void FSceneSaveManager::DeserializePropertyValue(FPropertyDescriptor& Prop, json::JSON& Value,
-                                                 const std::unordered_map<uint32, USceneComponent*>* UUIDToSceneComp)
+												 const std::unordered_map<uint32, USceneComponent*>* UUIDToSceneComp)
 {
 	switch (Prop.Type) {
 	case EPropertyType::Bool:
@@ -871,15 +871,15 @@ void FSceneSaveManager::DeserializePropertyValue(FPropertyDescriptor& Prop, json
 		}
 		break;
 	}
-    case EPropertyType::Color: {
-        float* v = static_cast<float*>(Prop.ValuePtr);
-        int i = 0;
-        for (auto& elem : Value.ArrayRange())
-        {
-            if (i < 3)
-                v[i] = static_cast<float>(elem.ToFloat());
-            i++;
-        }
+	case EPropertyType::Color: {
+		float* v = static_cast<float*>(Prop.ValuePtr);
+		int i = 0;
+		for (auto& elem : Value.ArrayRange())
+		{
+			if (i < 3)
+				v[i] = static_cast<float>(elem.ToFloat());
+			i++;
+		}
 		break;
 	}
 	case EPropertyType::Vec4: {

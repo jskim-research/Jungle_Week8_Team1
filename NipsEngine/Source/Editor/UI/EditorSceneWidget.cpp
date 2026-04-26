@@ -162,140 +162,140 @@ void FEditorSceneWidget::RefreshSceneAndAssets()
 
 void FEditorSceneWidget::Render(float DeltaTime)
 {
-    using namespace common::constants::ImGui;
-    (void)DeltaTime;
+	using namespace common::constants::ImGui;
+	(void)DeltaTime;
 
-    if (!EditorEngine) return;
+	if (!EditorEngine) return;
 
-    UWorld* World = EditorEngine->GetFocusedWorld();
-    if (!World) return; // Early Exit: 전체 코드의 들여쓰기 깊이를 한 단계 줄임
+	UWorld* World = EditorEngine->GetFocusedWorld();
+	if (!World) return; // Early Exit: 전체 코드의 들여쓰기 깊이를 한 단계 줄임
 
-    const TArray<AActor*>& Actors = World->GetActors();
+	const TArray<AActor*>& Actors = World->GetActors();
 
-    // LastClickedActorIndex 유효성 검사
-    if (LastClickedActorIndex >= static_cast<int32>(Actors.size()))
-    {
-        LastClickedActorIndex = -1;
-    }
+	// LastClickedActorIndex 유효성 검사
+	if (LastClickedActorIndex >= static_cast<int32>(Actors.size()))
+	{
+		LastClickedActorIndex = -1;
+	}
 
-    ImGui::SetNextWindowSize(ImVec2(400.0f, 350.0f), ImGuiCond_Once);
-    ImGui::Begin("Scene Manager");
+	ImGui::SetNextWindowSize(ImVec2(400.0f, 350.0f), ImGuiCond_Once);
+	ImGui::Begin("Scene Manager");
 
-    ImGui::Text("Actors (%d)", static_cast<int32>(Actors.size()));
-    ImGui::Separator();
+	ImGui::Text("Actors (%d)", static_cast<int32>(Actors.size()));
+	ImGui::Separator();
 
-    FSelectionManager& Selection = EditorEngine->GetSelectionManager();
+	FSelectionManager& Selection = EditorEngine->GetSelectionManager();
 
-    // ctrl 클릭, ctrl + shift 클릭, shift 클릭, 기본 클릭 4가지 상태에 따라 각각 처리하는 람다 함수입니다.
-    auto HandleActorSelection = [&](AActor* SelectedActor, int32 CurrentIndex)
-    {
-        const bool bShiftDown = ImGui::GetIO().KeyShift;
-        const bool bCtrlDown  = ImGui::GetIO().KeyCtrl;
+	// ctrl 클릭, ctrl + shift 클릭, shift 클릭, 기본 클릭 4가지 상태에 따라 각각 처리하는 람다 함수입니다.
+	auto HandleActorSelection = [&](AActor* SelectedActor, int32 CurrentIndex)
+	{
+		const bool bShiftDown = ImGui::GetIO().KeyShift;
+		const bool bCtrlDown  = ImGui::GetIO().KeyCtrl;
 
-        // 기준점이 유효한지 확인 (이전 클릭 내역)
-        const bool bValidRange = (LastClickedActorIndex >= 0) &&
-                                 (LastClickedActorIndex < static_cast<int32>(Actors.size()));
+		// 기준점이 유효한지 확인 (이전 클릭 내역)
+		const bool bValidRange = (LastClickedActorIndex >= 0) &&
+								 (LastClickedActorIndex < static_cast<int32>(Actors.size()));
 
-        if (bCtrlDown && bShiftDown)
-        {
-            // 1. Ctrl + Shift + Click : 기존 선택을 유지한 채로 범위 안의 액터들을 '추가'
-            if (bValidRange)
-            {
-                const int32 Start = std::min(LastClickedActorIndex, CurrentIndex);
-                const int32 End   = std::max(LastClickedActorIndex, CurrentIndex);
+		if (bCtrlDown && bShiftDown)
+		{
+			// 1. Ctrl + Shift + Click : 기존 선택을 유지한 채로 범위 안의 액터들을 '추가'
+			if (bValidRange)
+			{
+				const int32 Start = std::min(LastClickedActorIndex, CurrentIndex);
+				const int32 End   = std::max(LastClickedActorIndex, CurrentIndex);
 
-                for (int32 i = Start; i <= End; ++i)
-                {
-                    if (AActor* RangeActor = Actors[i])
-                    {
-                        // 선택되어 있지 않은 경우에만 Toggle하여 '추가'되도록 보장
-                        if (!Selection.IsSelected(RangeActor))
-                        {
-                            Selection.ToggleSelect(RangeActor);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // 기준점이 없으면 단일 추가 선택으로 Fallback
-                if (!Selection.IsSelected(SelectedActor)) Selection.ToggleSelect(SelectedActor);
-                LastClickedActorIndex = CurrentIndex;
-            }
-        }
-        else if (bShiftDown)
-        {
-            // 2. Shift + Click : 기존 선택을 모두 해제하고 새로운 범위만 선택
-            if (bValidRange)
-            {
-                Selection.ClearSelection();
+				for (int32 i = Start; i <= End; ++i)
+				{
+					if (AActor* RangeActor = Actors[i])
+					{
+						// 선택되어 있지 않은 경우에만 Toggle하여 '추가'되도록 보장
+						if (!Selection.IsSelected(RangeActor))
+						{
+							Selection.ToggleSelect(RangeActor);
+						}
+					}
+				}
+			}
+			else
+			{
+				// 기준점이 없으면 단일 추가 선택으로 Fallback
+				if (!Selection.IsSelected(SelectedActor)) Selection.ToggleSelect(SelectedActor);
+				LastClickedActorIndex = CurrentIndex;
+			}
+		}
+		else if (bShiftDown)
+		{
+			// 2. Shift + Click : 기존 선택을 모두 해제하고 새로운 범위만 선택
+			if (bValidRange)
+			{
+				Selection.ClearSelection();
 
-                const int32 Start = std::min(LastClickedActorIndex, CurrentIndex);
-                const int32 End   = std::max(LastClickedActorIndex, CurrentIndex);
+				const int32 Start = std::min(LastClickedActorIndex, CurrentIndex);
+				const int32 End   = std::max(LastClickedActorIndex, CurrentIndex);
 
-                for (int32 i = Start; i <= End; ++i)
-                {
-                    if (AActor* RangeActor = Actors[i])
-                    {
-                        Selection.ToggleSelect(RangeActor); 
-                    }
-                }
-            }
-            else
-            {
-                // 기준점이 없으면 단일 선택으로 Fallback
-                Selection.Select(SelectedActor);
-                LastClickedActorIndex = CurrentIndex;
-            }
-        }
-        else if (bCtrlDown)
-        {
-            // 3. Ctrl + Click : 개별 액터 추가/해제 (토글)
-            Selection.ToggleSelect(SelectedActor);
-            LastClickedActorIndex = CurrentIndex; // 범위 선택의 새로운 기준점이 됨
-        }
-        else
-        {
-            // 4. Click : 단일 선택
-            Selection.Select(SelectedActor);
-            LastClickedActorIndex = CurrentIndex; // 범위 선택의 새로운 기준점이 됨
-        }
-    };
+				for (int32 i = Start; i <= End; ++i)
+				{
+					if (AActor* RangeActor = Actors[i])
+					{
+						Selection.ToggleSelect(RangeActor); 
+					}
+				}
+			}
+			else
+			{
+				// 기준점이 없으면 단일 선택으로 Fallback
+				Selection.Select(SelectedActor);
+				LastClickedActorIndex = CurrentIndex;
+			}
+		}
+		else if (bCtrlDown)
+		{
+			// 3. Ctrl + Click : 개별 액터 추가/해제 (토글)
+			Selection.ToggleSelect(SelectedActor);
+			LastClickedActorIndex = CurrentIndex; // 범위 선택의 새로운 기준점이 됨
+		}
+		else
+		{
+			// 4. Click : 단일 선택
+			Selection.Select(SelectedActor);
+			LastClickedActorIndex = CurrentIndex; // 범위 선택의 새로운 기준점이 됨
+		}
+	};
 
-    // UI 렌더링 영역
-    ImGui::BeginChild("ActorList", ImVec2(0, 0), ImGuiChildFlags_Borders);
+	// UI 렌더링 영역
+	ImGui::BeginChild("ActorList", ImVec2(0, 0), ImGuiChildFlags_Borders);
 
-    ImGuiListClipper Clipper;
-    Clipper.Begin(static_cast<int>(Actors.size()));
+	ImGuiListClipper Clipper;
+	Clipper.Begin(static_cast<int>(Actors.size()));
 
-    while (Clipper.Step())
-    {
-        for (int i = Clipper.DisplayStart; i < Clipper.DisplayEnd; i++)
-        {
-            AActor* Actor = Actors[i];
-            if (!Actor) continue;
+	while (Clipper.Step())
+	{
+		for (int i = Clipper.DisplayStart; i < Clipper.DisplayEnd; i++)
+		{
+			AActor* Actor = Actors[i];
+			if (!Actor) continue;
 
-            FString ActorName = Actor->GetFName().ToString();
-            if (ActorName.empty())
-            {
-                ActorName = Actor->GetTypeInfo()->name;
-            }
+			FString ActorName = Actor->GetFName().ToString();
+			if (ActorName.empty())
+			{
+				ActorName = Actor->GetTypeInfo()->name;
+			}
 
-            ImGui::PushID(i);
+			ImGui::PushID(i);
 
-            bool bIsSelected = Selection.IsSelected(Actor);
-            
-            // Selectable이 클릭되었을 때만 로직 호출
-            if (ImGui::Selectable(ActorName.c_str(), bIsSelected))
-            {
-                HandleActorSelection(Actor, i);
-            }
+			bool bIsSelected = Selection.IsSelected(Actor);
+			
+			// Selectable이 클릭되었을 때만 로직 호출
+			if (ImGui::Selectable(ActorName.c_str(), bIsSelected))
+			{
+				HandleActorSelection(Actor, i);
+			}
 
-            ImGui::PopID();
-        }
-    }
+			ImGui::PopID();
+		}
+	}
 
-    Clipper.End();
-    ImGui::EndChild();
-    ImGui::End(); // Begin("Scene Manager")에 대한 End
+	Clipper.End();
+	ImGui::EndChild();
+	ImGui::End(); // Begin("Scene Manager")에 대한 End
 }

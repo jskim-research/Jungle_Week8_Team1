@@ -10,17 +10,17 @@ public:
 	virtual void TickComponent(float DeltaTime) override;
 	virtual void BeginPlay() override;
 
-    void SetInitialSpeed(const float InSpeed) { InitialSpeed = InSpeed; }
-    float GetInitialSpeed() const { return InitialSpeed; }
+	void SetInitialSpeed(const float InSpeed) { InitialSpeed = InSpeed; }
+	float GetInitialSpeed() const { return InitialSpeed; }
 
-    void SetMaxSpeed(const float InSpeed) { MaxSpeed = InSpeed; }
+	void SetMaxSpeed(const float InSpeed) { MaxSpeed = InSpeed; }
 	virtual float GetMaxSpeed() const { return MaxSpeed; }
 
-    void SetGravityScale(const float InScale) { GravityScale = InScale; }
-    float GetGravityScale() const { return GravityScale; }
+	void SetGravityScale(const float InScale) { GravityScale = InScale; }
+	float GetGravityScale() const { return GravityScale; }
 
-    void SetRotationFollowsVelocity(bool bFollow) { bRotationFollowsVelocity = bFollow; }
-    bool GetRotationFollowsVelocity() const { return bRotationFollowsVelocity; }
+	void SetRotationFollowsVelocity(bool bFollow) { bRotationFollowsVelocity = bFollow; }
+	bool GetRotationFollowsVelocity() const { return bRotationFollowsVelocity; }
 
 	virtual void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
 

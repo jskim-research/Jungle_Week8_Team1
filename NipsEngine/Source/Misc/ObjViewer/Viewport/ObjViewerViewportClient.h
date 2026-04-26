@@ -25,13 +25,13 @@ struct ObjViewerModelInfo
 struct FCameraGUIParameters
 {
 	bool bIsResettingCamera = false;
-    float ResetCameraProgress = 0.0f;
-    float ResetCameraSpeed = 2.5f;
+	float ResetCameraProgress = 0.0f;
+	float ResetCameraSpeed = 2.5f;
 
-    FVector ResetStartLocation;
-    FVector ResetTargetLocation;
-    FQuat ResetStartRotation;
-    FQuat ResetTargetRotation;
+	FVector ResetStartLocation;
+	FVector ResetTargetLocation;
+	FQuat ResetStartRotation;
+	FQuat ResetTargetRotation;
 };
 
 class FObjViewerViewportClient
@@ -57,11 +57,11 @@ public:
 	FViewportCamera* GetCamera() const { return Camera; }
 
 	// SetViewportSize를 대체
-    void SetViewportRect(float InX, float InY, float InWidth, float InHeight);
-    float GetViewportX() const { return ViewportX; }
-    float GetViewportY() const { return ViewportY; }
-    float GetViewportWidth() const { return WindowWidth; }
-    float GetViewportHeight() const { return WindowHeight; }
+	void SetViewportRect(float InX, float InY, float InWidth, float InHeight);
+	float GetViewportX() const { return ViewportX; }
+	float GetViewportY() const { return ViewportY; }
+	float GetViewportWidth() const { return WindowWidth; }
+	float GetViewportHeight() const { return WindowHeight; }
 
 	void Tick(float DeltaTime);
 
@@ -71,7 +71,7 @@ private:
 	void TickInput(float DeltaTime);
 	void TickInteraction(float DeltaTime);
 	void TickCursorOverlay(float DeltaTime);
-    void TickCameraReset(float DeltaTime);
+	void TickCameraReset(float DeltaTime);
 
 	void HandleDragStart(const FRay& Ray);
 
@@ -83,7 +83,7 @@ private:
 	FSelectionManager* SelectionManager = nullptr;
 
 	float ViewportX = 0.0f;
-    float ViewportY = 0.0f;
+	float ViewportY = 0.0f;
 	float WindowWidth = 1920.f;
 	float WindowHeight = 1080.f;
 	

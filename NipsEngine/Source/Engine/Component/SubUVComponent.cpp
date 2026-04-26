@@ -1,4 +1,4 @@
-#include "SubUVComponent.h"
+﻿#include "SubUVComponent.h"
 
 #include <cmath>
 #include <cstring>
@@ -19,19 +19,19 @@ USubUVComponent::USubUVComponent()
 
 void USubUVComponent::PostDuplicate(UObject* Original)
 {
-    UPrimitiveComponent::PostDuplicate(Original);
+	UPrimitiveComponent::PostDuplicate(Original);
 
-    const USubUVComponent* Orig = Cast<USubUVComponent>(Original);
-    bIsBillboard = Orig->bIsBillboard;
-    ParticleName = Orig->ParticleName;
-    CachedParticle = Orig->CachedParticle;
-    FrameIndex = Orig->FrameIndex;
-    Width = Orig->Width;
-    Height = Orig->Height;
-    PlayRate = Orig->PlayRate;
-    TimeAccumulator = Orig->TimeAccumulator;
-    bLoop = Orig->bLoop;
-    bIsExecute = Orig->bIsExecute;
+	const USubUVComponent* Orig = Cast<USubUVComponent>(Original);
+	bIsBillboard = Orig->bIsBillboard;
+	ParticleName = Orig->ParticleName;
+	CachedParticle = Orig->CachedParticle;
+	FrameIndex = Orig->FrameIndex;
+	Width = Orig->Width;
+	Height = Orig->Height;
+	PlayRate = Orig->PlayRate;
+	TimeAccumulator = Orig->TimeAccumulator;
+	bLoop = Orig->bLoop;
+	bIsExecute = Orig->bIsExecute;
 }
 
 void USubUVComponent::Serialize(FArchive& Ar)

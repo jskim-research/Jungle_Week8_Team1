@@ -47,26 +47,26 @@ void FD3DDevice::EndFrame()
 
 void FD3DDevice::BeginViewportFrame(const FRenderTargetSet* InRenderTargetSet)
 {
-    if (InRenderTargetSet == nullptr)
-    {
-        return;
-    }
+	if (InRenderTargetSet == nullptr)
+	{
+		return;
+	}
 
-    const float ClearMask[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    DeviceContext->ClearRenderTargetView(InRenderTargetSet->SelectionMaskRTV, ClearMask);
-    DeviceContext->ClearDepthStencilView(InRenderTargetSet->DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	const float ClearMask[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	DeviceContext->ClearRenderTargetView(InRenderTargetSet->SelectionMaskRTV, ClearMask);
+	DeviceContext->ClearDepthStencilView(InRenderTargetSet->DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-    if (InRenderTargetSet->SceneColorRTV && InRenderTargetSet->SelectionMaskRTV && InRenderTargetSet->DepthStencilView)
-    {
-        DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneColorRTV, ClearColor);
-        DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneNormalRTV, ClearNormal);
-        DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneLightRTV, ClearColor);
-        DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneFogRTV, ClearColor);
-        DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneWorldPosRTV, ClearColor);
-        DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneFXAARTV, ClearColor);
-        DeviceContext->ClearRenderTargetView(InRenderTargetSet->SelectionMaskRTV, ClearMask);
-        DeviceContext->ClearDepthStencilView(InRenderTargetSet->DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-    }
+	if (InRenderTargetSet->SceneColorRTV && InRenderTargetSet->SelectionMaskRTV && InRenderTargetSet->DepthStencilView)
+	{
+		DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneColorRTV, ClearColor);
+		DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneNormalRTV, ClearNormal);
+		DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneLightRTV, ClearColor);
+		DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneFogRTV, ClearColor);
+		DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneWorldPosRTV, ClearColor);
+		DeviceContext->ClearRenderTargetView(InRenderTargetSet->SceneFXAARTV, ClearColor);
+		DeviceContext->ClearRenderTargetView(InRenderTargetSet->SelectionMaskRTV, ClearMask);
+		DeviceContext->ClearDepthStencilView(InRenderTargetSet->DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	}
 }
 
 void FD3DDevice::OnResizeViewport(int Width, int Height)

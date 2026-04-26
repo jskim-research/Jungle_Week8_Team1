@@ -183,7 +183,7 @@ void FFontBatcher::AddText2D(const FString& Text, const FVector2& ScreenPos, flo
 		GetCharUV(C, UVMin, UVMax);
 
 		float CharWidth = 20.0f * Scale;
-        float CharHeight = 20.0f * Scale;
+		float CharHeight = 20.0f * Scale;
 
 		// Top Left to Bottom Right
 		FVector PosTL(CurrentX, CurrentY, 0.0f);
@@ -248,11 +248,11 @@ void FFontBatcher::Flush(ID3D11DeviceContext* Context, const FRenderBus* RenderB
 
 	// 셰이더 바인딩
 	FontMaterial->Bind(Context, RenderBus);
-    if (bWireframe)
-    {
-        ID3D11RasterizerState* WireRS = FResourceManager::Get().GetOrCreateRasterizerState(ERasterizerType::WireFrame);
-        Context->RSSetState(WireRS);
-    }
+	if (bWireframe)
+	{
+		ID3D11RasterizerState* WireRS = FResourceManager::Get().GetOrCreateRasterizerState(ERasterizerType::WireFrame);
+		Context->RSSetState(WireRS);
+	}
 
 	uint32 stride = sizeof(FTextureVertex), offset = 0;
 	ID3D11Buffer* VertexBufferPtr = VertexBuffer.Get();

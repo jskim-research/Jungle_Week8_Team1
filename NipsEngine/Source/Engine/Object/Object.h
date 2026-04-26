@@ -7,17 +7,17 @@
 #include "Serialization/Archive.h"
 
 #define DECLARE_CLASS(ClassName, ParentClass)                          \
-    static const FTypeInfo s_TypeInfo;                                 \
-    const FTypeInfo* GetTypeInfo() const override {                    \
-        return &s_TypeInfo;                                            \
-    }                                                                  
+	static const FTypeInfo s_TypeInfo;                                 \
+	const FTypeInfo* GetTypeInfo() const override {                    \
+		return &s_TypeInfo;                                            \
+	}                                                                  
 
 #define DEFINE_CLASS(ClassName, ParentClass)                           \
-    const FTypeInfo ClassName::s_TypeInfo = {                          \
-        #ClassName,                                                    \
-        &ParentClass::s_TypeInfo,                                      \
-        sizeof(ClassName)                                              \
-    };
+	const FTypeInfo ClassName::s_TypeInfo = {                          \
+		#ClassName,                                                    \
+		&ParentClass::s_TypeInfo,                                      \
+		sizeof(ClassName)                                              \
+	};
 
 enum EClassFlags : uint32_t
 {

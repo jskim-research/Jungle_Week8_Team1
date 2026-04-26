@@ -34,18 +34,18 @@ enum class EPrimitiveType
 	EPT_SKY,
 	EPT_FOG,
 	EPT_Decal,
-    MAX
+	MAX
 };
 
 enum class ERenderPass : uint32
 {
 	Sky,
-    Shadow,
+	Shadow,
 	Opaque,
 	Decal,
 	Light,
-    Fog,
-    FXAA,
+	Fog,
+	FXAA,
 	Font, // TextRenderComponent → FontBatcher 경유
 	SubUV, // SubUVComponent     → SubUVBatcher 경유
 	Billboard,
@@ -54,14 +54,14 @@ enum class ERenderPass : uint32
 	Grid, 
 	Editor,
 	DepthLess,
-    PostProcessOutline,
+	PostProcessOutline,
 	ToonOutline,
 	MAX
 };
 
 enum class ELightType
 {
-    LightType_Directional = 0,
+	LightType_Directional = 0,
 	LightType_Point = 1,
 	LightType_Spot = 2,
 	LightType_AmbientLight = 3,

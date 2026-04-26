@@ -28,7 +28,7 @@ void FObjViewerControlWidget::Render(float DeltaTime)
 			ImGui::Text("[Position] X: %.2f, Y: %.2f, Z: %.2f", CamPos.X, CamPos.Y, CamPos.Z);
 			
 			ImGui::DragFloat("Panning Speed", &Settings.CameraMoveSensitivity, 0.01f, 0.01f, 0.5f, "%.3f", ImGuiSliderFlags_Logarithmic);
-            ImGui::DragFloat("Rotation Speed", &Settings.CameraRotateSensitivity, 0.01f, 0.01f, 0.5f, "%.3f", ImGuiSliderFlags_Logarithmic);
+			ImGui::DragFloat("Rotation Speed", &Settings.CameraRotateSensitivity, 0.01f, 0.01f, 0.5f, "%.3f", ImGuiSliderFlags_Logarithmic);
 			ImGui::DragFloat("Zoom Speed", &Settings.CameraZoomSpeed, 5.0f, 100.0f, 2000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
 
 			if (ImGui::Button("Save Camera Position", ImVec2(-FLT_MIN, 0)))
@@ -67,34 +67,34 @@ void FObjViewerControlWidget::Render(float DeltaTime)
 		}
 		
 		if (ImGui::CollapsingHeader("Model Transformation", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            // 현재 세팅값을 int로 캐스팅하여 라디오 버튼에 연결
-            int CurrentAxis = static_cast<int>(Settings.ModelUpAxis);
-            bool bChanged = false;
+		{
+			// 현재 세팅값을 int로 캐스팅하여 라디오 버튼에 연결
+			int CurrentAxis = static_cast<int>(Settings.ModelUpAxis);
+			bool bChanged = false;
 
-            ImGui::Text("Up Axis:");
-            if (ImGui::RadioButton("Z-Up (Blender, Unreal)", &CurrentAxis, 0)) bChanged = true;
-            if (ImGui::RadioButton("Y-Up (Maya, Unity)", &CurrentAxis, 1)) bChanged = true;
+			ImGui::Text("Up Axis:");
+			if (ImGui::RadioButton("Z-Up (Blender, Unreal)", &CurrentAxis, 0)) bChanged = true;
+			if (ImGui::RadioButton("Y-Up (Maya, Unity)", &CurrentAxis, 1)) bChanged = true;
 
-            // 만약 유저가 버튼을 눌러 상태가 변했다면 물체에 회전을 적용한다.
-            if (bChanged)
-            {
-                Settings.ModelUpAxis = static_cast<EModelUpAxis>(CurrentAxis);
-                
-                if (UStaticMeshComponent* MeshComp = Engine->GetPreviewMeshComponent())
-                {
-                    AActor* ModelActor = MeshComp->GetOwner();
-                    if (CurrentAxis == 0) // Z-Up
-                    {
-                        ModelActor->SetActorRotation(FVector(0.0f, 0.0f, 0.0f));
-                    }
-                    else if (CurrentAxis == 1) // Y-Up (Maya 등)
-                    {
-                        ModelActor->SetActorRotation(FVector(90.0f, 0.0f, 0.0f)); 
-                    }
-                }
-            }
-        }
+			// 만약 유저가 버튼을 눌러 상태가 변했다면 물체에 회전을 적용한다.
+			if (bChanged)
+			{
+				Settings.ModelUpAxis = static_cast<EModelUpAxis>(CurrentAxis);
+				
+				if (UStaticMeshComponent* MeshComp = Engine->GetPreviewMeshComponent())
+				{
+					AActor* ModelActor = MeshComp->GetOwner();
+					if (CurrentAxis == 0) // Z-Up
+					{
+						ModelActor->SetActorRotation(FVector(0.0f, 0.0f, 0.0f));
+					}
+					else if (CurrentAxis == 1) // Y-Up (Maya 등)
+					{
+						ModelActor->SetActorRotation(FVector(90.0f, 0.0f, 0.0f)); 
+					}
+				}
+			}
+		}
 	}
 	ImGui::End();
 }

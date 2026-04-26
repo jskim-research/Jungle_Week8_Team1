@@ -2,10 +2,10 @@
 
 FDepthStencilResource FDepthStencilFactory::CreateDepthStencilView(ID3D11Device* Device, uint32 InWidth, uint32 InHeight)
 {
-    return FDepthStencilBuilder().SetSize(InWidth, InHeight).WithStencil().WithSRV().Build(Device);
+	return FDepthStencilBuilder().SetSize(InWidth, InHeight).WithStencil().WithSRV().Build(Device);
 }
 
 FDepthStencilResource FDepthStencilFactory::CreateDepthStencilViewCubemap(ID3D11Device* Device, uint32 InWidth, uint32 InHeight)
 {
-    return FDepthStencilBuilder().SetSize(InWidth, InHeight).WithStencil().WithSRV().AsCubemap().Build(Device);
+	return FDepthStencilBuilder().SetSize(InWidth, InHeight).WithStencil().WithSRV().AsCubemap().Build(Device);
 }

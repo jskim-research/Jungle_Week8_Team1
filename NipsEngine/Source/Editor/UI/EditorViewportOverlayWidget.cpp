@@ -31,31 +31,31 @@
 // ──────────── 공통 UI 상수 ────────────
 namespace
 {
-    constexpr ImGuiWindowFlags kStatFlags =
-        ImGuiWindowFlags_NoDecoration       |
-        ImGuiWindowFlags_AlwaysAutoResize   |
-        ImGuiWindowFlags_NoSavedSettings    |
-        ImGuiWindowFlags_NoFocusOnAppearing |
-        ImGuiWindowFlags_NoNav              |
-        ImGuiWindowFlags_NoMove             |
-        ImGuiWindowFlags_NoInputs;
+	constexpr ImGuiWindowFlags kStatFlags =
+		ImGuiWindowFlags_NoDecoration       |
+		ImGuiWindowFlags_AlwaysAutoResize   |
+		ImGuiWindowFlags_NoSavedSettings    |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoNav              |
+		ImGuiWindowFlags_NoMove             |
+		ImGuiWindowFlags_NoInputs;
 
-    constexpr ImGuiWindowFlags kNameTableFlags =
-        ImGuiWindowFlags_NoTitleBar         |
-        ImGuiWindowFlags_NoResize           |
-        ImGuiWindowFlags_NoScrollbar        |
-        ImGuiWindowFlags_NoSavedSettings    |
-        ImGuiWindowFlags_NoFocusOnAppearing |
-        ImGuiWindowFlags_NoNav              |
-        ImGuiWindowFlags_NoMove;
+	constexpr ImGuiWindowFlags kNameTableFlags =
+		ImGuiWindowFlags_NoTitleBar         |
+		ImGuiWindowFlags_NoResize           |
+		ImGuiWindowFlags_NoScrollbar        |
+		ImGuiWindowFlags_NoSavedSettings    |
+		ImGuiWindowFlags_NoFocusOnAppearing |
+		ImGuiWindowFlags_NoNav              |
+		ImGuiWindowFlags_NoMove;
 
-    const ImVec4 ColorWhite  = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+	const ImVec4 ColorWhite  = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 	const ImVec4 ColorPaleBlue = ImVec4(0.8f, 0.8f, 1.0f, 1.0f);
-    const ImVec4 ColorGreen  = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
-    const ImVec4 ColorCyan   = ImVec4(0.25f, 0.9f, 1.0f, 1.0f);
-    const ImVec4 ColorOrange = ImVec4(1.0f, 0.5f, 0.0f, 1.0f);
-    const ImVec4 ColorYellow = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
-    const ImVec4 ColorPink   = ImVec4(1.0f, 0.5f, 0.5f, 1.0f);
+	const ImVec4 ColorGreen  = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
+	const ImVec4 ColorCyan   = ImVec4(0.25f, 0.9f, 1.0f, 1.0f);
+	const ImVec4 ColorOrange = ImVec4(1.0f, 0.5f, 0.0f, 1.0f);
+	const ImVec4 ColorYellow = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
+	const ImVec4 ColorPink   = ImVec4(1.0f, 0.5f, 0.5f, 1.0f);
 	const ImVec4 ColorRed      = ImVec4(1.0f, 0.2f, 0.2f, 1.0f); // 미사용
 	const ImVec4 ColorPurple   = ImVec4(0.7f, 0.4f, 1.0f, 1.0f);
 	const ImVec4 ColorMint     = ImVec4(0.3f, 1.0f, 0.7f, 1.0f);
@@ -107,159 +107,159 @@ void FEditorViewportOverlayWidget::Render(float DeltaTime)
 // 뷰포트 설정(표시 플래그, 그리드, 카메라 감도, BVH 관리 정책 등)을 조작하는 창을 렌더링합니다.
 void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
 {
-    FEditorSettings& Settings = FEditorSettings::Get();
+	FEditorSettings& Settings = FEditorSettings::Get();
 
-    if (!ImGui::Begin("Viewport Settings"))
-    {
-        ImGui::End();
-        return;
-    }
+	if (!ImGui::Begin("Viewport Settings"))
+	{
+		ImGui::End();
+		return;
+	}
 
-    // 위젯 너비를 현재 창 콘텐츠 영역의 50%로 설정하는 람다 또는 변수
-    float ItemWidth = ImGui::GetContentRegionAvail().x * 0.5f;
-    auto SetControlWidth = [ItemWidth]()
-    { ImGui::SetNextItemWidth(ItemWidth); };
-    auto BeginSettingsSection = [](const char* Label, bool bDefaultOpen)
-    {
-        ImGui::SetNextItemOpen(bDefaultOpen, ImGuiCond_FirstUseEver);
-        return ImGui::CollapsingHeader(Label);
-    };
+	// 위젯 너비를 현재 창 콘텐츠 영역의 50%로 설정하는 람다 또는 변수
+	float ItemWidth = ImGui::GetContentRegionAvail().x * 0.5f;
+	auto SetControlWidth = [ItemWidth]()
+	{ ImGui::SetNextItemWidth(ItemWidth); };
+	auto BeginSettingsSection = [](const char* Label, bool bDefaultOpen)
+	{
+		ImGui::SetNextItemOpen(bDefaultOpen, ImGuiCond_FirstUseEver);
+		return ImGui::CollapsingHeader(Label);
+	};
 
-    // Show Flags
-    if (BeginSettingsSection("Show Flags", true))
-    {
-        ImGui::Checkbox("Primitives", &Settings.ShowFlags.bPrimitives);
-        ImGui::Checkbox("BillboardText", &Settings.ShowFlags.bBillboardText);
-        ImGui::Checkbox("Axis", &Settings.ShowFlags.bAxis);
-        ImGui::Checkbox("Grid", &Settings.ShowFlags.bGrid);
-        ImGui::Checkbox("Gizmo", &Settings.ShowFlags.bGizmo);
-        ImGui::Checkbox("Bounding Volume", &Settings.ShowFlags.bBoundingVolume);
-        if (Settings.ShowFlags.bBoundingVolume)
-        {
-            ImGui::Indent();
-            ImGui::Checkbox("BVH Bounding Volume", &Settings.ShowFlags.bBVHBoundingVolume);
-            ImGui::Unindent();
-        }
-        ImGui::Checkbox("Enable LOD", &Settings.ShowFlags.bEnableLOD);
-        ImGui::Checkbox("Decals", &Settings.ShowFlags.bDecals);
-        ImGui::Checkbox("Fog", &Settings.ShowFlags.bFog);
-    }
+	// Show Flags
+	if (BeginSettingsSection("Show Flags", true))
+	{
+		ImGui::Checkbox("Primitives", &Settings.ShowFlags.bPrimitives);
+		ImGui::Checkbox("BillboardText", &Settings.ShowFlags.bBillboardText);
+		ImGui::Checkbox("Axis", &Settings.ShowFlags.bAxis);
+		ImGui::Checkbox("Grid", &Settings.ShowFlags.bGrid);
+		ImGui::Checkbox("Gizmo", &Settings.ShowFlags.bGizmo);
+		ImGui::Checkbox("Bounding Volume", &Settings.ShowFlags.bBoundingVolume);
+		if (Settings.ShowFlags.bBoundingVolume)
+		{
+			ImGui::Indent();
+			ImGui::Checkbox("BVH Bounding Volume", &Settings.ShowFlags.bBVHBoundingVolume);
+			ImGui::Unindent();
+		}
+		ImGui::Checkbox("Enable LOD", &Settings.ShowFlags.bEnableLOD);
+		ImGui::Checkbox("Decals", &Settings.ShowFlags.bDecals);
+		ImGui::Checkbox("Fog", &Settings.ShowFlags.bFog);
+	}
 
 	// Camera Sensitivity
-    if (BeginSettingsSection("Camera Settings", true))
-    {
-        SetControlWidth();
-        ImGui::SliderFloat("Move Sensitivity", &Settings.CameraMoveSensitivity, 0.05f, 5.0f, "%.1f");
+	if (BeginSettingsSection("Camera Settings", true))
+	{
+		SetControlWidth();
+		ImGui::SliderFloat("Move Sensitivity", &Settings.CameraMoveSensitivity, 0.05f, 5.0f, "%.1f");
 
-        SetControlWidth();
-        ImGui::SliderFloat("Rotate Sensitivity", &Settings.CameraRotateSensitivity, 0.05f, 5.0f, "%.1f");
+		SetControlWidth();
+		ImGui::SliderFloat("Rotate Sensitivity", &Settings.CameraRotateSensitivity, 0.05f, 5.0f, "%.1f");
 
-        if (EditorEngine)
-        {
-            FEditorViewportLayout& Layout = EditorEngine->GetViewportLayout();
-            const int32 FocusedIdx = Layout.GetLastFocusedViewportIndex();
-            FEditorViewportClient* FocusedClient = Layout.GetViewportClient(FocusedIdx);
-            float CameraMoveSpeed = FocusedClient->GetMoveSpeed();
+		if (EditorEngine)
+		{
+			FEditorViewportLayout& Layout = EditorEngine->GetViewportLayout();
+			const int32 FocusedIdx = Layout.GetLastFocusedViewportIndex();
+			FEditorViewportClient* FocusedClient = Layout.GetViewportClient(FocusedIdx);
+			float CameraMoveSpeed = FocusedClient->GetMoveSpeed();
 
-            SetControlWidth(); // 너비 설정
-            ImGui::SliderFloat("Zoom Speed", &Settings.CameraZoomSpeed, 0.01f, 30.0f, "%.2f");
-        }
-    }
+			SetControlWidth(); // 너비 설정
+			ImGui::SliderFloat("Zoom Speed", &Settings.CameraZoomSpeed, 0.01f, 30.0f, "%.2f");
+		}
+	}
 
-    // Grid Settings
-    if (BeginSettingsSection("Grid / Axis Settings", false))
-    {
-        SetControlWidth();
-        ImGui::SliderFloat("Spacing", &Settings.GridSpacing, 0.1f, 10.0f, "%.1f");
-        SetControlWidth();
-        ImGui::SliderInt("Half Line Count", &Settings.GridHalfLineCount, 10, 500);
-        SetControlWidth();
-        ImGui::SliderFloat("Line Thickness", &Settings.GridRenderSettings.LineThickness, 0.0f, 4.0f, "%.2f");
-        SetControlWidth();
-        ImGui::SliderFloat("Major Line Thickness", &Settings.GridRenderSettings.MajorLineThickness, 0.0f, 6.0f, "%.2f");
-        SetControlWidth();
-        ImGui::SliderInt("Major Line Interval", &Settings.GridRenderSettings.MajorLineInterval, 1, 50);
-        SetControlWidth();
-        ImGui::SliderFloat("Minor Intensity", &Settings.GridRenderSettings.MinorIntensity, 0.0f, 1.5f, "%.2f");
-        SetControlWidth();
-        ImGui::SliderFloat("Major Intensity", &Settings.GridRenderSettings.MajorIntensity, 0.0f, 1.5f, "%.2f");
-        SetControlWidth();
-        ImGui::SliderFloat("Axis Thickness", &Settings.GridRenderSettings.AxisThickness, 0.0f, 8.0f, "%.2f");
-        SetControlWidth();
-        ImGui::SliderFloat("Axis Intensity", &Settings.GridRenderSettings.AxisIntensity, 0.0f, 1.5f, "%.2f");
-        SetControlWidth();
-        ImGui::SliderFloat("Axis Length Scale", &Settings.GridRenderSettings.AxisLengthScale, 0.25f, 4.0f, "%.2f");
-    }
+	// Grid Settings
+	if (BeginSettingsSection("Grid / Axis Settings", false))
+	{
+		SetControlWidth();
+		ImGui::SliderFloat("Spacing", &Settings.GridSpacing, 0.1f, 10.0f, "%.1f");
+		SetControlWidth();
+		ImGui::SliderInt("Half Line Count", &Settings.GridHalfLineCount, 10, 500);
+		SetControlWidth();
+		ImGui::SliderFloat("Line Thickness", &Settings.GridRenderSettings.LineThickness, 0.0f, 4.0f, "%.2f");
+		SetControlWidth();
+		ImGui::SliderFloat("Major Line Thickness", &Settings.GridRenderSettings.MajorLineThickness, 0.0f, 6.0f, "%.2f");
+		SetControlWidth();
+		ImGui::SliderInt("Major Line Interval", &Settings.GridRenderSettings.MajorLineInterval, 1, 50);
+		SetControlWidth();
+		ImGui::SliderFloat("Minor Intensity", &Settings.GridRenderSettings.MinorIntensity, 0.0f, 1.5f, "%.2f");
+		SetControlWidth();
+		ImGui::SliderFloat("Major Intensity", &Settings.GridRenderSettings.MajorIntensity, 0.0f, 1.5f, "%.2f");
+		SetControlWidth();
+		ImGui::SliderFloat("Axis Thickness", &Settings.GridRenderSettings.AxisThickness, 0.0f, 8.0f, "%.2f");
+		SetControlWidth();
+		ImGui::SliderFloat("Axis Intensity", &Settings.GridRenderSettings.AxisIntensity, 0.0f, 1.5f, "%.2f");
+		SetControlWidth();
+		ImGui::SliderFloat("Axis Length Scale", &Settings.GridRenderSettings.AxisLengthScale, 0.25f, 4.0f, "%.2f");
+	}
 
-    if (BeginSettingsSection("BVH Settings", false))
-    {
-        bool bPolicyChanged = false;
+	if (BeginSettingsSection("BVH Settings", false))
+	{
+		bool bPolicyChanged = false;
 
-        SetControlWidth();
-        bPolicyChanged |= ImGui::SliderInt("Batch Refit Min Dirty", &Settings.SpatialBatchRefitMinDirtyCount, 1, 256);
+		SetControlWidth();
+		bPolicyChanged |= ImGui::SliderInt("Batch Refit Min Dirty", &Settings.SpatialBatchRefitMinDirtyCount, 1, 256);
 
-        SetControlWidth();
-        bPolicyChanged |=
-            ImGui::SliderInt("Batch Refit Dirty %%", &Settings.SpatialBatchRefitDirtyPercentThreshold, 1, 100);
+		SetControlWidth();
+		bPolicyChanged |=
+			ImGui::SliderInt("Batch Refit Dirty %%", &Settings.SpatialBatchRefitDirtyPercentThreshold, 1, 100);
 
-        SetControlWidth();
-        bPolicyChanged |=
-            ImGui::SliderInt("Rotation Structural Changes", &Settings.SpatialRotationStructuralChangeThreshold, 1, 256);
+		SetControlWidth();
+		bPolicyChanged |=
+			ImGui::SliderInt("Rotation Structural Changes", &Settings.SpatialRotationStructuralChangeThreshold, 1, 256);
 
-        SetControlWidth();
-        bPolicyChanged |=
-            ImGui::SliderInt("Rotation Dirty Count", &Settings.SpatialRotationDirtyCountThreshold, 1, 512);
+		SetControlWidth();
+		bPolicyChanged |=
+			ImGui::SliderInt("Rotation Dirty Count", &Settings.SpatialRotationDirtyCountThreshold, 1, 512);
 
-        SetControlWidth();
-        bPolicyChanged |= ImGui::SliderInt("Rotation Dirty %%", &Settings.SpatialRotationDirtyPercentThreshold, 1, 100);
+		SetControlWidth();
+		bPolicyChanged |= ImGui::SliderInt("Rotation Dirty %%", &Settings.SpatialRotationDirtyPercentThreshold, 1, 100);
 
-        if (bPolicyChanged && EditorEngine)
-        {
-            EditorEngine->ApplySpatialIndexMaintenanceSettings();
-        }
-    }
+		if (bPolicyChanged && EditorEngine)
+		{
+			EditorEngine->ApplySpatialIndexMaintenanceSettings();
+		}
+	}
 
-    // FXAA Settings
-    if (BeginSettingsSection("FXAA", false))
-    {
-        ImGui::Checkbox("Enable FXAA", &Settings.bEnableFXAA);
-    }
+	// FXAA Settings
+	if (BeginSettingsSection("FXAA", false))
+	{
+		ImGui::Checkbox("Enable FXAA", &Settings.bEnableFXAA);
+	}
 
-    ImGui::End();
+	ImGui::End();
 }
 
 // 활성화된 뷰포트를 순회하며 설정에 따라 디버그 스탯(FPS, Culling, Memory 등) 오버레이를 화면에 배치하고 렌더링합니다.
 void FEditorViewportOverlayWidget::RenderDebugStats(float DeltaTime)
 {
-    if (!EditorEngine) return;
+	if (!EditorEngine) return;
 
-    FEditorViewportLayout& Layout = EditorEngine->GetViewportLayout();
+	FEditorViewportLayout& Layout = EditorEngine->GetViewportLayout();
 
-    for (int32 i = 0; i < FEditorViewportLayout::MaxViewports; ++i)
-    {
-        const FEditorViewportState& VS = Layout.GetViewportState(i);
-        FViewportRect ViewportRect = Layout.GetSceneViewport(i).GetRect();
+	for (int32 i = 0; i < FEditorViewportLayout::MaxViewports; ++i)
+	{
+		const FEditorViewportState& VS = Layout.GetViewportState(i);
+		FViewportRect ViewportRect = Layout.GetSceneViewport(i).GetRect();
 
-        if (!VS.bShowStatFPS && !VS.bShowStatMemory && !VS.bShowStatNameTable && !VS.bShowStatLightCull) 
-            continue;
-        
-        if (ViewportRect.Width <= 0 || ViewportRect.Height <= 0) 
-            continue;
+		if (!VS.bShowStatFPS && !VS.bShowStatMemory && !VS.bShowStatNameTable && !VS.bShowStatLightCull) 
+			continue;
+		
+		if (ViewportRect.Width <= 0 || ViewportRect.Height <= 0) 
+			continue;
 
-        ImVec2 CurrentDrawPos(static_cast<float>(ViewportRect.X) + 8.f, static_cast<float>(ViewportRect.Y) + 32.f);
+		ImVec2 CurrentDrawPos(static_cast<float>(ViewportRect.X) + 8.f, static_cast<float>(ViewportRect.Y) + 32.f);
 
-        float GeneralWidth = RenderGeneralStatsWindow(i, VS, CurrentDrawPos, DeltaTime);
-        if (GeneralWidth > 0.f)
-            CurrentDrawPos.x += GeneralWidth + 8.f;
+		float GeneralWidth = RenderGeneralStatsWindow(i, VS, CurrentDrawPos, DeltaTime);
+		if (GeneralWidth > 0.f)
+			CurrentDrawPos.x += GeneralWidth + 8.f;
 
-        float NTWidth = RenderNameTableWindow(i, VS, CurrentDrawPos);
-        if (NTWidth > 0.f)
-            CurrentDrawPos.x += NTWidth + 8.f;
+		float NTWidth = RenderNameTableWindow(i, VS, CurrentDrawPos);
+		if (NTWidth > 0.f)
+			CurrentDrawPos.x += NTWidth + 8.f;
 
-        float LightCullWidth = RenderLightCullWindow(i, VS, CurrentDrawPos);
+		float LightCullWidth = RenderLightCullWindow(i, VS, CurrentDrawPos);
 
 		// [중요] 통계를 띄우고 싶을 경우엔 여기에 위의 양식과 똑같이 추가합니다.
-    }
+	}
 }
 
 // 다중 뷰포트 모드에서 뷰포트 간의 경계선(Splitter) 및 교차점(Cross)을 드래그 시 강조해 렌더링합니다.
@@ -352,8 +352,8 @@ void FEditorViewportOverlayWidget::RenderBoxSelectionOverlay()
 	for (int32 i = 0; i < FEditorViewportLayout::MaxViewports; ++i)
 	{
 		const FEditorViewportState& VS = Layout.GetViewportState(i);
-        FViewportRect ViewportRect = Layout.GetSceneViewport(i).GetRect();
-        if (ViewportRect.Width <= 0 || ViewportRect.Height <= 0)
+		FViewportRect ViewportRect = Layout.GetSceneViewport(i).GetRect();
+		if (ViewportRect.Width <= 0 || ViewportRect.Height <= 0)
 		{
 			continue;
 		}
@@ -373,7 +373,7 @@ void FEditorViewportOverlayWidget::RenderBoxSelectionOverlay()
 		const float MaxY = static_cast<float>(std::max(Start.y, End.y));
 
 		const ImVec2 P0(static_cast<float>(ViewportRect.X) + MinX, static_cast<float>(ViewportRect.Y) + MinY);
-        const ImVec2 P1(static_cast<float>(ViewportRect.X) + MaxX, static_cast<float>(ViewportRect.Y) + MaxY);
+		const ImVec2 P1(static_cast<float>(ViewportRect.X) + MaxX, static_cast<float>(ViewportRect.Y) + MaxY);
 		DrawList->AddRectFilled(P0, P1, FillColor);
 		DrawList->AddRect(P0, P1, RectColor, 0.0f, 0, 1.5f);
 	}
@@ -489,161 +489,161 @@ void FEditorViewportOverlayWidget::RenderShortcutsWindow()
 // 특정 뷰포트의 일반적인 렌더링 통계(FPS, Culling, Decal, Memory) 정보를 출력하는 창을 그립니다.
 float FEditorViewportOverlayWidget::RenderGeneralStatsWindow(int32 ViewportIndex, const FEditorViewportState& VS, const ImVec2& Pos, float DeltaTime)
 {
-    if (!VS.bShowStatFPS && !VS.bShowStatMemory) 
-        return 0.f;
+	if (!VS.bShowStatFPS && !VS.bShowStatMemory) 
+		return 0.f;
 
-    const FEditorRenderPipeline* RenderPipeline = EditorEngine->GetEditorRenderPipeline();
+	const FEditorRenderPipeline* RenderPipeline = EditorEngine->GetEditorRenderPipeline();
 
-    ImGui::SetNextWindowPos(Pos, ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.3f);
+	ImGui::SetNextWindowPos(Pos, ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.3f);
 
-    char WinId[32];
-    snprintf(WinId, sizeof(WinId), "##StatOverlay_%d", ViewportIndex);
+	char WinId[32];
+	snprintf(WinId, sizeof(WinId), "##StatOverlay_%d", ViewportIndex);
 
-    float WindowWidth = 0.f;
-    if (ImGui::Begin(WinId, nullptr, kStatFlags))
-    {
-        const FRenderCollector::FCullingStats* CullingStats = 
-            (RenderPipeline != nullptr) ? &RenderPipeline->GetViewportCullingStats(ViewportIndex) : nullptr;
+	float WindowWidth = 0.f;
+	if (ImGui::Begin(WinId, nullptr, kStatFlags))
+	{
+		const FRenderCollector::FCullingStats* CullingStats = 
+			(RenderPipeline != nullptr) ? &RenderPipeline->GetViewportCullingStats(ViewportIndex) : nullptr;
 
-        if (VS.bShowStatFPS)
-        {
-            const float FPS = (DeltaTime > 0.f) ? (1.f / DeltaTime) : 0.f;
-            ImGui::TextColored(ColorGreen, "FPS: %.1f (%.2f ms)", FPS, DeltaTime * 1000.f);
-        }
+		if (VS.bShowStatFPS)
+		{
+			const float FPS = (DeltaTime > 0.f) ? (1.f / DeltaTime) : 0.f;
+			ImGui::TextColored(ColorGreen, "FPS: %.1f (%.2f ms)", FPS, DeltaTime * 1000.f);
+		}
 
-        if (CullingStats != nullptr)
-        {
-            const int32 CulledPrimitiveCount = std::max(0, CullingStats->TotalVisiblePrimitiveCount - (CullingStats->BVHPassedPrimitiveCount + CullingStats->FallbackPassedPrimitiveCount));
-            if (VS.bShowStatFPS) ImGui::Separator();
+		if (CullingStats != nullptr)
+		{
+			const int32 CulledPrimitiveCount = std::max(0, CullingStats->TotalVisiblePrimitiveCount - (CullingStats->BVHPassedPrimitiveCount + CullingStats->FallbackPassedPrimitiveCount));
+			if (VS.bShowStatFPS) ImGui::Separator();
 
-            ImGui::TextColored(ColorCyan, "Culling");
-            ImGui::TextColored(ColorPaleBlue, "- Total Visible: %d", CullingStats->TotalVisiblePrimitiveCount);
-            ImGui::TextColored(ColorPaleBlue, "- BVH Passed: %d", CullingStats->BVHPassedPrimitiveCount);
-            ImGui::TextColored(ColorPaleBlue, "- Fallback Passed: %d", CullingStats->FallbackPassedPrimitiveCount);
-            ImGui::TextColored(ColorPaleBlue, "- Culled: %d", CulledPrimitiveCount);
-        }
+			ImGui::TextColored(ColorCyan, "Culling");
+			ImGui::TextColored(ColorPaleBlue, "- Total Visible: %d", CullingStats->TotalVisiblePrimitiveCount);
+			ImGui::TextColored(ColorPaleBlue, "- BVH Passed: %d", CullingStats->BVHPassedPrimitiveCount);
+			ImGui::TextColored(ColorPaleBlue, "- Fallback Passed: %d", CullingStats->FallbackPassedPrimitiveCount);
+			ImGui::TextColored(ColorPaleBlue, "- Culled: %d", CulledPrimitiveCount);
+		}
 
-        const FRenderCollector::FDecalStats* DecalStats = 
-            (RenderPipeline != nullptr) ? &RenderPipeline->GetViewportDecalStats(ViewportIndex) : nullptr;
-        
-        if (DecalStats != nullptr)
-        {
-            if (CullingStats != nullptr || VS.bShowStatFPS) ImGui::Separator();
+		const FRenderCollector::FDecalStats* DecalStats = 
+			(RenderPipeline != nullptr) ? &RenderPipeline->GetViewportDecalStats(ViewportIndex) : nullptr;
+		
+		if (DecalStats != nullptr)
+		{
+			if (CullingStats != nullptr || VS.bShowStatFPS) ImGui::Separator();
 
-            ImGui::TextColored(ColorOrange, "Decal");
-            ImGui::TextColored(ColorPaleBlue, "- Total Decals: %d", DecalStats->TotalDecalCount);
-            ImGui::TextColored(ColorPaleBlue, "- Decal Time: %.4f ms", DecalStats->CollectTimeMS / 1000.f);
-        }
+			ImGui::TextColored(ColorOrange, "Decal");
+			ImGui::TextColored(ColorPaleBlue, "- Total Decals: %d", DecalStats->TotalDecalCount);
+			ImGui::TextColored(ColorPaleBlue, "- Decal Time: %.4f ms", DecalStats->CollectTimeMS / 1000.f);
+		}
 
-        if (VS.bShowStatMemory)
-        {
-            if (CullingStats != nullptr || VS.bShowStatFPS) ImGui::Separator();
+		if (VS.bShowStatMemory)
+		{
+			if (CullingStats != nullptr || VS.bShowStatFPS) ImGui::Separator();
 
-            size_t MeshMemoryBytes = 0;
-            for (TObjectIterator<UStaticMesh> It; It; ++It)
-            {
-                UStaticMesh* Mesh = *It;
-                if (Mesh && Mesh->HasValidMeshData())
-                {
-                    MeshMemoryBytes += sizeof(UStaticMesh)
-                        + Mesh->GetVertices().size()  * sizeof(FNormalVertex)
-                        + Mesh->GetIndices().size()   * sizeof(uint32)
-                        + Mesh->GetSections().size()  * sizeof(FStaticMeshSection);
-                }
-            }
+			size_t MeshMemoryBytes = 0;
+			for (TObjectIterator<UStaticMesh> It; It; ++It)
+			{
+				UStaticMesh* Mesh = *It;
+				if (Mesh && Mesh->HasValidMeshData())
+				{
+					MeshMemoryBytes += sizeof(UStaticMesh)
+						+ Mesh->GetVertices().size()  * sizeof(FNormalVertex)
+						+ Mesh->GetIndices().size()   * sizeof(uint32)
+						+ Mesh->GetSections().size()  * sizeof(FStaticMeshSection);
+				}
+			}
 
-            const size_t MatMemoryBytes = FResourceManager::Get().GetMaterialMemorySize();
+			const size_t MatMemoryBytes = FResourceManager::Get().GetMaterialMemorySize();
 
-            ImGui::TextColored(ColorYellow, "Memory Stat");
-            ImGui::TextColored(ColorPaleBlue, "- Mesh: %.2f KB", MeshMemoryBytes / 1024.f);
-            ImGui::TextColored(ColorPaleBlue, "- Material: %.2f KB", MatMemoryBytes / 1024.f);
-            ImGui::Separator();
+			ImGui::TextColored(ColorYellow, "Memory Stat");
+			ImGui::TextColored(ColorPaleBlue, "- Mesh: %.2f KB", MeshMemoryBytes / 1024.f);
+			ImGui::TextColored(ColorPaleBlue, "- Material: %.2f KB", MatMemoryBytes / 1024.f);
+			ImGui::Separator();
 
-            FNamePool& Pool = FNamePool::Get();
-            
-            ImGui::TextColored(ColorPink, "FName Stat");
-            ImGui::TextColored(ColorPaleBlue, "- Entries: %u", Pool.GetEntryCount());
-            ImGui::TextColored(ColorPaleBlue, "- Size: %.2f KB", Pool.GetTotalBytes() / 1024.f);
-            ImGui::Separator();
+			FNamePool& Pool = FNamePool::Get();
+			
+			ImGui::TextColored(ColorPink, "FName Stat");
+			ImGui::TextColored(ColorPaleBlue, "- Entries: %u", Pool.GetEntryCount());
+			ImGui::TextColored(ColorPaleBlue, "- Size: %.2f KB", Pool.GetTotalBytes() / 1024.f);
+			ImGui::Separator();
 
-            ImGui::TextColored(ColorPaleBlue, "- Total Allocated Counts: %d", EngineStatics::GetTotalAllocationCount());
-            ImGui::TextColored(ColorPaleBlue, "- Total Allocated Bytes: %.2f KB", EngineStatics::GetTotalAllocationBytes() / 1024.f);
-        }
+			ImGui::TextColored(ColorPaleBlue, "- Total Allocated Counts: %d", EngineStatics::GetTotalAllocationCount());
+			ImGui::TextColored(ColorPaleBlue, "- Total Allocated Bytes: %.2f KB", EngineStatics::GetTotalAllocationBytes() / 1024.f);
+		}
 
-        WindowWidth = ImGui::GetWindowSize().x; 
-    }
-    ImGui::End();
+		WindowWidth = ImGui::GetWindowSize().x; 
+	}
+	ImGui::End();
 
-    return WindowWidth;
+	return WindowWidth;
 }
 
 // 현재 엔진의 FNamePool에 등록된 전체 문자열 목록을 스크롤 가능한 창으로 렌더링합니다.
 float FEditorViewportOverlayWidget::RenderNameTableWindow(int32 ViewportIndex, const FEditorViewportState& VS, const ImVec2& Pos)
 {
-    if (!VS.bShowStatNameTable) 
-        return 0.f;
+	if (!VS.bShowStatNameTable) 
+		return 0.f;
 
-    ImGui::SetNextWindowPos(Pos, ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.3f);
-    ImGui::SetNextWindowSize(ImVec2(280.f, 300.f), ImGuiCond_Always);
+	ImGui::SetNextWindowPos(Pos, ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.3f);
+	ImGui::SetNextWindowSize(ImVec2(280.f, 300.f), ImGuiCond_Always);
 
-    char WinId[32];
-    snprintf(WinId, sizeof(WinId), "##NameTableOverlay_%d", ViewportIndex);
+	char WinId[32];
+	snprintf(WinId, sizeof(WinId), "##NameTableOverlay_%d", ViewportIndex);
 
-    if (ImGui::Begin(WinId, nullptr, kNameTableFlags))
-    {
-        FNamePool& Pool = FNamePool::Get();
-        const uint32 Count = Pool.GetEntryCount();
-        const TArray<FString>& Entries = Pool.GetEntries();
+	if (ImGui::Begin(WinId, nullptr, kNameTableFlags))
+	{
+		FNamePool& Pool = FNamePool::Get();
+		const uint32 Count = Pool.GetEntryCount();
+		const TArray<FString>& Entries = Pool.GetEntries();
 
-        ImGui::TextColored(ColorPurple, "FName Table (%u entries)", Count);
-        ImGui::Separator();
+		ImGui::TextColored(ColorPurple, "FName Table (%u entries)", Count);
+		ImGui::Separator();
 
-        ImGui::BeginChild("##NTScroll", ImVec2(0.f, 0.f), false);
-        ImGuiListClipper Clipper;
-        Clipper.Begin(static_cast<int>(Count));
-        while (Clipper.Step())
-        {
-            for (int j = Clipper.DisplayStart; j < Clipper.DisplayEnd; ++j)
-            {
-                ImGui::TextColored(ColorPaleBlue, "[%d] %s", j, Entries[static_cast<uint32>(j)].c_str());
-            }
-        }
-        Clipper.End();
-        ImGui::EndChild();
-    }
-    ImGui::End();
+		ImGui::BeginChild("##NTScroll", ImVec2(0.f, 0.f), false);
+		ImGuiListClipper Clipper;
+		Clipper.Begin(static_cast<int>(Count));
+		while (Clipper.Step())
+		{
+			for (int j = Clipper.DisplayStart; j < Clipper.DisplayEnd; ++j)
+			{
+				ImGui::TextColored(ColorPaleBlue, "[%d] %s", j, Entries[static_cast<uint32>(j)].c_str());
+			}
+		}
+		Clipper.End();
+		ImGui::EndChild();
+	}
+	ImGui::End();
 
-    return 280.f;
+	return 280.f;
 }
 
 // 라이트 컬링(Light Culling) 패스의 디버그 통계(타일 수, 타일당 라이트 개수 등)를 출력하는 창을 그립니다.
 float FEditorViewportOverlayWidget::RenderLightCullWindow(int32 ViewportIndex, const FEditorViewportState& VS, const ImVec2& Pos)
 {
-    if (!VS.bShowStatLightCull) 
-        return 0.f;
+	if (!VS.bShowStatLightCull) 
+		return 0.f;
 
-    ImGui::SetNextWindowPos(Pos, ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.3f);
+	ImGui::SetNextWindowPos(Pos, ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.3f);
 
-    char WinId[32];
-    snprintf(WinId, sizeof(WinId), "##LightCullOverlay_%d", ViewportIndex);
+	char WinId[32];
+	snprintf(WinId, sizeof(WinId), "##LightCullOverlay_%d", ViewportIndex);
 
-    if (ImGui::Begin(WinId, nullptr, kStatFlags))
-    {
-        const FLightCullingDebugStats& S = FLightCullingPass::GetDebugStats();
-        
-        ImGui::TextColored(ColorMint, "Light Culling");
-        ImGui::Separator();
-        
-        ImGui::TextColored(ColorPaleBlue, "- Lights: %u", S.LightCount);
-        ImGui::TextColored(ColorPaleBlue, "- Tiles:  %ux%u (%u)", S.TileCountX, S.TileCountY, S.TileCount);
-        ImGui::TextColored(ColorPaleBlue, "- Non-zero Tiles: %u", S.NonZeroTileCount);
-        ImGui::TextColored(ColorPaleBlue, "- Max / Tile: %u", S.MaxLightsInTile);
-        ImGui::TextColored(ColorPaleBlue, "- Avg / Tile: %.2f", S.AvgLightsPerTile);
-    }
-    ImGui::End();
+	if (ImGui::Begin(WinId, nullptr, kStatFlags))
+	{
+		const FLightCullingDebugStats& S = FLightCullingPass::GetDebugStats();
+		
+		ImGui::TextColored(ColorMint, "Light Culling");
+		ImGui::Separator();
+		
+		ImGui::TextColored(ColorPaleBlue, "- Lights: %u", S.LightCount);
+		ImGui::TextColored(ColorPaleBlue, "- Tiles:  %ux%u (%u)", S.TileCountX, S.TileCountY, S.TileCount);
+		ImGui::TextColored(ColorPaleBlue, "- Non-zero Tiles: %u", S.NonZeroTileCount);
+		ImGui::TextColored(ColorPaleBlue, "- Max / Tile: %u", S.MaxLightsInTile);
+		ImGui::TextColored(ColorPaleBlue, "- Avg / Tile: %.2f", S.AvgLightsPerTile);
+	}
+	ImGui::End();
 
 	return 280.0f;
 }

@@ -25,7 +25,7 @@ public:
 	ISlateViewport* GetViewportInterface() const { return ViewportInterface; }
 
 	FSceneViewport& GetSceneViewport() { return SceneViewport; }
-    const FSceneViewport& GetSceneViewport() const { return SceneViewport; }
+	const FSceneViewport& GetSceneViewport() const { return SceneViewport; }
 
 private:
 	FViewportMouseEvent MakeMouseEvent(int32 X, int32 Y) const;

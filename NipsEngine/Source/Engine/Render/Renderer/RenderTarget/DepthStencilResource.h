@@ -12,8 +12,8 @@ enum class EDepthStencilResourceType
 
 struct FDepthStencilResource
 {
-    TComPtr<ID3D11Texture2D> Texture;
-    TArray<TComPtr<ID3D11DepthStencilView>> DSVs;
-    TComPtr<ID3D11ShaderResourceView> SRV;
-    EDepthStencilResourceType DST;
+	TComPtr<ID3D11Texture2D> Texture;
+	TArray<TComPtr<ID3D11DepthStencilView>> DSVs;
+	TComPtr<ID3D11ShaderResourceView> SRV;
+	EDepthStencilResourceType DST;
 };

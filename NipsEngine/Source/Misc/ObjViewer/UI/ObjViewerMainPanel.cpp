@@ -48,16 +48,16 @@ void FObjViewerMainPanel::Render(float DeltaTime)
 	ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
 	// TODO-VIEWER: Slate 구조 개편 후 뷰포트 값 세팅하기
-    if (Engine)
-    {
-        ImGuiDockNode* CentralNode = ImGui::DockBuilderGetCentralNode(dockspace_id);
-        if (CentralNode)
-        {
-            Engine->GetViewportClient().SetViewportRect(
-                CentralNode->Pos.x, CentralNode->Pos.y, 
-                CentralNode->Size.x, CentralNode->Size.y);
-        }
-    }
+	if (Engine)
+	{
+		ImGuiDockNode* CentralNode = ImGui::DockBuilderGetCentralNode(dockspace_id);
+		if (CentralNode)
+		{
+			Engine->GetViewportClient().SetViewportRect(
+				CentralNode->Pos.x, CentralNode->Pos.y, 
+				CentralNode->Size.x, CentralNode->Size.y);
+		}
+	}
 
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 

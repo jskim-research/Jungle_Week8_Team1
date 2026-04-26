@@ -69,8 +69,8 @@ public:
 	void SetRelativeRotationQuat(const FQuat& NewRotationQuat);
 
 protected:
-    /** @brief Hook fired when this component becomes transform-dirty. */
-    virtual void OnTransformDirty() {}
+	/** @brief Hook fired when this component becomes transform-dirty. */
+	virtual void OnTransformDirty() {}
 
 	FRotator GetRelativeRotator() const;
 	void SetRelativeRotationRotator(const FRotator& NewRotation);

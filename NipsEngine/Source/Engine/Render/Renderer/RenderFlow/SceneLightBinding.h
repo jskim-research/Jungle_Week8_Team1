@@ -71,7 +71,7 @@ namespace SceneLightBinding
 		Context->DeviceContext->PSSetConstantBuffers(4, 1, &CBuffer);
 
 		Context->DeviceContext->VSSetShaderResources(8, 3, SRVs);
-        Context->DeviceContext->VSSetConstantBuffers(4, 1, &CBuffer);
+		Context->DeviceContext->VSSetConstantBuffers(4, 1, &CBuffer);
 	}
 
 	inline void UnbindResources(ID3D11DeviceContext* DeviceContext)
@@ -82,8 +82,8 @@ namespace SceneLightBinding
 		}
 
 		ID3D11ShaderResourceView* NullSRVs[3] = { nullptr, nullptr, nullptr };
-        DeviceContext->PSSetShaderResources(8, 3, NullSRVs);
-        DeviceContext->VSSetShaderResources(8, 3, NullSRVs);
+		DeviceContext->PSSetShaderResources(8, 3, NullSRVs);
+		DeviceContext->VSSetShaderResources(8, 3, NullSRVs);
 
 		ID3D11Buffer* NullCB = nullptr;
 		DeviceContext->PSSetConstantBuffers(4, 1, &NullCB);

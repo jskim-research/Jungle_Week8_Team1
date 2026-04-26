@@ -26,28 +26,28 @@ public:
 class ASubUVActor : public AActor
 {
 public:
-    DECLARE_CLASS(ASubUVActor, AActor)
-    ASubUVActor() = default;
+	DECLARE_CLASS(ASubUVActor, AActor)
+	ASubUVActor() = default;
 
-    void InitDefaultComponents();
+	void InitDefaultComponents();
 };
 
 class ATextRenderActor : public AActor
 {
 public:
-    DECLARE_CLASS(ATextRenderActor, AActor)
-    ATextRenderActor() = default;
+	DECLARE_CLASS(ATextRenderActor, AActor)
+	ATextRenderActor() = default;
 
-    void InitDefaultComponents();
+	void InitDefaultComponents();
 };
 
 class ABillboardActor : public AActor
 {
 public:
-    DECLARE_CLASS(ABillboardActor, AActor)
+	DECLARE_CLASS(ABillboardActor, AActor)
 	ABillboardActor() = default;
 
-    void InitDefaultComponents();
+	void InitDefaultComponents();
 };
 
 class ADecalActor : public AActor

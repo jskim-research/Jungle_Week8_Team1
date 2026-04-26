@@ -8,16 +8,16 @@ REGISTER_FACTORY(USceneComponent)
 // Actor::Duplicate() 에서 DuplicateSubTree 를 통해 올바른 관계가 복원됩니다.
 void USceneComponent::PostDuplicate(UObject* Original)
 {
-    UActorComponent::PostDuplicate(Original);
+	UActorComponent::PostDuplicate(Original);
 
-    SetOwner(nullptr);
+	SetOwner(nullptr);
 
-    // 트랜스폼 캐시는 새 부모에 붙을 때 다시 계산되도록 Dirty 플래그를 켭니다.
-    bTransformDirty = true;
+	// 트랜스폼 캐시는 새 부모에 붙을 때 다시 계산되도록 Dirty 플래그를 켭니다.
+	bTransformDirty = true;
 
-    // 부모-자식 관계는 Actor::PostDuplicate() 에서 DuplicateSubTree 를 통해 복원됩니다.
-    ParentComponent = nullptr;
-    ChildComponents.clear();
+	// 부모-자식 관계는 Actor::PostDuplicate() 에서 DuplicateSubTree 를 통해 복원됩니다.
+	ParentComponent = nullptr;
+	ChildComponents.clear();
 }
 
 void USceneComponent::Serialize(FArchive& Ar)
@@ -229,7 +229,7 @@ void USceneComponent::SetRelativeScale(const FVector& NewScale)
 void USceneComponent::MarkTransformDirty()
 {
 	bTransformDirty = true;
-    OnTransformDirty();
+	OnTransformDirty();
 
 	for (auto* Child : ChildComponents)
 	{

@@ -17,19 +17,19 @@ namespace UIConstants
 // Editor Widget에서 공통적으로 사용될 수 있는 잡다한 UI 함수들을 정의합니다.
 namespace EditorUIUtils
 {
-    bool DrawXButton(const char* id, float size = UIConstants::XButtonSize);
-    void MakeXButtonId(char* OutBuf, size_t BufSize, const void* Ptr);
-    bool RenderStringComboOrInput(const char* Label, FString& Value, const TArray<FString>& Options);
-    FString GetMovementComponentDisplayName(UMovementComponent* MoveComp);
+	bool DrawXButton(const char* id, float size = UIConstants::XButtonSize);
+	void MakeXButtonId(char* OutBuf, size_t BufSize, const void* Ptr);
+	bool RenderStringComboOrInput(const char* Label, FString& Value, const TArray<FString>& Options);
+	FString GetMovementComponentDisplayName(UMovementComponent* MoveComp);
 }
 
 // 뷰포트별 PIE 재생 상태를 나타냅니다.
 // UEditorEngine::GetEditorState() / SetEditorState() 는 포커스된 뷰포트의 이 값을 읽고 씁니다.
 enum class EViewportPlayState : uint8
 {
-    Editing,  // 편집 모드
-    Playing,  // PIE 실행 중
-    Paused,   // PIE 일시정지
+	Editing,  // 편집 모드
+	Playing,  // PIE 실행 중
+	Paused,   // PIE 일시정지
 };
 
 struct FEditorViewportState

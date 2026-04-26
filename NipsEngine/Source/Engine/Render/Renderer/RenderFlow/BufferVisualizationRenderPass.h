@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RenderPass.h"
 #include <memory>
 
@@ -9,17 +9,17 @@ class FShaderBindingInstance;
 class FBufferVisualizationRenderPass : public FBaseRenderPass
 {
 public:
-    bool Initialize() override;
-    bool Release() override;
+	bool Initialize() override;
+	bool Release() override;
 
 private:
-    bool Begin(const FRenderPassContext* Context) override;
-    bool DrawCommand(const FRenderPassContext* Context) override;
-    bool End(const FRenderPassContext* Context) override;
+	bool Begin(const FRenderPassContext* Context) override;
+	bool DrawCommand(const FRenderPassContext* Context) override;
+	bool End(const FRenderPassContext* Context) override;
 
 private:
-    // 현재 뷰모드에서 시각화 draw를 생략해야 하면 true로 유지한다.
-    bool bSkipVisualizationDraw = false;
-    // fullscreen 시각화 셰이더 바인딩을 재사용한다.
-    std::shared_ptr<FShaderBindingInstance> ShaderBinding;
+	// 현재 뷰모드에서 시각화 draw를 생략해야 하면 true로 유지한다.
+	bool bSkipVisualizationDraw = false;
+	// fullscreen 시각화 셰이더 바인딩을 재사용한다.
+	std::shared_ptr<FShaderBindingInstance> ShaderBinding;
 };

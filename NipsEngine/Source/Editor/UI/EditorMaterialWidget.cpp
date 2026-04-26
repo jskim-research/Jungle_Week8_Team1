@@ -65,8 +65,8 @@ void FEditorMaterialWidget::ResetSelection()
 // -----------------------------------------------------------------------
 void FEditorMaterialWidget::Render(float DeltaTime)
 {
-    ImGui::SetNextWindowSize(ImVec2(500.0f, 400.0f), ImGuiCond_Once);
-    ImGui::Begin("Material Editor");
+	ImGui::SetNextWindowSize(ImVec2(500.0f, 400.0f), ImGuiCond_Once);
+	ImGui::Begin("Material Editor");
 
 	FEditorPropertyWidget& PropWidget = EditorEngine->GetMainPanel().GetPropertyWidget();
 	
@@ -156,13 +156,13 @@ void FEditorMaterialWidget::RenderMaterialEditor(UPrimitiveComponent* PrimitiveC
 void FEditorMaterialWidget::RenderSectionList(UPrimitiveComponent* PrimitiveComp)
 {
 	int32 NumMaterials = PrimitiveComp->GetNumMaterials();
-    ImGui::Text("Materials (%d)", NumMaterials);
-    ImGui::Separator();
+	ImGui::Text("Materials (%d)", NumMaterials);
+	ImGui::Separator();
 
 	UStaticMeshComponent* MeshComp = Cast<UStaticMeshComponent>(PrimitiveComp);
 	UStaticMesh* MeshAsset = MeshComp ? MeshComp->GetStaticMesh() : nullptr;
 
-    for (int32 i = 0; i < NumMaterials; ++i)
+	for (int32 i = 0; i < NumMaterials; ++i)
 	{
 		// 슬롯 이름 가져오기
 		FString SlotName = "Slot";
@@ -181,25 +181,25 @@ void FEditorMaterialWidget::RenderSectionList(UPrimitiveComponent* PrimitiveComp
 		UMaterialInterface* Material = PrimitiveComp->GetMaterial(i);
 		bool bMissing = (Material == nullptr);
 
-        char Label[128];
-        snprintf(Label, sizeof(Label), "[%d] %s%s", i, SlotName.c_str(), bMissing ? " (!)" : "");
+		char Label[128];
+		snprintf(Label, sizeof(Label), "[%d] %s%s", i, SlotName.c_str(), bMissing ? " (!)" : "");
 
-        bool bSelected = (SelectedSectionIndex == i);
+		bool bSelected = (SelectedSectionIndex == i);
 		if (bMissing)
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
 
-        if (ImGui::Selectable(Label, bSelected, 0, ImVec2(0, 20)))
-        {
+		if (ImGui::Selectable(Label, bSelected, 0, ImVec2(0, 20)))
+		{
 			if (!bSelected)
 			{
 				SelectedSectionIndex = i;
 				SelectedMaterialPtr = PrimitiveComp->GetMaterial(i);
 			}
-        }
+		}
 
 		if (bMissing)
 			ImGui::PopStyleColor();
-    }
+	}
 }
 
 // -----------------------------------------------------------------------
@@ -207,11 +207,11 @@ void FEditorMaterialWidget::RenderSectionList(UPrimitiveComponent* PrimitiveComp
 // -----------------------------------------------------------------------
 void FEditorMaterialWidget::RenderMaterialDetails(UPrimitiveComponent* PrimitiveComp)
 {
-    if (SelectedSectionIndex < 0 || SelectedSectionIndex >= PrimitiveComp->GetNumMaterials())
-    {
-        ImGui::TextDisabled("Select a slot to edit.");
-        return;
-    }
+	if (SelectedSectionIndex < 0 || SelectedSectionIndex >= PrimitiveComp->GetNumMaterials())
+	{
+		ImGui::TextDisabled("Select a slot to edit.");
+		return;
+	}
 
 	// 슬롯 이름 표시
 	UStaticMeshComponent* MeshComp = Cast<UStaticMeshComponent>(PrimitiveComp);
@@ -269,7 +269,7 @@ void FEditorMaterialWidget::RenderMaterialDetails(UPrimitiveComponent* Primitive
 		}
 	}
 
-    // ---- 머테리얼 교체 콤보박스 (항상 표시) ----
+	// ---- 머테리얼 교체 콤보박스 (항상 표시) ----
 	TArray<UMaterialInterface*> Materials;
 	for (TObjectIterator<UMaterialInterface> It; It; ++It)
 	{
@@ -280,7 +280,7 @@ void FEditorMaterialWidget::RenderMaterialDetails(UPrimitiveComponent* Primitive
 		}
 	}
 
-    int32 CurrentIdx = -1;
+	int32 CurrentIdx = -1;
 	if (SelectedMaterialPtr)
 	{
 		for (int32 i = 0; i < static_cast<int32>(Materials.size()); ++i)
@@ -293,25 +293,25 @@ void FEditorMaterialWidget::RenderMaterialDetails(UPrimitiveComponent* Primitive
 		}
 	}
 
-    const char* PreviewLabel = (CurrentIdx >= 0) ? Materials[CurrentIdx]->GetName().c_str() : "(none)";
-    ImGui::SetNextItemWidth(-1);
-    if (ImGui::BeginCombo("##MaterialCombo", PreviewLabel))
-    {
-        for (int32 i = 0; i < static_cast<int32>(Materials.size()); ++i)
-        {
-            bool bIsSelected = (i == CurrentIdx);
-            if (ImGui::Selectable(Materials[i]->GetName().c_str(), bIsSelected))
-            {
+	const char* PreviewLabel = (CurrentIdx >= 0) ? Materials[CurrentIdx]->GetName().c_str() : "(none)";
+	ImGui::SetNextItemWidth(-1);
+	if (ImGui::BeginCombo("##MaterialCombo", PreviewLabel))
+	{
+		for (int32 i = 0; i < static_cast<int32>(Materials.size()); ++i)
+		{
+			bool bIsSelected = (i == CurrentIdx);
+			if (ImGui::Selectable(Materials[i]->GetName().c_str(), bIsSelected))
+			{
 				PrimitiveComp->SetMaterial(SelectedSectionIndex, Materials[i]);
 				SelectedMaterialPtr = Materials[i];
 				break;
-            }
+			}
 
-            if (bIsSelected)
-                ImGui::SetItemDefaultFocus();
-        }
-        ImGui::EndCombo();
-    }
+			if (bIsSelected)
+				ImGui::SetItemDefaultFocus();
+		}
+		ImGui::EndCombo();
+	}
 
 	// 머테리얼이 없으면 색상/텍스처 편집 불가
 	if (!SelectedMaterialPtr)

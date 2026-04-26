@@ -1,4 +1,4 @@
-#include "FileWatcher.h"
+﻿#include "FileWatcher.h"
 
 #include "Editor/UI/EditorConsoleWidget.h"
 

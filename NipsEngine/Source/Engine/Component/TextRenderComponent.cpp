@@ -13,18 +13,18 @@ REGISTER_FACTORY(UTextRenderComponent)
 // GetEditableProperties 에 노출되지 않은 private 필드를 직접 복사합니다.
 void UTextRenderComponent::PostDuplicate(UObject* Original)
 {
-    UPrimitiveComponent::PostDuplicate(Original);
+	UPrimitiveComponent::PostDuplicate(Original);
 
-    const UTextRenderComponent* Orig = Cast<UTextRenderComponent>(Original);
-    Color       = Orig->Color;
-    Spacing     = Orig->Spacing;
-    CharWidth   = Orig->CharWidth;
-    CharHeight  = Orig->CharHeight;
-    RenderSpace = Orig->RenderSpace;
-    HAlign      = Orig->HAlign;
-    VAlign      = Orig->VAlign;
-    ScreenX     = Orig->ScreenX;
-    ScreenY     = Orig->ScreenY;
+	const UTextRenderComponent* Orig = Cast<UTextRenderComponent>(Original);
+	Color       = Orig->Color;
+	Spacing     = Orig->Spacing;
+	CharWidth   = Orig->CharWidth;
+	CharHeight  = Orig->CharHeight;
+	RenderSpace = Orig->RenderSpace;
+	HAlign      = Orig->HAlign;
+	VAlign      = Orig->VAlign;
+	ScreenX     = Orig->ScreenX;
+	ScreenY     = Orig->ScreenY;
 }
 
 void UTextRenderComponent::Serialize(FArchive& Ar)

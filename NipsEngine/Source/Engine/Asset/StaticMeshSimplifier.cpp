@@ -40,22 +40,22 @@ void FStaticMeshSimplifier::BuildLODs(UStaticMesh* TargetMesh)
 
 	// 실제로 생성된 LOD 수 집계
 	Builder.TargetMesh->ValidLODCount = 1;
-    FString LogMessage = "LOD Triangles: [LOD 0: " + std::to_string(Builder.MeshData->Indices.size() / 3u) + "]";
+	FString LogMessage = "LOD Triangles: [LOD 0: " + std::to_string(Builder.MeshData->Indices.size() / 3u) + "]";
 
-    for (int32 i = 1; i < UStaticMesh::MAX_LOD; ++i)
-    {
-        if (Builder.TargetMesh->LODMeshData[i] && !Builder.TargetMesh->LODMeshData[i]->Indices.empty())
-        {
-            Builder.TargetMesh->ValidLODCount = i + 1;
-            LogMessage += ", [LOD " + std::to_string(i) + ": " + std::to_string(Builder.TargetMesh->LODMeshData[i]->Indices.size() / 3u) + "]";
-        }
-        else
-        {
-            break;
-        }
-    }
+	for (int32 i = 1; i < UStaticMesh::MAX_LOD; ++i)
+	{
+		if (Builder.TargetMesh->LODMeshData[i] && !Builder.TargetMesh->LODMeshData[i]->Indices.empty())
+		{
+			Builder.TargetMesh->ValidLODCount = i + 1;
+			LogMessage += ", [LOD " + std::to_string(i) + ": " + std::to_string(Builder.TargetMesh->LODMeshData[i]->Indices.size() / 3u) + "]";
+		}
+		else
+		{
+			break;
+		}
+	}
 
-    UE_LOG("%s", LogMessage.c_str());
+	UE_LOG("%s", LogMessage.c_str());
 }
 
 // ==============================================================================
@@ -80,56 +80,56 @@ void FStaticMeshSimplifier::BuildTopologicalVertices()
 
 	const TArray<FNormalVertex>& Vertices = MeshData->Vertices;
 	
-    const float CellSize = 1e-3f;   // 1e-6 SizeSquared 임계값에 대응
-    const float InvCell  = 1.0f / CellSize;
+	const float CellSize = 1e-3f;   // 1e-6 SizeSquared 임계값에 대응
+	const float InvCell  = 1.0f / CellSize;
 
-    // 양자화 좌표 → 위상 인덱스 맵
-    auto Quantize = [InvCell](const FVector& P) -> uint64 {
-        int32 ix = static_cast<int32>(std::floor(P.X * InvCell));
-        int32 iy = static_cast<int32>(std::floor(P.Y * InvCell));
-        int32 iz = static_cast<int32>(std::floor(P.Z * InvCell));
-        // 3개의 21비트 값을 64비트에 패킹
-        uint64 ux = static_cast<uint64>(static_cast<uint32>(ix)) & 0x1FFFFF;
-        uint64 uy = static_cast<uint64>(static_cast<uint32>(iy)) & 0x1FFFFF;
-        uint64 uz = static_cast<uint64>(static_cast<uint32>(iz)) & 0x1FFFFF;
-        return (ux << 42) | (uy << 21) | uz;
-    };
+	// 양자화 좌표 → 위상 인덱스 맵
+	auto Quantize = [InvCell](const FVector& P) -> uint64 {
+		int32 ix = static_cast<int32>(std::floor(P.X * InvCell));
+		int32 iy = static_cast<int32>(std::floor(P.Y * InvCell));
+		int32 iz = static_cast<int32>(std::floor(P.Z * InvCell));
+		// 3개의 21비트 값을 64비트에 패킹
+		uint64 ux = static_cast<uint64>(static_cast<uint32>(ix)) & 0x1FFFFF;
+		uint64 uy = static_cast<uint64>(static_cast<uint32>(iy)) & 0x1FFFFF;
+		uint64 uz = static_cast<uint64>(static_cast<uint32>(iz)) & 0x1FFFFF;
+		return (ux << 42) | (uy << 21) | uz;
+	};
 
-    std::unordered_map<uint64, TArray<int32>> CellMap;
-    CellMap.reserve(Vertices.size());
+	std::unordered_map<uint64, TArray<int32>> CellMap;
+	CellMap.reserve(Vertices.size());
 
-    for (int32 i = 0; i < static_cast<int32>(Vertices.size()); ++i)
-    {
-        const FVector& Pos = Vertices[i].Position;
-        uint64 Key = Quantize(Pos);
-        int32 FoundTopoIdx = -1;
+	for (int32 i = 0; i < static_cast<int32>(Vertices.size()); ++i)
+	{
+		const FVector& Pos = Vertices[i].Position;
+		uint64 Key = Quantize(Pos);
+		int32 FoundTopoIdx = -1;
 
-        // 같은 셀 내에서만 정밀 비교 (보통 1~3개)
-        auto It = CellMap.find(Key);
-        if (It != CellMap.end())
-        {
-            for (int32 TopoIdx : It->second)
-            {
-                if ((TopologicalVertices[TopoIdx].Position - Pos).SizeSquared() < 1e-6f)
-                {
-                    FoundTopoIdx = TopoIdx;
-                    break;
-                }
-            }
-        }
+		// 같은 셀 내에서만 정밀 비교 (보통 1~3개)
+		auto It = CellMap.find(Key);
+		if (It != CellMap.end())
+		{
+			for (int32 TopoIdx : It->second)
+			{
+				if ((TopologicalVertices[TopoIdx].Position - Pos).SizeSquared() < 1e-6f)
+				{
+					FoundTopoIdx = TopoIdx;
+					break;
+				}
+			}
+		}
 
-        if (FoundTopoIdx == -1)
-        {
-            FTopologicalVertex NewTopoVertex;
-            NewTopoVertex.Position = Pos;
-            FoundTopoIdx = static_cast<int32>(TopologicalVertices.size());
-            TopologicalVertices.push_back(NewTopoVertex);
-            CellMap[Key].push_back(FoundTopoIdx);
-        }
+		if (FoundTopoIdx == -1)
+		{
+			FTopologicalVertex NewTopoVertex;
+			NewTopoVertex.Position = Pos;
+			FoundTopoIdx = static_cast<int32>(TopologicalVertices.size());
+			TopologicalVertices.push_back(NewTopoVertex);
+			CellMap[Key].push_back(FoundTopoIdx);
+		}
 
-        TopologicalVertices[FoundTopoIdx].RenderVertices.push_back(i);
-        RenderToTopoMap[i] = FoundTopoIdx;
-    }
+		TopologicalVertices[FoundTopoIdx].RenderVertices.push_back(i);
+		RenderToTopoMap[i] = FoundTopoIdx;
+	}
 }
 
 void FStaticMeshSimplifier::CalculateInitialQuadrics()
@@ -224,19 +224,19 @@ void FStaticMeshSimplifier::AddPlaneQuadric(uint32 VertIdx, const FVector& InNor
 // BuildTopologicalVertices 직후, 혹은 CalculateInitialQuadrics 끝에 한번 구축
 void FStaticMeshSimplifier::BuildTopoUVBounds()
 {
-    TopoUVBounds.resize(TopologicalVertices.size());
-    for (int32 t = 0; t < TopologicalVertices.size(); ++t)
-    {
-        float minU = FLT_MAX, maxU = -FLT_MAX, minV = FLT_MAX, maxV = -FLT_MAX;
-        for (uint32 ri : TopologicalVertices[t].RenderVertices)
-        {
-            float u = MeshData->Vertices[ri].UVs.X;
-            float v = MeshData->Vertices[ri].UVs.Y;
-            minU = std::min(minU, u); maxU = std::max(maxU, u);
-            minV = std::min(minV, v); maxV = std::max(maxV, v);
-        }
-        TopoUVBounds[t] = { minU, maxU, minV, maxV };
-    }
+	TopoUVBounds.resize(TopologicalVertices.size());
+	for (int32 t = 0; t < TopologicalVertices.size(); ++t)
+	{
+		float minU = FLT_MAX, maxU = -FLT_MAX, minV = FLT_MAX, maxV = -FLT_MAX;
+		for (uint32 ri : TopologicalVertices[t].RenderVertices)
+		{
+			float u = MeshData->Vertices[ri].UVs.X;
+			float v = MeshData->Vertices[ri].UVs.Y;
+			minU = std::min(minU, u); maxU = std::max(maxU, u);
+			minV = std::min(minV, v); maxV = std::max(maxV, v);
+		}
+		TopoUVBounds[t] = { minU, maxU, minV, maxV };
+	}
 }
 
 void FStaticMeshSimplifier::FindBoundaryEdges()
@@ -280,8 +280,8 @@ FCollapseCandidate FStaticMeshSimplifier::CalculateEdgeError(uint32 ia, uint32 i
 	if (BoundaryVertices.contains(ia) || BoundaryVertices.contains(ib))
 	{
 		Candidate.Error = FLT_MAX;
-        Candidate.OptimalPos = TopologicalVertices[ia].Position;
-        return Candidate;
+		Candidate.OptimalPos = TopologicalVertices[ia].Position;
+		return Candidate;
 	}
 
 	FMatrix Q = Quadrics[ia] + Quadrics[ib];
@@ -399,9 +399,9 @@ FCollapseCandidate FStaticMeshSimplifier::CalculateEdgeError(uint32 ia, uint32 i
 	// UV 찢어짐 방지: 두 위상 정점의 렌더 정점 UV 차이가 클수록 패널티 부여
 	// UV 좌표가 크게 다른 간선(UV seam 경계)은 collapse 우선순위를 낮춘다.
 	float du = std::max(std::abs(TopoUVBounds[ia].MaxU - TopoUVBounds[ib].MinU),
-                    std::abs(TopoUVBounds[ib].MaxU - TopoUVBounds[ia].MinU));
+					std::abs(TopoUVBounds[ib].MaxU - TopoUVBounds[ia].MinU));
 	float dv = std::max(std::abs(TopoUVBounds[ia].MaxV - TopoUVBounds[ib].MinV),
-                    std::abs(TopoUVBounds[ib].MaxV - TopoUVBounds[ia].MinV));
+					std::abs(TopoUVBounds[ib].MaxV - TopoUVBounds[ia].MinV));
 	float MaxUVDistSq = du * du + dv * dv;
 
 	constexpr float UVSeamPenaltyScale = 1000.0f;
@@ -415,99 +415,99 @@ FCollapseCandidate FStaticMeshSimplifier::CalculateEdgeError(uint32 ia, uint32 i
 // ==============================================================================
 void FStaticMeshSimplifier::SimplifyMesh()
 {
-    // [렌더링 정점, 위상 정점] 추적 배열 생성
-    TArray<uint32> TopologicalIndices(MeshData->Indices.size());
-    for (int i = 0; i < TopologicalIndices.size(); i++)
-    {
-        TopologicalIndices[i] = RenderToTopoMap[MeshData->Indices[i]];
-    }
+	// [렌더링 정점, 위상 정점] 추적 배열 생성
+	TArray<uint32> TopologicalIndices(MeshData->Indices.size());
+	for (int i = 0; i < TopologicalIndices.size(); i++)
+	{
+		TopologicalIndices[i] = RenderToTopoMap[MeshData->Indices[i]];
+	}
 
-    std::priority_queue<FCollapseCandidate> PQ;
+	std::priority_queue<FCollapseCandidate> PQ;
 
-    // 모든 유효 간선의 오차 계산 및 큐 삽입
-    for (auto e : Edges)
-    {
-        PQ.push(CalculateEdgeError(e.A, e.B, TopologicalIndices));
-    }
+	// 모든 유효 간선의 오차 계산 및 큐 삽입
+	for (auto e : Edges)
+	{
+		PQ.push(CalculateEdgeError(e.A, e.B, TopologicalIndices));
+	}
 
-    int32 CurrentTriangles = static_cast<int32>(MeshData->Indices.size()) / 3;
-    int32 CurrentLOD = 1;
-    bool bLastLOD = false; // 256개 도달 여부 플래그
+	int32 CurrentTriangles = static_cast<int32>(MeshData->Indices.size()) / 3;
+	int32 CurrentLOD = 1;
+	bool bLastLOD = false; // 256개 도달 여부 플래그
 
-    // 삼각형 개수에 따른 동적 감소 비율 결정
-    auto GetNextTarget = [&](int32 TriCount) -> int32 {
-        float Ratio = 0.85f;
-        if (TriCount >= 20000)      Ratio = 0.5f;
-        else if (TriCount >= 2000) Ratio = 0.6f;
-        else if (TriCount >= 750)  Ratio = 0.7f;
+	// 삼각형 개수에 따른 동적 감소 비율 결정
+	auto GetNextTarget = [&](int32 TriCount) -> int32 {
+		float Ratio = 0.85f;
+		if (TriCount >= 20000)      Ratio = 0.5f;
+		else if (TriCount >= 2000) Ratio = 0.6f;
+		else if (TriCount >= 750)  Ratio = 0.7f;
 
-        int32 Next = static_cast<int32>(TriCount * Ratio);
-        if (Next <= 256) { Next = 256; bLastLOD = true; }
-        return Next;
-    };
+		int32 Next = static_cast<int32>(TriCount * Ratio);
+		if (Next <= 256) { Next = 256; bLastLOD = true; }
+		return Next;
+	};
 
-    int32 TargetTriangles = GetNextTarget(CurrentTriangles);
+	int32 TargetTriangles = GetNextTarget(CurrentTriangles);
 
-    TArray<bool> IsVertexDeleted(MeshData->Vertices.size(), false);
-    TArray<uint32> NewNeighbors;
-    NewNeighbors.reserve(32);
+	TArray<bool> IsVertexDeleted(MeshData->Vertices.size(), false);
+	TArray<uint32> NewNeighbors;
+	NewNeighbors.reserve(32);
 
 	if (CurrentTriangles <= 256)
 		return;
 
-    // 오차가 작은 순서대로 간선 pop 및 간소화 진행
-    while (!PQ.empty() && CurrentLOD < UStaticMesh::MAX_LOD)
-    {
-        FCollapseCandidate Victim = PQ.top();
-        PQ.pop();
+	// 오차가 작은 순서대로 간선 pop 및 간소화 진행
+	while (!PQ.empty() && CurrentLOD < UStaticMesh::MAX_LOD)
+	{
+		FCollapseCandidate Victim = PQ.top();
+		PQ.pop();
 
-        uint32 ia = Victim.Edge.A;
-        uint32 ib = Victim.Edge.B;
+		uint32 ia = Victim.Edge.A;
+		uint32 ib = Victim.Edge.B;
 
-        if (IsVertexDeleted[ia] || IsVertexDeleted[ib] || ia == ib) continue;
+		if (IsVertexDeleted[ia] || IsVertexDeleted[ib] || ia == ib) continue;
 
-        FCollapseCandidate CurrentState = CalculateEdgeError(ia, ib, TopologicalIndices);
-        
-        // 큐의 데이터가 과거 값이면 최신화하여 다시 삽입합니다.
-        if (CurrentState.Error > Victim.Error + 0.0001f)
-        {
-            PQ.push(CurrentState);
-            continue;
-        }
-        
-        // [경계선 파괴 방지] 안전하게 간소화할 수 없으면 종료
-        if (CurrentState.Error >= FLT_MAX) break;
+		FCollapseCandidate CurrentState = CalculateEdgeError(ia, ib, TopologicalIndices);
+		
+		// 큐의 데이터가 과거 값이면 최신화하여 다시 삽입합니다.
+		if (CurrentState.Error > Victim.Error + 0.0001f)
+		{
+			PQ.push(CurrentState);
+			continue;
+		}
+		
+		// [경계선 파괴 방지] 안전하게 간소화할 수 없으면 종료
+		if (CurrentState.Error >= FLT_MAX) break;
 
-        Quadrics[ia] = Quadrics[ia] + Quadrics[ib];
-        UpdateRenderVertices(ia, ib, CurrentState);
+		Quadrics[ia] = Quadrics[ia] + Quadrics[ib];
+		UpdateRenderVertices(ia, ib, CurrentState);
 
-        // 삼각형 위상 갱신 및 삭제 처리
-        NewNeighbors.clear();
-        UpdateTriangles(ia, ib, TopologicalIndices, CurrentTriangles, NewNeighbors);
+		// 삼각형 위상 갱신 및 삭제 처리
+		NewNeighbors.clear();
+		UpdateTriangles(ia, ib, TopologicalIndices, CurrentTriangles, NewNeighbors);
 
-        // ib 정점 삭제 및 맵 제거
-        IsVertexDeleted[ib] = true;
-        VertexToTriangleMap[ib].clear();
+		// ib 정점 삭제 및 맵 제거
+		IsVertexDeleted[ib] = true;
+		VertexToTriangleMap[ib].clear();
 
-        // ia의 새 이웃 정점들과의 엣지 오차 재계산 및 삽입
-        for (uint32 vn : NewNeighbors)
-        {
-            if (!IsVertexDeleted[vn]) PQ.push(CalculateEdgeError(ia, vn, TopologicalIndices));
-        }
+		// ia의 새 이웃 정점들과의 엣지 오차 재계산 및 삽입
+		for (uint32 vn : NewNeighbors)
+		{
+			if (!IsVertexDeleted[vn]) PQ.push(CalculateEdgeError(ia, vn, TopologicalIndices));
+		}
 
-        // 현재 단계의 LOD 저장 및 다음 타겟 갱신
-        if (CurrentTriangles <= TargetTriangles)
-        {
-            SaveCurrentStateAsLOD(CurrentLOD, TopologicalIndices);
-            
-            if (bLastLOD) break; // 256개 LOD 생성 후 종료
+		// 현재 단계의 LOD 저장 및 다음 타겟 갱신
+		if (CurrentTriangles <= TargetTriangles)
+		{
+			SaveCurrentStateAsLOD(CurrentLOD, TopologicalIndices);
+			
+			if (bLastLOD) break; // 256개 LOD 생성 후 종료
 
-            CurrentLOD++;
-            TargetTriangles = GetNextTarget(CurrentTriangles);
-        }
-    }
+			CurrentLOD++;
+			TargetTriangles = GetNextTarget(CurrentTriangles);
+		}
+	}
 
-    BuildFinalIndices(TopologicalIndices, CurrentTriangles);
+	BuildFinalIndices(TopologicalIndices, CurrentTriangles);
 }
 
 void FStaticMeshSimplifier::UpdateRenderVertices(uint32 TopoIa, uint32 TopoIb, const FCollapseCandidate& Victim)
@@ -553,7 +553,7 @@ void FStaticMeshSimplifier::UpdateRenderVertices(uint32 TopoIa, uint32 TopoIb, c
 void FStaticMeshSimplifier::UpdateTriangles(uint32 TopoIa, uint32 TopoIb, TArray<uint32>& OutTopologicalIndices, int32& OutCurrentTriangles, TArray<uint32>& OutNewNeighbors)
 {
 	auto AddUnique = [](TArray<uint32>& Arr, uint32 Val) {
-	    if (std::find(Arr.begin(), Arr.end(), Val) == Arr.end()) Arr.push_back(Val);
+		if (std::find(Arr.begin(), Arr.end(), Val) == Arr.end()) Arr.push_back(Val);
 	};
 
 	// ib를 포함하는 삼각형을 순회하며 ib -> ia로 교체, 파괴할 간선을 밑변으로 공유하는 삼각형을 삭제한다.

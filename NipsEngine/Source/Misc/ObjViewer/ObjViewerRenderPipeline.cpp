@@ -57,9 +57,9 @@ void FObjViewerRenderPipeline::TransferViewportData(FRenderer& Renderer)
 	auto& VC = Engine->GetViewportClient();
 
 	int32 vx = static_cast<uint32>(VC.GetViewportX());
-    int32 vy = static_cast<uint32>(VC.GetViewportY());
-    int32 vw = static_cast<uint32>(VC.GetViewportWidth());
-    int32 vh = static_cast<uint32>(VC.GetViewportHeight());
+	int32 vy = static_cast<uint32>(VC.GetViewportY());
+	int32 vw = static_cast<uint32>(VC.GetViewportWidth());
+	int32 vh = static_cast<uint32>(VC.GetViewportHeight());
 
 	Renderer.GetFD3DDevice().SetSubViewport(vx, vy, vw, vh);
 }

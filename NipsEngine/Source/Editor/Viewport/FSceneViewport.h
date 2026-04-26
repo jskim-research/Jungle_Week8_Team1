@@ -8,7 +8,7 @@
 
 class FViewportClient;
 struct FViewportMouseEvent;
-    /*
+	/*
 * 실제 viewport 입력/출력 창구
 * FViewportClient 로 이벤트 전달
 * viewport local rect 를 알고 있음
@@ -18,9 +18,9 @@ struct FViewportMouseEvent;
 class FSceneViewport : public FViewport, public ISlateViewport
 {
 public:
-    void SetClient(FEditorViewportClient* InClient) { Client = InClient; }
-    FEditorViewportClient* GetClient() { return Client; }
-    const FEditorViewportClient* GetClient() const { return Client; }
+	void SetClient(FEditorViewportClient* InClient) { Client = InClient; }
+	FEditorViewportClient* GetClient() { return Client; }
+	const FEditorViewportClient* GetClient() const { return Client; }
 
 	/*
 	* ISlateViewport Interface
@@ -50,8 +50,8 @@ public:
 	}
 
 	FEditorViewportState& GetState() { return State; }
-    const FEditorViewportState& GetState() const { return State; }
-    void SetState(const FEditorViewportState& InState) { State = InState; }
+	const FEditorViewportState& GetState() const { return State; }
+	void SetState(const FEditorViewportState& InState) { State = InState; }
 
 	FRenderTargetSet* GetViewportRenderTargets() const;
 
@@ -59,31 +59,31 @@ public:
 	ID3D11ShaderResourceView* GetOutSRV() const 
 	{ 
 		if (!RenderTargetSet)
-            return nullptr;
+			return nullptr;
 
 		return RenderTargetSet->FinalSRV;
 	}
 
 	ID3D11ShaderResourceView* GetShadowMap() const
 	{
-        if (!RenderTargetSet)
-            return nullptr;
+		if (!RenderTargetSet)
+			return nullptr;
 
 		return RenderTargetSet->ShadowMap->Resource->SRV;
 	}
 
 	void SetRenderTargetSet(FRenderTargetSet* InRenderTargetSet) { RenderTargetSet = InRenderTargetSet; }
-    FRenderTargetSet* GetRenderTargetSet() const { return RenderTargetSet; }
+	FRenderTargetSet* GetRenderTargetSet() const { return RenderTargetSet; }
 
 private:
 	// FViewport 내에서 FViewportClient 로 추상화하는 것이 맞지만, 현재로썬 다형성을 제대로 활용하지 않는 상태라 임시로 다음과 같이 구성
-    FEditorViewportClient* Client = nullptr;
-    FEditorViewportState State;
+	FEditorViewportClient* Client = nullptr;
+	FEditorViewportState State;
 
 	// Renderer 의 자원을 참조
 	FRenderTargetSet* RenderTargetSet = nullptr;
 
 	uint32 ViewportRenderTargetWidth = 0;
-    uint32 ViewportRenderTargetHeight = 0;
+	uint32 ViewportRenderTargetHeight = 0;
 };
 

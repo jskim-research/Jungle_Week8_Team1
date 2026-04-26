@@ -3,17 +3,17 @@
 
 struct FHitResult 
 {
-    class UPrimitiveComponent* HitComponent = nullptr;
+	class UPrimitiveComponent* HitComponent = nullptr;
 
-    float Distance = FLT_MAX;
+	float Distance = FLT_MAX;
 	
 	//	World 기준
-    FVector Location = { 0, 0, 0 };
-    FVector Normal = { 0, 0, 0 };
+	FVector Location = { 0, 0, 0 };
+	FVector Normal = { 0, 0, 0 };
 	
-    int FaceIndex = -1; 
+	int FaceIndex = -1; 
 
-    bool bHit = false;
+	bool bHit = false;
 	
 	void Reset()
 	{

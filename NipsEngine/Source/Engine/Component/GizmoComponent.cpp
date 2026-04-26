@@ -382,10 +382,10 @@ void UGizmoComponent::UpdateAngularDrag(const FRay& Ray)
 
 	// 역치를 넘었을 때만 이전 위치에서 갱신됩니다.
 	if (std::abs(DeltaAngle) > AngularThreshold)
-    {
-        HandleDrag(DeltaAngle);
-        LastIntersectionLocation = CurrentIntersectionLocation;
-    }
+	{
+		HandleDrag(DeltaAngle);
+		LastIntersectionLocation = CurrentIntersectionLocation;
+	}
 }
 
 void UGizmoComponent::UpdateHoveredAxis(int Index)

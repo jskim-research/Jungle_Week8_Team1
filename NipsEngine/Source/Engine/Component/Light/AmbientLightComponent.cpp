@@ -6,24 +6,24 @@ REGISTER_FACTORY(UAmbientLightComponent)
 
 UAmbientLightComponent::UAmbientLightComponent()
 {
-    SetLightType(ELightType::LightType_AmbientLight);
-    SetLightColor({ 0.2f, 0.2f, 0.2f, 1.0f });
+	SetLightType(ELightType::LightType_AmbientLight);
+	SetLightColor({ 0.2f, 0.2f, 0.2f, 1.0f });
 }
 
 void UAmbientLightComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
 {
-    ULightComponent::GetEditableProperties(OutProps);
+	ULightComponent::GetEditableProperties(OutProps);
 }
 
 void UAmbientLightComponent::Serialize(FArchive& Ar)
 {
-    ULightComponent::Serialize(Ar);
+	ULightComponent::Serialize(Ar);
 }
 
 void UAmbientLightComponent::PostDuplicate(UObject* Original)
 {
-    ULightComponent::PostDuplicate(Original);
+	ULightComponent::PostDuplicate(Original);
 
-    // const UAmbientLightComponent* Orig = Cast<UAmbientLightComponent>(Original);
+	// const UAmbientLightComponent* Orig = Cast<UAmbientLightComponent>(Original);
 }
 

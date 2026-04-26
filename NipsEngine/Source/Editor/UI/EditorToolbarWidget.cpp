@@ -160,7 +160,7 @@ void FEditorToolbarWidget::Render(float DeltaTime)
 	}
 
 	ImVec2 OriginalPadding = ImGui::GetStyle().FramePadding;
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(OriginalPadding.x, 5.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(OriginalPadding.x, 5.0f));
 
 	bool bMenuBarOpened = ImGui::BeginMainMenuBar();
 

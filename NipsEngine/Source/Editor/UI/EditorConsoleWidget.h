@@ -56,4 +56,4 @@ private:
 };
 
 #define UE_LOG(Format, ...) \
-    FEditorConsoleWidget::AddLog(Format, ##__VA_ARGS__)
+	FEditorConsoleWidget::AddLog(Format, ##__VA_ARGS__)

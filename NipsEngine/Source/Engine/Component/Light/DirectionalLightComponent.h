@@ -4,14 +4,14 @@
 class UDirectionalLightComponent : public ULightComponent
 {
 public:
-    DECLARE_CLASS(UDirectionalLightComponent, ULightComponent)
+	DECLARE_CLASS(UDirectionalLightComponent, ULightComponent)
 
-    UDirectionalLightComponent();
-    ~UDirectionalLightComponent() override = default;
+	UDirectionalLightComponent();
+	~UDirectionalLightComponent() override = default;
 
-    void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
-    void Serialize(FArchive& Ar) override;
-    void PostDuplicate(UObject* Original) override;
+	void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
+	void Serialize(FArchive& Ar) override;
+	void PostDuplicate(UObject* Original) override;
 
 	// ──────────── Cascade Shadow Map ────────────
 	int32 GetCascadeCount() const { return CascadeCount; }
@@ -19,7 +19,7 @@ public:
 	FVector4 GetCascadeSplits() const { return CascadeSplits;  }
 
 protected:
-    FString GetVisualizationTexturePath() const override { return "Asset/Texture/Icons/S_LightDirectional.PNG"; }
+	FString GetVisualizationTexturePath() const override { return "Asset/Texture/Icons/S_LightDirectional.PNG"; }
 
 private:
 	int32 CascadeCount = 4;

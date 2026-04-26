@@ -12,17 +12,17 @@ class FShadowResourcePool;
 
 struct FRenderPassContext
 {
-    const FRenderBus* RenderBus = nullptr;
-    FRenderTargetSet* RenderTargets = nullptr;
-    ID3D11Device* Device = nullptr;
-    ID3D11DeviceContext* DeviceContext = nullptr;
-    FRenderResources* RenderResources = nullptr;
-    FFontBatcher* FontBatcher = nullptr;
-    FSubUVBatcher* SubUVBatcher = nullptr;
-    FLineBatcher* GridLineBatcher = nullptr;
-    FLineBatcher* EditorLineBatcher = nullptr;
-    ID3D11ShaderResourceView* SceneGlobalLightBufferSRV = nullptr;
-    uint32 SceneGlobalLightCount = 0;
-    FShadowResourcePool* ShadowResourcePool = nullptr;
+	const FRenderBus* RenderBus = nullptr;
+	FRenderTargetSet* RenderTargets = nullptr;
+	ID3D11Device* Device = nullptr;
+	ID3D11DeviceContext* DeviceContext = nullptr;
+	FRenderResources* RenderResources = nullptr;
+	FFontBatcher* FontBatcher = nullptr;
+	FSubUVBatcher* SubUVBatcher = nullptr;
+	FLineBatcher* GridLineBatcher = nullptr;
+	FLineBatcher* EditorLineBatcher = nullptr;
+	ID3D11ShaderResourceView* SceneGlobalLightBufferSRV = nullptr;
+	uint32 SceneGlobalLightCount = 0;
+	FShadowResourcePool* ShadowResourcePool = nullptr;
 
 };

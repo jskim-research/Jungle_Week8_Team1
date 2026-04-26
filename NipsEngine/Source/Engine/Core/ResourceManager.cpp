@@ -74,9 +74,9 @@ namespace
 	}
 
 	FShaderCompileKey BuildShaderCompileKey(const FString& FilePath,
-	                                       const FString& VSEntryPoint,
-	                                       const FString& PSEntryPoint,
-	                                       const D3D_SHADER_MACRO* Defines)
+										   const FString& VSEntryPoint,
+										   const FString& PSEntryPoint,
+										   const D3D_SHADER_MACRO* Defines)
 	{
 		FShaderCompileKey CompileKey;
 		CompileKey.FilePath = FilePath;
@@ -611,7 +611,7 @@ FTextureAssetMeta FResourceManager::LoadOrCreateTextureMeta(const std::filesyste
 		if (MetaFile.is_open())
 		{
 			FString Content((std::istreambuf_iterator<char>(MetaFile)),
-			                std::istreambuf_iterator<char>());
+							std::istreambuf_iterator<char>());
 
 			JSON Root = JSON::Load(Content);
 			if (Root.JSONType() == JSON::Class::Object)
@@ -819,7 +819,7 @@ void FResourceManager::InitializeDefaultResources(ID3D11Device* Device)
 	OutlineMat->SetParam("OutlineColor", FMaterialParamValue(FVector4(1.0f, 0.5f, 0.0f, 1.0f)));
 	OutlineMat->SetParam("OutlineThicknessPixels", FMaterialParamValue(5.0f));
 	OutlineMat->SetParam("OutlineViewportSize", FMaterialParamValue(FVector2(800.0f, 600.0f)));
-    OutlineMat->SetParam("OutlineViewportOrigin", FMaterialParamValue(FVector2(0.0f, 0.0f)));
+	OutlineMat->SetParam("OutlineViewportOrigin", FMaterialParamValue(FVector2(0.0f, 0.0f)));
 }
 
 void FResourceManager::ReleaseGPUResources()
@@ -915,9 +915,9 @@ void FResourceManager::ReleaseGPUResources()
 }
 
 bool FResourceManager::LoadShader(const FString& FilePath,
-                                  const FString& VSEntryPoint,
-                                  const FString& PSEntryPoint,
-                                  const D3D_SHADER_MACRO* Defines)
+								  const FString& VSEntryPoint,
+								  const FString& PSEntryPoint,
+								  const D3D_SHADER_MACRO* Defines)
 {
 	return LoadShaderInternal(
 		BuildShaderCompileKey(FilePath, VSEntryPoint, PSEntryPoint, Defines),
@@ -927,11 +927,11 @@ bool FResourceManager::LoadShader(const FString& FilePath,
 }
 
 bool FResourceManager::LoadShader(const FString& FilePath,
-                                  const FString& VSEntryPoint,
-                                  const FString& PSEntryPoint,
-                                  const D3D11_INPUT_ELEMENT_DESC* InputElements,
-                                  UINT InputElementCount,
-                                  const D3D_SHADER_MACRO* Defines)
+								  const FString& VSEntryPoint,
+								  const FString& PSEntryPoint,
+								  const D3D11_INPUT_ELEMENT_DESC* InputElements,
+								  UINT InputElementCount,
+								  const D3D_SHADER_MACRO* Defines)
 {
 	return LoadShaderInternal(
 		BuildShaderCompileKey(FilePath, VSEntryPoint, PSEntryPoint, Defines),
@@ -946,16 +946,16 @@ bool FResourceManager::LoadShader(const FShaderCompileKey& CompileKey)
 }
 
 bool FResourceManager::LoadShader(const FShaderCompileKey& CompileKey,
-                                  const D3D11_INPUT_ELEMENT_DESC* InputElements,
-                                  UINT InputElementCount)
+								  const D3D11_INPUT_ELEMENT_DESC* InputElements,
+								  UINT InputElementCount)
 {
 	return LoadShaderInternal(CompileKey, InputElements, InputElementCount, false);
 }
 
 bool FResourceManager::LoadShaderInternal(const FShaderCompileKey& CompileKey,
-                                          const D3D11_INPUT_ELEMENT_DESC* InputElements,
-                                          UINT InputElementCount,
-                                          bool bRegisterPathAlias)
+										  const D3D11_INPUT_ELEMENT_DESC* InputElements,
+										  UINT InputElementCount,
+										  bool bRegisterPathAlias)
 {
 	if (!CachedDevice.Get())
 	{
@@ -997,11 +997,11 @@ bool FResourceManager::LoadShaderInternal(const FShaderCompileKey& CompileKey,
 }
 
 bool FResourceManager::CompileShaderVariant(const FShaderCompileKey& NormalizedKey,
-                                            const D3D11_INPUT_ELEMENT_DESC* InputElements,
-                                            UINT InputElementCount,
-                                            UShader* OutShader,
-                                            std::string* OutFailureMessage,
-                                            bool bLogFailures)
+											const D3D11_INPUT_ELEMENT_DESC* InputElements,
+											UINT InputElementCount,
+											UShader* OutShader,
+											std::string* OutFailureMessage,
+											bool bLogFailures)
 {
 	if (!CachedDevice.Get() || OutShader == nullptr)
 	{
@@ -1144,8 +1144,8 @@ bool FResourceManager::CompileShaderVariant(const FShaderCompileKey& NormalizedK
 }
 
 void FResourceManager::CacheShaderVariantInputLayout(const FShaderCompileKey& NormalizedKey,
-                                                     const D3D11_INPUT_ELEMENT_DESC* InputElements,
-                                                     UINT InputElementCount)
+													 const D3D11_INPUT_ELEMENT_DESC* InputElements,
+													 UINT InputElementCount)
 {
 	FShaderVariantInputLayout& Layout = ShaderVariantInputLayouts[NormalizedKey];
 	Layout.Elements.clear();
@@ -1174,7 +1174,7 @@ void FResourceManager::CacheShaderVariantInputLayout(const FShaderCompileKey& No
 }
 
 bool FResourceManager::BuildCachedInputLayout(const FShaderCompileKey& NormalizedKey,
-                                              TArray<D3D11_INPUT_ELEMENT_DESC>& OutInputElements) const
+											  TArray<D3D11_INPUT_ELEMENT_DESC>& OutInputElements) const
 {
 	OutInputElements.clear();
 
@@ -1423,15 +1423,15 @@ void FResourceManager::InvalidateAllMaterialShaderBindings()
 }
 
 void FResourceManager::CollectShaderDependencies(const std::wstring& ShaderFilePath,
-                                                 std::unordered_set<std::wstring>& OutDependencies,
-                                                 std::unordered_map<std::wstring, std::unordered_set<std::wstring>>& Cache)
+												 std::unordered_set<std::wstring>& OutDependencies,
+												 std::unordered_map<std::wstring, std::unordered_set<std::wstring>>& Cache)
 {
 	std::unordered_set<std::wstring> ActiveStack;
 
 	const auto CollectRecursive = [this, &Cache](const auto& Self,
-	                                             const std::wstring& CurrentShaderFilePath,
-	                                             std::unordered_set<std::wstring>& CurrentDependencies,
-	                                             std::unordered_set<std::wstring>& CurrentActiveStack) -> void
+												 const std::wstring& CurrentShaderFilePath,
+												 std::unordered_set<std::wstring>& CurrentDependencies,
+												 std::unordered_set<std::wstring>& CurrentActiveStack) -> void
 	{
 		const std::wstring NormalizedShaderPath = NormalizeShaderPath(CurrentShaderFilePath);
 		auto CachedIt = Cache.find(NormalizedShaderPath);
@@ -2296,7 +2296,7 @@ UStaticMesh* FResourceManager::LoadStaticMeshWithOptions(const FString& Path, co
 		return FoundMesh;
 	}
 
- 	LoadMaterial(Path, DefaultUberLitShaderPath);
+	LoadMaterial(Path, DefaultUberLitShaderPath);
 
 	const FString BinaryPath = MakeStaticMeshBinaryPath(Path, LoadOptions.bNormalizeToUnitCube);
 
@@ -2331,7 +2331,7 @@ UStaticMesh* FResourceManager::LoadStaticMeshWithOptions(const FString& Path, co
 		if (LoadedMeshData == nullptr)
 		{
 			UE_LOG("[StaticMeshLoad] Failed | Path=%s | BinarySec=%.6f | ObjSec=%.6f", Path.c_str(), BinaryLoadSec,
-			       ObjLoadSec);
+				   ObjLoadSec);
 			return nullptr;
 		}
 
@@ -2364,26 +2364,26 @@ UStaticMesh* FResourceManager::LoadStaticMeshWithOptions(const FString& Path, co
 		}
 	}
 
-    UStaticMesh* LoadedMesh = UObjectManager::Get().CreateObject<UStaticMesh>();
-    LoadedMesh->SetMeshData(LoadedMeshData);
+	UStaticMesh* LoadedMesh = UObjectManager::Get().CreateObject<UStaticMesh>();
+	LoadedMesh->SetMeshData(LoadedMeshData);
 
-    if (FEditorSettings::Get().ShowFlags.bEnableLOD)
-    {
-        const auto LodStart = std::chrono::steady_clock::now();
-        FStaticMeshSimplifier::BuildLODs(LoadedMesh);
-        const auto LodEnd = std::chrono::steady_clock::now();
-        double LodSec = std::chrono::duration<double>(LodEnd - LodStart).count();
-        UE_LOG("[StaticMeshLoad] Generated %d LODs for %s in %.3f sec",
-               LoadedMesh->GetValidLODCount(), Path.c_str(), LodSec);
-    }
-    else
-    {
-        UE_LOG("[StaticMeshLoad] LOD generation skipped for %s (Enable LOD is off)", Path.c_str());
-    }
+	if (FEditorSettings::Get().ShowFlags.bEnableLOD)
+	{
+		const auto LodStart = std::chrono::steady_clock::now();
+		FStaticMeshSimplifier::BuildLODs(LoadedMesh);
+		const auto LodEnd = std::chrono::steady_clock::now();
+		double LodSec = std::chrono::duration<double>(LodEnd - LodStart).count();
+		UE_LOG("[StaticMeshLoad] Generated %d LODs for %s in %.3f sec",
+			   LoadedMesh->GetValidLODCount(), Path.c_str(), LodSec);
+	}
+	else
+	{
+		UE_LOG("[StaticMeshLoad] LOD generation skipped for %s (Enable LOD is off)", Path.c_str());
+	}
 
-    StaticMeshes.insert({CacheKey, LoadedMesh});
+	StaticMeshes.insert({CacheKey, LoadedMesh});
 
-    return LoadedMesh;
+	return LoadedMesh;
 }
 
 UStaticMesh* FResourceManager::FindStaticMesh(const FString& Path) const
