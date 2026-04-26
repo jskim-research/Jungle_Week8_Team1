@@ -123,6 +123,9 @@ public:
 		Context->PSSetShader(ShaderData.PS, nullptr, 0);
 	}
 
+	// hot reload 시 UShader 포인터는 유지하고, 내부 DX 객체/리플렉션 상태만 교체한다.
+	void AdoptCompiledState(UShader& SourceShader);
+
 	bool ReflectShader(ID3DBlob* ShaderBlob, ID3D11Device* Device, EShaderStage Stage);
 	std::shared_ptr<FShaderBindingInstance> CreateBindingInstance(ID3D11Device* Device) const;
 	const FReflectResult& GetReflectResult(EShaderStage Stage) const { return ReflectResults[static_cast<uint32>(Stage)]; }

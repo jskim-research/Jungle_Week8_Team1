@@ -9,6 +9,7 @@
 
 #include "Render/Scene/RenderBus.h"
 #include "Render/Device/D3DDevice.h"
+#include "Core/FileWatcher.h"
 #include "Render/Resource/Buffer.h"
 #include "Render/Resource/RenderResources.h"
 #include "Render/LineBatcher.h"
@@ -146,6 +147,7 @@ private:
 	FD3DDevice Device;
 	FRenderTargetSet* CurrentRenderTargets = nullptr;
 	FRenderResources Resources;
+	FFileWatcher ShaderFileWatcher;
 	FLineBatcher   EditorLineBatcher;
 	FLineBatcher   GridLineBatcher;
 	FFontBatcher   FontBatcher;

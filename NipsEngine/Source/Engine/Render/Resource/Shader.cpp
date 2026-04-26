@@ -265,6 +265,23 @@ std::shared_ptr<FShaderBindingInstance> UShader::CreateBindingInstance(ID3D11Dev
 	return Binding;
 }
 
+void UShader::AdoptCompiledState(UShader& SourceShader)
+{
+	if (this == &SourceShader)
+	{
+		return;
+	}
+
+	ShaderData.Release();
+	ShaderData = SourceShader.ShaderData;
+	SourceShader.ShaderData = {};
+
+	for (uint32 StageIndex = 0; StageIndex < static_cast<uint32>(EShaderStage::Count); ++StageIndex)
+	{
+		ReflectResults[StageIndex] = std::move(SourceShader.ReflectResults[StageIndex]);
+	}
+}
+
 bool FShaderBindingInstance::Initialize(ID3D11Device* Device, const UShader* InShader)
 {
 	if (!Device || !InShader)
