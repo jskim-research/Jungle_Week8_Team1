@@ -351,7 +351,8 @@ void FRenderer::InitializeViewportResource(FSceneViewport* VP, uint32 Width, uin
         FDepthStencilFactory::CreateDepthStencilView(Device.GetDevice(), Width, Height);
 
     Res.DepthTex = DSR.Texture;
-    Res.DepthStencilView = DSR.DSV;
+	// Render 에 쓰는 DSV 는 Default 가정 (Cubemap 등 배제)
+    Res.DepthStencilView = DSR.DSVs[0];
     Res.DepthStencilSRV = DSR.SRV;
 }
 

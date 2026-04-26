@@ -14,6 +14,7 @@
 #include "Component/StaticMeshComponent.h"
 #include "Component/GizmoComponent.h"
 #include "Component/Movement/InterpToMovementComponent.h"
+#include "Component/Light/LightComponent.h"
 #include "Editor/Utility/EditorUIUtils.h"
 
 #define SEPARATOR(); ImGui::Spacing(); ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing(); ImGui::Spacing();
@@ -457,6 +458,12 @@ void FEditorPropertyWidget::RenderComponentProperties()
 
     ImGui::Separator();
 
+	if (SelectedComponent->IsA<ULightComponent>())
+	{
+        RenderLightPreview();
+        ImGui::Separator();
+	}
+
     // PropertyDescriptor 기반 자동 위젯 렌더링
     TArray<FPropertyDescriptor> Props;
     SelectedComponent->GetEditableProperties(Props);
@@ -686,6 +693,29 @@ void FEditorPropertyWidget::RenderInterpControlPoints(UInterpToMovementComponent
     ImGui::SameLine();
     if (ImGui::Button("Stop",     ImVec2(HalfWidth, 0))) Comp->ResetAndHalt();
     if (ImGui::Button("Reset",    ImVec2(-1,        0))) Comp->Reset();
+}
+
+void FEditorPropertyWidget::RenderLightPreview()
+{
+    // Viewport 0번의 SceneColorSRV를 가져옴
+    auto& ViewportLayout = EditorEngine->GetViewportLayout();
+    auto& VP = ViewportLayout.GetSceneViewport(0);
+    const ID3D11ShaderResourceView* SRV = VP.GetShadowMap();
+
+    if (!SRV)
+        return;
+
+    ImGui::Text("Scene Preview");
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // ImGui::Image는 const를 받지 않으므로 캐스팅
+    ImTextureID TexID = reinterpret_cast<ImTextureID>(
+        const_cast<ID3D11ShaderResourceView*>(SRV));
+
+    float PanelWidth = ImGui::GetContentRegionAvail().x;
+    ImGui::Image(TexID, ImVec2(PanelWidth, PanelWidth));
+    ImGui::Spacing();
 }
 
 // 새로 생성된 컴포넌트를 액터의 부모 컴포넌트에 부착하고 선택 상태로 갱신합니다.

@@ -9,6 +9,7 @@
 #include "Render/Scene/RenderCommand.h"
 
 #include "Render/Common/ViewTypes.h"
+#include "Component/CameraComponent.h"
 
 
 class FRenderBus
@@ -24,9 +25,11 @@ public:
 	// Getter, Setter
 	void SetViewProjection(const FMatrix& InView, const FMatrix& InProj);
 	void SetRenderSettings(const EViewMode NewViewMode, const FShowFlags NewShowFlags);
+    void SetCameraState(const FCameraState& InCameraState) { CameraState = InCameraState; }
 
 	const FMatrix& GetView() const { return View; }
-	const FMatrix& GetProj() const { return Proj; }
+    const FMatrix& GetProj() const { return Proj; }
+    const FCameraState& GetCameraState() const { return CameraState; }
 	const FVector& GetCameraPosition() const { return CameraPosition;  }
 	const FVector& GetCameraForward() const { return CameraForward; }
 	const FVector& GetCameraUp() const { return CameraUp; }
@@ -61,4 +64,6 @@ private:
 	FShowFlags ShowFlags;
 	FVector WireframeColor = FVector(1.0f, 1.0f, 1.0f);
 	bool bFXAAEnabled = true;
+
+	FCameraState CameraState;
 };

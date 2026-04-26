@@ -4,6 +4,7 @@
 #include "Editor/Utility/EditorUIUtils.h"
 #include "Editor/Viewport/EditorViewportClient.h"
 #include "Render/Device/D3DDevice.h"  // FRenderTargetSet 때문에 포함했는데 따로 분리 필요할듯
+#include "Render/Common/ShadowTypes.h"
 
 class FViewportClient;
 struct FViewportMouseEvent;
@@ -61,6 +62,14 @@ public:
             return nullptr;
 
 		return RenderTargetSet->FinalSRV;
+	}
+
+	ID3D11ShaderResourceView* GetShadowMap() const
+	{
+        if (!RenderTargetSet)
+            return nullptr;
+
+		return RenderTargetSet->ShadowMap->Resource->SRV;
 	}
 
 	void SetRenderTargetSet(FRenderTargetSet* InRenderTargetSet) { RenderTargetSet = InRenderTargetSet; }

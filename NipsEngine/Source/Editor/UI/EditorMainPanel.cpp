@@ -275,11 +275,11 @@ void FEditorMainPanel::RenderViewportHostWindow()
             auto& VP = EditorEngine->GetViewportLayout().GetSceneViewport(i);
 
             const ID3D11ShaderResourceView* SceneColorSRV = VP.GetOutSRV();
-
+            
             ImVec2 Size = ImVec2(
                 static_cast<float>(VP.GetRect().Width),
                 static_cast<float>(VP.GetRect().Height));
-
+            
             if (SceneColorSRV)
             {
                 ID3D11DeviceContext* DeviceContext = EditorEngine->GetRenderer().GetFD3DDevice().GetDeviceContext();

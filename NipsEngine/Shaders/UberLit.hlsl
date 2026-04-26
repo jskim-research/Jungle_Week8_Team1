@@ -39,6 +39,12 @@ cbuffer VisibleLightInfo : register(b4)
     float3 _VisibleLightInfoPad0;
 }
 
+cbuffer ShadowLightViewInfo : register(b6)
+{
+    row_major float4x4 ShadowLightView;
+    row_major float4x4 ShadowLightProjection;
+}
+
 struct FVisibleLightData
 {
     float3 WorldPos;
@@ -56,6 +62,9 @@ struct FVisibleLightData
 StructuredBuffer<FVisibleLightData> VisibleLights : register(t8);
 StructuredBuffer<uint> TileVisibleLightCount : register(t9);
 StructuredBuffer<uint> TileVisibleLightIndices : register(t10);
+// 테스트용 임시 Texture
+Texture2D ShadowMap : register(t11);
+SamplerState ShadowSampler : register(s1);
 
 static const uint LIGHT_TYPE_DIRECTIONAL = 0u;
 static const uint LIGHT_TYPE_POINT = 1u;
@@ -215,6 +224,7 @@ FLightingResult EvaluateLightingFromWorld(float3 WorldPos, float3 WorldNormal, f
 
     return Result;
 }
+
 FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNormal)
 {
     FLightingResult Result;
@@ -299,6 +309,29 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
 float3 ApplyLighting(FUberSurfaceData Surface, FLightingResult Lighting)
 {
     return Surface.Albedo * Lighting.Diffuse + Lighting.Specular;
+}
+
+float3 ApplyShadow(FUberSurfaceData Surface, float3 ColorAfterLighting)
+{
+    float4 ShadowLightPos = mul(mul(float4(Surface.WorldPos, 1), ShadowLightView), ShadowLightProjection);
+    
+    float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
+    float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
+    float CurrentDepth = NDC.z;
+    
+    if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 ||
+        ShadowUV.y < 0.0 || ShadowUV.y > 1.0 ||
+        CurrentDepth < 0.0 || CurrentDepth > 1.0)
+        return ColorAfterLighting;
+    
+    float ShadowLightDepth = ShadowMap.Sample(ShadowSampler, ShadowUV);
+    
+    float ShadowFactor = (ShadowLightDepth >= CurrentDepth) ? 1.0 : 0.0;
+    
+    return ColorAfterLighting * ShadowFactor;
+    // return float3(ShadowLightDepth, ShadowLightDepth, ShadowLightDepth);
+    // return float3(CurrentDepth, CurrentDepth, CurrentDepth);
+    // return float3(ShadowUV, 0);
 }
 
 #if defined(MATERIAL_DOMAIN_DECAL)
@@ -403,7 +436,7 @@ FUberPSOutput mainPS(FUberPSInput Input)
 
 
 #endif
-    return ComposeOutput(Surface, ApplyLighting(Surface, Lighting));
+    return ComposeOutput(Surface, ApplyShadow(Surface, ApplyLighting(Surface, Lighting)));
 }
 
 #endif

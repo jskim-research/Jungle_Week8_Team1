@@ -11,10 +11,12 @@ private:
 	/** Stencil 을 따로 안 쓰면 Depth 쪽 데이터 bit 를 늘리는 방식이 적절 */
 	bool bUseStencil = false;
     bool bCreateSRV = false;
+    bool bCubemap = false;
 
 public:
     FDepthStencilBuilder& SetSize(uint32 InWidth, uint32 InHeight);
     FDepthStencilBuilder& WithStencil();
     FDepthStencilBuilder& WithSRV();
+    FDepthStencilBuilder& AsCubemap();
     FDepthStencilResource Build(ID3D11Device* Device);
 };

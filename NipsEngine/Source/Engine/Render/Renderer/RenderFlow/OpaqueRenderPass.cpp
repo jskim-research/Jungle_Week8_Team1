@@ -6,6 +6,7 @@
 #include "Render/Resource/Material.h"
 #include "Core/ResourceManager.h"
 #include "SceneLightBinding.h"
+#include "ShadowPass.h"
 
 namespace
 {
@@ -45,6 +46,11 @@ bool FOpaqueRenderPass::Begin(const FRenderPassContext* Context)
     OutRTV = RenderTargets->SceneColorRTV;
 
 	Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	if (!EnsureShadowConstantBuffer(Context->Device))
+	{
+        return false;
+	}
 
     return true;
 }
@@ -95,6 +101,29 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 		SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
 
+		// 테스트용으로 하나만 mapping
+		if (!FShadowPass::GetShadowMaps().empty())
+		{
+            Context->DeviceContext->PSSetShaderResources(11, 1, &FShadowPass::GetShadowMaps()[0].Resource->SRV);
+
+			FShadowCB ShadowCB;
+            ShadowCB.ShadowLightView = FShadowPass::GetShadowMaps()[0].Views[0].LightView;
+            ShadowCB.ShadowLightProjection = FShadowPass::GetShadowMaps()[0].Views[0].LightProjection;
+
+			D3D11_MAPPED_SUBRESOURCE Mapped = {};
+            if (SUCCEEDED(Context->DeviceContext->Map(ShadowConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped)))
+            {
+                std::memcpy(Mapped.pData, &ShadowCB, sizeof(ShadowCB));
+                Context->DeviceContext->Unmap(ShadowConstantBuffer.Get(), 0);
+            }
+
+			ID3D11Buffer* RawShadowConstantBuffer = ShadowConstantBuffer.Get();
+			Context->DeviceContext->PSSetConstantBuffers(6, 1, &RawShadowConstantBuffer);
+
+			ID3D11SamplerState* ShadowSampler = FResourceManager::Get().GetOrCreateSamplerState(ESamplerType::EST_Point, Context->Device);
+            Context->DeviceContext->PSSetSamplers(1, 1, &ShadowSampler);
+		}
+
 		CheckOverrideViewMode(Context);
 
         Context->DeviceContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
@@ -119,11 +148,32 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 bool FOpaqueRenderPass::End(const FRenderPassContext* Context)
 {
     SceneLightBinding::UnbindResources(Context ? Context->DeviceContext : nullptr);
+
+	ID3D11ShaderResourceView* NullSRV[] = { nullptr };
+    Context->DeviceContext->PSSetShaderResources(11, 1, NullSRV);
     return true;
+}
+
+bool FOpaqueRenderPass::EnsureShadowConstantBuffer(ID3D11Device* Device)
+{
+    if (ShadowConstantBuffer)
+        return true;
+
+    HRESULT Result;
+    D3D11_BUFFER_DESC Desc = {};
+    Desc.ByteWidth = sizeof(FShadowCB);
+    Desc.Usage = D3D11_USAGE_DYNAMIC;
+    Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    Result = Device->CreateBuffer(&Desc, nullptr, ShadowConstantBuffer.GetAddressOf());
+
+    return SUCCEEDED(Result);
 }
 
 bool FOpaqueRenderPass::Release()
 {
     VisibleLightConstantBuffer.Reset();
+    ShadowConstantBuffer.Reset();
     return true;
 }

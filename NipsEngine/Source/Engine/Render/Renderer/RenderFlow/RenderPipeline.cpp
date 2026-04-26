@@ -88,7 +88,6 @@ bool FRenderPipeline::Initialize()
     RenderPasses.push_back(SkyRenderPass);
     RenderPasses.push_back(ToonOutlineRenderPass);
 	RenderPasses.push_back(OpaqueRenderPass);
-
 	RenderPasses.push_back(DecalRenderPass);
     // SceneColor를 만든 뒤 fog/fxaa 전에 덮어쓸 수 있는 view mode 확장 지점이다.
     RenderPasses.push_back(BufferVisualizationRenderPass);
@@ -104,7 +103,7 @@ bool FRenderPipeline::Initialize()
     RenderPasses.push_back(EditorRenderPass);
     RenderPasses.push_back(DepthLessRenderPass);
     RenderPasses.push_back(PostProcessOutlineRenderPass);
-
+    
     return true;
 }
 
@@ -125,6 +124,11 @@ bool FRenderPipeline::Render(const FRenderPassContext* Context)
 
 	Context->RenderTargets->FinalSRV = OutSRV;
     Context->RenderTargets->FinalRTV = OutRTV;
+
+	if (ShadowPass->GetShadowMaps().empty())
+        Context->RenderTargets->ShadowMap = nullptr;
+    else
+        Context->RenderTargets->ShadowMap = &ShadowPass->GetShadowMaps()[0];
 
     return true;
 }
