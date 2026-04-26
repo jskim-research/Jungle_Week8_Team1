@@ -2,7 +2,6 @@
 
 #include "StaticMesh.h"
 #include "Geometry/Edge.h"
-#include <queue>
 
 struct FTopoUVBounds 
 {

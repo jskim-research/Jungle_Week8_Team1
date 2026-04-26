@@ -46,7 +46,7 @@ void UObjViewerEngine::Init(FWindowsWindow* InWindow)
 	LPWSTR* Argv = CommandLineToArgvW(GetCommandLineW(), &Argc);
 	if (Argv && Argc > 1)
 	{
-		std::wstring WideFilePath = Argv[1];
+		FWString WideFilePath = Argv[1];
 		FString FilePath = FPaths::ToUtf8(WideFilePath);
 
 		// 경로에 .obj가 포함되어 있는지 간단히 검사

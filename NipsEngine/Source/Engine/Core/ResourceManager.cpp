@@ -11,13 +11,7 @@
 #include <fstream>
 #include <ranges>
 #include <set>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-
 #include "Asset/FileUtils.h"
-
 #include "DDSTextureLoader.h"
 #include "WICTextureLoader.h"
 #include "UI/EditorConsoleWidget.h"
@@ -88,9 +82,9 @@ namespace
 
 	struct FCompiledShaderMacroData
 	{
-		std::vector<std::string> Names;
-		std::vector<std::string> Values;
-		std::vector<D3D_SHADER_MACRO> Macros;
+		TArray<FString> Names;
+		TArray<FString> Values;
+		TArray<D3D_SHADER_MACRO> Macros;
 	};
 
 	FCompiledShaderMacroData BuildCompiledShaderMacroData(const TArray<FShaderMacro>& Macros)
@@ -118,7 +112,7 @@ namespace
 		return MacroData;
 	}
 
-	std::string TrimCopy(const std::string& Value)
+	FString TrimCopy(const FString& Value)
 	{
 		size_t Start = 0;
 		while (Start < Value.size() && std::isspace(static_cast<unsigned char>(Value[Start])) != 0)
@@ -360,7 +354,7 @@ void FResourceManager::LoadFromAssetDirectory(const FString& Path)
 		}
 
 		const fs::path& FilePath = Entry.path();
-		const std::wstring Extension = FilePath.extension().wstring();
+		const FWString Extension = FilePath.extension().wstring();
 
 		if (Extension == L".meta")
 		{
@@ -476,7 +470,7 @@ void FResourceManager::RefreshFromAssetDirectory(const FString& Path)
 			}
 
 			const fs::path& FilePath = Entry.path();
-			const std::wstring Extension = FilePath.extension().wstring();
+			const FWString Extension = FilePath.extension().wstring();
 
 			if (Extension == L".meta" || Extension == L".bin")
 			{
@@ -649,7 +643,7 @@ FTextureAssetMeta FResourceManager::LoadOrCreateTextureMeta(const std::filesyste
 	}
 
 	// 2. 없으면 기본 생성
-	const std::wstring ParentDir = FilePath.parent_path().filename().wstring();
+	const FWString ParentDir = FilePath.parent_path().filename().wstring();
 
 	if (ParentDir == L"Font")
 	{
@@ -853,7 +847,7 @@ void FResourceManager::ReleaseGPUResources()
 	}
 	MaterialInstances.clear();
 
-	std::unordered_set<UShader*> UniqueShaders;
+	TSet<UShader*> UniqueShaders;
 	for (auto& [Key, Shader] : Shaders)
 	{
 		if (Shader)
@@ -1000,7 +994,7 @@ bool FResourceManager::CompileShaderVariant(const FShaderCompileKey& NormalizedK
 											const D3D11_INPUT_ELEMENT_DESC* InputElements,
 											UINT InputElementCount,
 											UShader* OutShader,
-											std::string* OutFailureMessage,
+											FString* OutFailureMessage,
 											bool bLogFailures)
 {
 	if (!CachedDevice.Get() || OutShader == nullptr)
@@ -1015,7 +1009,7 @@ bool FResourceManager::CompileShaderVariant(const FShaderCompileKey& NormalizedK
 	OutShader->FilePath = NormalizedKey.FilePath;
 	OutShader->ShaderData.Release();
 
-	auto ReportFailure = [&](const std::string& Message)
+	auto ReportFailure = [&](const FString& Message)
 	{
 		if (OutFailureMessage != nullptr)
 		{
@@ -1050,7 +1044,7 @@ bool FResourceManager::CompileShaderVariant(const FShaderCompileKey& NormalizedK
 		{
 			ReportFailure(
 				"Vertex Shader Compile Error (" + NormalizedKey.FilePath + "): " +
-				std::string(static_cast<const char*>(ErrorBlob->GetBufferPointer())));
+				FString(static_cast<const char*>(ErrorBlob->GetBufferPointer())));
 		}
 		else
 		{
@@ -1082,7 +1076,7 @@ bool FResourceManager::CompileShaderVariant(const FShaderCompileKey& NormalizedK
 		{
 			ReportFailure(
 				"Pixel Shader Compile Error (" + NormalizedKey.FilePath + "): " +
-				std::string(static_cast<const char*>(ErrorBlob->GetBufferPointer())));
+				FString(static_cast<const char*>(ErrorBlob->GetBufferPointer())));
 		}
 		else
 		{
@@ -1207,7 +1201,7 @@ bool FResourceManager::BuildCachedInputLayout(const FShaderCompileKey& Normalize
 	return !OutInputElements.empty();
 }
 
-void FResourceManager::ProcessShaderHotReloads(const std::vector<std::wstring>& ChangedFiles)
+void FResourceManager::ProcessShaderHotReloads(const TArray<FWString>& ChangedFiles)
 {
 	if (!CachedDevice.Get())
 	{
@@ -1215,7 +1209,7 @@ void FResourceManager::ProcessShaderHotReloads(const std::vector<std::wstring>& 
 	}
 
 	const auto Now = std::chrono::steady_clock::now();
-	for (const std::wstring& ChangedFile : ChangedFiles)
+	for (const FWString& ChangedFile : ChangedFiles)
 	{
 		if (!IsShaderSourceFile(ChangedFile))
 		{
@@ -1230,7 +1224,7 @@ void FResourceManager::ProcessShaderHotReloads(const std::vector<std::wstring>& 
 		return;
 	}
 
-	std::vector<std::wstring> ReadyFiles;
+	TArray<FWString> ReadyFiles;
 	ReadyFiles.reserve(PendingShaderFiles.size());
 	for (const auto& Entry : PendingShaderFiles)
 	{
@@ -1246,8 +1240,8 @@ void FResourceManager::ProcessShaderHotReloads(const std::vector<std::wstring>& 
 		return;
 	}
 
-	std::set<std::wstring> ReadyDirtyFiles;
-	for (const std::wstring& ReadyFile : ReadyFiles)
+	std::set<FWString> ReadyDirtyFiles;
+	for (const FWString& ReadyFile : ReadyFiles)
 	{
 		PendingShaderFiles.erase(ReadyFile);
 		ReadyDirtyFiles.insert(ReadyFile);
@@ -1256,7 +1250,7 @@ void FResourceManager::ProcessShaderHotReloads(const std::vector<std::wstring>& 
 	ReloadShaders(ReadyDirtyFiles);
 }
 
-void FResourceManager::ReloadShaders(const std::set<std::wstring>& DirtyFiles)
+void FResourceManager::ReloadShaders(const std::set<FWString>& DirtyFiles)
 {
 	if (!CachedDevice.Get() || DirtyFiles.empty())
 	{
@@ -1269,8 +1263,8 @@ void FResourceManager::ReloadShaders(const std::set<std::wstring>& DirtyFiles)
 		UShader* Shader = nullptr;
 	};
 
-	std::unordered_map<std::wstring, std::vector<FAffectedShaderVariant>> AffectedShadersBySource;
-	std::unordered_map<std::wstring, std::unordered_set<std::wstring>> DependencyCache;
+	TMap<FWString, TArray<FAffectedShaderVariant>> AffectedShadersBySource;
+	TMap<FWString, TSet<FWString>> DependencyCache;
 	size_t AffectedShaderCount = 0;
 
 	for (const auto& [CompileKey, Shader] : ShaderVariants)
@@ -1280,14 +1274,14 @@ void FResourceManager::ReloadShaders(const std::set<std::wstring>& DirtyFiles)
 			continue;
 		}
 
-		const std::wstring ShaderSourcePath = NormalizeShaderPath(CompileKey.FilePath);
+		const FWString ShaderSourcePath = NormalizeShaderPath(CompileKey.FilePath);
 		bool bAffected = DirtyFiles.contains(ShaderSourcePath);
 
 		if (!bAffected)
 		{
-			std::unordered_set<std::wstring> Dependencies;
+			TSet<FWString> Dependencies;
 			CollectShaderDependencies(ShaderSourcePath, Dependencies, DependencyCache);
-			for (const std::wstring& DirtyFile : DirtyFiles)
+			for (const FWString& DirtyFile : DirtyFiles)
 			{
 				if (Dependencies.contains(DirtyFile))
 				{
@@ -1317,13 +1311,13 @@ void FResourceManager::ReloadShaders(const std::set<std::wstring>& DirtyFiles)
 		size_t FailureCount = 0;
 	};
 
-	std::unordered_map<std::wstring, FReloadSourceStats> ReloadStatsBySource;
-	std::unordered_set<std::string> LoggedFailureMessages;
+	TMap<FWString, FReloadSourceStats> ReloadStatsBySource;
+	TSet<FString> LoggedFailureMessages;
 	bool bAnySuccessfulReload = false;
 
 	for (auto& [ShaderSourcePath, Variants] : AffectedShadersBySource)
 	{
-		std::vector<UShader*> PendingCompiledShaders;
+		TArray<UShader*> PendingCompiledShaders;
 		PendingCompiledShaders.reserve(Variants.size());
 
 		bool bSourceFailed = false;
@@ -1333,7 +1327,7 @@ void FResourceManager::ReloadShaders(const std::set<std::wstring>& DirtyFiles)
 			TArray<D3D11_INPUT_ELEMENT_DESC> CachedInputElements;
 			const bool bHasCachedInputLayout = BuildCachedInputLayout(Variant.CompileKey, CachedInputElements);
 
-			std::string FailureMessage;
+			FString FailureMessage;
 			if (!CompileShaderVariant(
 				Variant.CompileKey,
 				bHasCachedInputLayout ? CachedInputElements.data() : nullptr,
@@ -1346,7 +1340,7 @@ void FResourceManager::ReloadShaders(const std::set<std::wstring>& DirtyFiles)
 				ReloadStatsBySource[ShaderSourcePath].FailureCount = Variants.size();
 				UObjectManager::Get().DestroyObject(CompiledShader);
 
-				const std::string FailureLogKey = FPaths::ToUtf8(ShaderSourcePath) + "|" + FailureMessage;
+				const FString FailureLogKey = FPaths::ToUtf8(ShaderSourcePath) + "|" + FailureMessage;
 				if (LoggedFailureMessages.insert(FailureLogKey).second)
 				{
 					UE_LOG("[ShaderHotReload] %s - %s", FPaths::ToUtf8(ShaderSourcePath).c_str(), FailureMessage.c_str());
@@ -1422,18 +1416,18 @@ void FResourceManager::InvalidateAllMaterialShaderBindings()
 	}
 }
 
-void FResourceManager::CollectShaderDependencies(const std::wstring& ShaderFilePath,
-												 std::unordered_set<std::wstring>& OutDependencies,
-												 std::unordered_map<std::wstring, std::unordered_set<std::wstring>>& Cache)
+void FResourceManager::CollectShaderDependencies(const FWString& ShaderFilePath,
+												 TSet<FWString>& OutDependencies,
+												 TMap<FWString, TSet<FWString>>& Cache)
 {
-	std::unordered_set<std::wstring> ActiveStack;
+	TSet<FWString> ActiveStack;
 
 	const auto CollectRecursive = [this, &Cache](const auto& Self,
-												 const std::wstring& CurrentShaderFilePath,
-												 std::unordered_set<std::wstring>& CurrentDependencies,
-												 std::unordered_set<std::wstring>& CurrentActiveStack) -> void
+												 const FWString& CurrentShaderFilePath,
+												 TSet<FWString>& CurrentDependencies,
+												 TSet<FWString>& CurrentActiveStack) -> void
 	{
-		const std::wstring NormalizedShaderPath = NormalizeShaderPath(CurrentShaderFilePath);
+		const FWString NormalizedShaderPath = NormalizeShaderPath(CurrentShaderFilePath);
 		auto CachedIt = Cache.find(NormalizedShaderPath);
 		if (CachedIt != Cache.end())
 		{
@@ -1446,17 +1440,17 @@ void FResourceManager::CollectShaderDependencies(const std::wstring& ShaderFileP
 			return;
 		}
 
-		std::unordered_set<std::wstring> LocalDependencies;
+		TSet<FWString> LocalDependencies;
 
 		std::ifstream File{ std::filesystem::path(CurrentShaderFilePath) };
 		if (File.is_open())
 		{
 			const std::filesystem::path ParentDirectory = std::filesystem::path(CurrentShaderFilePath).parent_path();
 
-			std::string Line;
+			FString Line;
 			while (std::getline(File, Line))
 			{
-				const std::string TrimmedLine = TrimCopy(Line);
+				const FString TrimmedLine = TrimCopy(Line);
 				if (!TrimmedLine.starts_with("#include"))
 				{
 					continue;
@@ -1464,14 +1458,14 @@ void FResourceManager::CollectShaderDependencies(const std::wstring& ShaderFileP
 
 				const size_t FirstQuote = TrimmedLine.find('"');
 				const size_t LastQuote = TrimmedLine.find_last_of('"');
-				if (FirstQuote == std::string::npos || LastQuote == std::string::npos || FirstQuote == LastQuote)
+				if (FirstQuote == FString::npos || LastQuote == FString::npos || FirstQuote == LastQuote)
 				{
 					continue;
 				}
 
-				const std::string IncludePathUtf8 = TrimmedLine.substr(FirstQuote + 1, LastQuote - FirstQuote - 1);
-				const std::wstring IncludePathWide = FPaths::ToWide(IncludePathUtf8);
-				const std::wstring IncludeFullPath = NormalizeShaderPath(
+				const FString IncludePathUtf8 = TrimmedLine.substr(FirstQuote + 1, LastQuote - FirstQuote - 1);
+				const FWString IncludePathWide = FPaths::ToWide(IncludePathUtf8);
+				const FWString IncludeFullPath = NormalizeShaderPath(
 					(ParentDirectory / std::filesystem::path(IncludePathWide)).lexically_normal().generic_wstring());
 
 				if (LocalDependencies.insert(IncludeFullPath).second)
@@ -1489,28 +1483,28 @@ void FResourceManager::CollectShaderDependencies(const std::wstring& ShaderFileP
 	CollectRecursive(CollectRecursive, ShaderFilePath, OutDependencies, ActiveStack);
 }
 
-std::wstring FResourceManager::NormalizeShaderPath(const std::wstring& InPath) const
+FWString FResourceManager::NormalizeShaderPath(const FWString& InPath) const
 {
-	std::wstring Result = std::filesystem::path(InPath).lexically_normal().generic_wstring();
+	FWString Result = std::filesystem::path(InPath).lexically_normal().generic_wstring();
 	std::transform(Result.begin(), Result.end(), Result.begin(),
 		[](wchar_t Character) { return static_cast<wchar_t>(towlower(Character)); });
 	return Result;
 }
 
-std::wstring FResourceManager::NormalizeShaderPath(const FString& InPath) const
+FWString FResourceManager::NormalizeShaderPath(const FString& InPath) const
 {
 	return NormalizeShaderPath(FPaths::ToAbsolute(FPaths::ToWide(InPath)));
 }
 
-bool FResourceManager::IsShaderSourceFile(const std::wstring& InPath) const
+bool FResourceManager::IsShaderSourceFile(const FWString& InPath) const
 {
 	const size_t DotIndex = InPath.find_last_of(L'.');
-	if (DotIndex == std::wstring::npos)
+	if (DotIndex == FWString::npos)
 	{
 		return false;
 	}
 
-	std::wstring Extension = InPath.substr(DotIndex);
+	FWString Extension = InPath.substr(DotIndex);
 	std::transform(Extension.begin(), Extension.end(), Extension.begin(),
 		[](wchar_t Character) { return static_cast<wchar_t>(towlower(Character)); });
 	return Extension == L".hlsl" || Extension == L".hlsli";

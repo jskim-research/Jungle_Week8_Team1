@@ -3,7 +3,6 @@
 #include "Render/Resource/MeshBufferManager.h"
 #include "Spatial/WorldSpatialIndex.h"
 #include "Geometry/OBB.h"
-#include <unordered_set>
 
 enum class EWorldType : uint32;
 
@@ -69,5 +68,5 @@ private:
 	bool CollectFromSelectedActor(AActor* Actor, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus);
 	void CollectFromComponent(UPrimitiveComponent* Primitive, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus, EWorldType WorldType);
 	void CollectBVHInternalNodeAABBs(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags, FRenderBus& RenderBus,
-	                                 std::unordered_set<int32>& SeenNodeIndices);
+	                                 TSet<int32>& SeenNodeIndices);
 };

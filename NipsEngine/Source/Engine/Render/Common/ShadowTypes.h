@@ -84,12 +84,12 @@ struct FShadowViewInfo
 struct FShadowMap
 {
 	// 기본 1개
-	std::vector<FShadowViewInfo> Views;
+	TArray<FShadowViewInfo> Views;
 
 	// 소유권은 Renderer Resource Pool 이 가짐
 	FShadowResource* Resource;
 
-	std::vector<FShadowSlice> Slices;
+	TArray<FShadowSlice> Slices;
 
 	EShadowMapType MapType; // Shader Sampling 방식
 };

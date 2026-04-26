@@ -3,11 +3,8 @@
 #include <Windows.h>
 
 #include <atomic>
-#include <deque>
 #include <mutex>
-#include <string>
 #include <thread>
-#include <vector>
 
 class FFileWatcher
 {
@@ -15,21 +12,21 @@ public:
 	FFileWatcher() = default;
 	~FFileWatcher();
 
-	bool Start(const std::wstring& InDirectory, bool bInRecursive = true);
+	bool Start(const FWString& InDirectory, bool bInRecursive = true);
 	void Stop();
 
-	std::vector<std::wstring> DequeueChangedFiles();
+	TArray<FWString> DequeueChangedFiles();
 
 private:
 	void WatchLoop();
-	void EnqueueChangedFile(const std::wstring& InFilePath);
+	void EnqueueChangedFile(const FWString& InFilePath);
 
 private:
-	std::wstring WatchedDirectory;
+	FWString WatchedDirectory;
 	bool bRecursive = true;
 	std::thread WatcherThread;
 	std::atomic<bool> bStopRequested = false;
 	HANDLE DirectoryHandle = INVALID_HANDLE_VALUE;
 	std::mutex ChangedFilesMutex;
-	std::deque<std::wstring> ChangedFiles;
+	std::deque<FWString> ChangedFiles;
 };

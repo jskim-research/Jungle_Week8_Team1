@@ -95,7 +95,7 @@ void FStaticMeshSimplifier::BuildTopologicalVertices()
 		return (ux << 42) | (uy << 21) | uz;
 	};
 
-	std::unordered_map<uint64, TArray<int32>> CellMap;
+	TMap<uint64, TArray<int32>> CellMap;
 	CellMap.reserve(Vertices.size());
 
 	for (int32 i = 0; i < static_cast<int32>(Vertices.size()); ++i)
@@ -190,18 +190,18 @@ void FStaticMeshSimplifier::CalculateInitialQuadrics()
 void FStaticMeshSimplifier::AddPlaneQuadric(uint32 VertIdx, const FVector& InNormal, float InD, float InWeight)
 {
 	// 1. 평면 벡터 p = [a, b, c, d] 생성 (SIMD 레지스터 로드)
-	DirectX::XMVECTOR P = DirectX::XMVectorSet(InNormal.X, InNormal.Y, InNormal.Z, InD);
+	XMVector P = DirectX::XMVectorSet(InNormal.X, InNormal.Y, InNormal.Z, InD);
 
 	// 2. 외적(Outer Product)을 SIMD로 계산 (p * p^T)
 	// P 벡터에 각각 a, b, c, d를 복제(Replicate)하여 곱하면 4x4 행렬의 각 행(Row)이 완성됩니다.
-	DirectX::XMVECTOR R0 = DirectX::XMVectorMultiply(P, DirectX::XMVectorReplicate(InNormal.X));
-	DirectX::XMVECTOR R1 = DirectX::XMVectorMultiply(P, DirectX::XMVectorReplicate(InNormal.Y));
-	DirectX::XMVECTOR R2 = DirectX::XMVectorMultiply(P, DirectX::XMVectorReplicate(InNormal.Z));
-	DirectX::XMVECTOR R3 = DirectX::XMVectorMultiply(P, DirectX::XMVectorReplicate(InD));
+	XMVector R0 = DirectX::XMVectorMultiply(P, DirectX::XMVectorReplicate(InNormal.X));
+	XMVector R1 = DirectX::XMVectorMultiply(P, DirectX::XMVectorReplicate(InNormal.Y));
+	XMVector R2 = DirectX::XMVectorMultiply(P, DirectX::XMVectorReplicate(InNormal.Z));
+	XMVector R3 = DirectX::XMVectorMultiply(P, DirectX::XMVectorReplicate(InD));
 
 	// 3. Area-Weighted: 면적 가중치를 SIMD로 한번에 곱한다.
 	// 큰 삼각형일수록 오차 기여가 커져 해당 정점이 간소화 대상에서 우선 제외된다.
-	const DirectX::XMVECTOR WeightVec = DirectX::XMVectorReplicate(InWeight);
+	const XMVector WeightVec = DirectX::XMVectorReplicate(InWeight);
 	R0 = DirectX::XMVectorMultiply(R0, WeightVec);
 	R1 = DirectX::XMVectorMultiply(R1, WeightVec);
 	R2 = DirectX::XMVectorMultiply(R2, WeightVec);
@@ -210,15 +210,15 @@ void FStaticMeshSimplifier::AddPlaneQuadric(uint32 VertIdx, const FVector& InNor
 	// 4. 기존 Quadric 행렬에 누적 합산 (SIMD 덧셈)
 	// FMatrix 구조를 참조하여 기존 데이터를 로드, 더한 후 다시 저장합니다.
 	float* MatrixPtr = Quadrics[VertIdx].M[0];
-	DirectX::XMVECTOR Q0 = DirectX::XMVectorAdd(DirectX::XMLoadFloat4(reinterpret_cast<const DirectX::XMFLOAT4*>(&MatrixPtr[0])), R0);
-	DirectX::XMVECTOR Q1 = DirectX::XMVectorAdd(DirectX::XMLoadFloat4(reinterpret_cast<const DirectX::XMFLOAT4*>(&MatrixPtr[4])), R1);
-	DirectX::XMVECTOR Q2 = DirectX::XMVectorAdd(DirectX::XMLoadFloat4(reinterpret_cast<const DirectX::XMFLOAT4*>(&MatrixPtr[8])), R2);
-	DirectX::XMVECTOR Q3 = DirectX::XMVectorAdd(DirectX::XMLoadFloat4(reinterpret_cast<const DirectX::XMFLOAT4*>(&MatrixPtr[12])), R3);
+	XMVector Q0 = DirectX::XMVectorAdd(DirectX::XMLoadFloat4(reinterpret_cast<const Float4*>(&MatrixPtr[0])), R0);
+	XMVector Q1 = DirectX::XMVectorAdd(DirectX::XMLoadFloat4(reinterpret_cast<const Float4*>(&MatrixPtr[4])), R1);
+	XMVector Q2 = DirectX::XMVectorAdd(DirectX::XMLoadFloat4(reinterpret_cast<const Float4*>(&MatrixPtr[8])), R2);
+	XMVector Q3 = DirectX::XMVectorAdd(DirectX::XMLoadFloat4(reinterpret_cast<const Float4*>(&MatrixPtr[12])), R3);
 
-	DirectX::XMStoreFloat4(reinterpret_cast<DirectX::XMFLOAT4*>(&MatrixPtr[0]), Q0);
-	DirectX::XMStoreFloat4(reinterpret_cast<DirectX::XMFLOAT4*>(&MatrixPtr[4]), Q1);
-	DirectX::XMStoreFloat4(reinterpret_cast<DirectX::XMFLOAT4*>(&MatrixPtr[8]), Q2);
-	DirectX::XMStoreFloat4(reinterpret_cast<DirectX::XMFLOAT4*>(&MatrixPtr[12]), Q3);
+	DirectX::XMStoreFloat4(reinterpret_cast<Float4*>(&MatrixPtr[0]), Q0);
+	DirectX::XMStoreFloat4(reinterpret_cast<Float4*>(&MatrixPtr[4]), Q1);
+	DirectX::XMStoreFloat4(reinterpret_cast<Float4*>(&MatrixPtr[8]), Q2);
+	DirectX::XMStoreFloat4(reinterpret_cast<Float4*>(&MatrixPtr[12]), Q3);
 }
 
 // BuildTopologicalVertices 직후, 혹은 CalculateInitialQuadrics 끝에 한번 구축
@@ -260,12 +260,12 @@ void FStaticMeshSimplifier::FindBoundaryEdges()
 // 정점의 위치벡터를 v = [x, y, z, 1]이라고 할 때, 오차값 E(v) = v^TQv를 구한다.
 float FStaticMeshSimplifier::CalculateVertexError(const FMatrix& Q, const FVector& Pos)
 {
-	const DirectX::XMVECTOR V = DirectX::XMVectorSet(Pos.X, Pos.Y, Pos.Z, 1.0f);
+	const XMVector V = DirectX::XMVectorSet(Pos.X, Pos.Y, Pos.Z, 1.0f);
 
 	// Q는 대칭 행렬이므로 v^T*Q*v == dot(v, Q*v) == dot(v*Q, v)
 	// XMVector4Transform은 행 벡터 규약(v * M)으로 계산하며, Q가 대칭이면 v*Q == Q*v이므로 결과 동일
-	const DirectX::XMMATRIX* QMat = reinterpret_cast<const DirectX::XMMATRIX*>(&Q.M[0][0]);
-	const DirectX::XMVECTOR VtQ = DirectX::XMVector4Transform(V, *QMat);
+	const XMMatrix* QMat = reinterpret_cast<const XMMatrix*>(&Q.M[0][0]);
+	const XMVector VtQ = DirectX::XMVector4Transform(V, *QMat);
 
 	// v^T * Q * v = dot(v, Q*v)
 	return DirectX::XMVectorGetX(DirectX::XMVector4Dot(V, VtQ));

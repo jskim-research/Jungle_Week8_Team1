@@ -36,14 +36,14 @@ public:
 	{
 	}
 
-	explicit FVector2(const DirectX::XMFLOAT2& InFloat2) noexcept
+	explicit FVector2(const Float2& InFloat2) noexcept
 		: X(InFloat2.x), Y(InFloat2.y)
 	{
 	}
 
-	explicit FVector2(DirectX::FXMVECTOR InVector) noexcept
+	explicit FVector2(FXMVector InVector) noexcept
 	{
-		DirectX::XMFLOAT2 Temp;
+		Float2 Temp;
 		DirectX::XMStoreFloat2(&Temp, InVector);
 		X = Temp.x;
 		Y = Temp.y;
@@ -141,7 +141,7 @@ public:
 	//======================================//
 public:
 	// 현재 벡터를 DirectX::XMFLOAT2 형식으로 변환함
-	DirectX::XMFLOAT2 ToXMFLOAT2() const noexcept
+	Float2 ToXMFLOAT2() const noexcept
 	{
 		return {X, Y};
 	}

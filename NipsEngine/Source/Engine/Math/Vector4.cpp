@@ -3,8 +3,8 @@
 
 inline FVector4 FVector4::operator*(const FMatrix& Mat) const noexcept
 {
-	const DirectX::XMVECTOR R = DirectX::XMVector4Transform(ToXMVector(), Mat.ToXMMatrix());
-	DirectX::XMFLOAT4 T;
+	const XMVector R = DirectX::XMVector4Transform(ToXMVector(), Mat.ToXMMatrix());
+	Float4 T;
 	DirectX::XMStoreFloat4(&T, R);
 	return FVector4(T.x, T.y, T.z, T.w);
 

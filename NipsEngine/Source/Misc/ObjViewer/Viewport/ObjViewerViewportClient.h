@@ -7,7 +7,6 @@
 #include "Engine/Geometry/Ray.h"
 #include "Spatial/WorldSpatialIndex.h"
 
-#include <string>
 
 class FViewportCamera;
 class UWorld;

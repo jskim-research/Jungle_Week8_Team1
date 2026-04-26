@@ -1,8 +1,8 @@
 ﻿#include "ShadowLightSelector.h"
 
-std::vector<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRenderLight>& SceneLights)
+TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRenderLight>& SceneLights)
 {
-	std::vector<FShadowRequest> SelectedLights;
+	TArray<FShadowRequest> SelectedLights;
 
 	if (SceneLights.empty())
 		return SelectedLights;

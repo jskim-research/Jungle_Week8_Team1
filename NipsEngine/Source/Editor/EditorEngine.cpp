@@ -139,7 +139,7 @@ void UEditorEngine::StartPlaySession()
 	UWorld* PIEWorld = Cast<UWorld>(FocusedWorld->Duplicate());
 	PIEWorld->SetWorldType(EWorldType::PIE);
 	FName PIEHandle(("PIE_" + std::to_string(FocusedIdx)).c_str());
-	std::string PIEName = "PIE_World_" + std::to_string(FocusedIdx);
+	FString PIEName = "PIE_World_" + std::to_string(FocusedIdx);
 	
 	RegisterWorld(PIEWorld, EWorldType::PIE, PIEHandle, PIEName);
 	ViewportPIEHandles[FocusedIdx] = PIEHandle;
@@ -353,7 +353,7 @@ void UEditorEngine::ClearScene()
 }
 
 // 이미 생성된 월드를 컨텍스트에 등록합니다.
-FWorldContext& UEditorEngine::RegisterWorld(UWorld* InWorld, EWorldType Type, const FName& Handle, const std::string& Name)
+FWorldContext& UEditorEngine::RegisterWorld(UWorld* InWorld, EWorldType Type, const FName& Handle, const FString& Name)
 {
 	FWorldContext Context;
 	Context.WorldType = Type;

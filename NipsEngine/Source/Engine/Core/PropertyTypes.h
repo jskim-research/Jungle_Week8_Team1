@@ -1,8 +1,5 @@
 ﻿#pragma once
 
-#include <cstdint>
-#include <vector>
-#include <string>
 #include "CoreTypes.h"      // int32, uint8, …
 #include "Math/Vector.h"    // FVector  (for sizeof in GetPropertySize)
 #include "Math/Vector4.h"   // FVector4 (for sizeof in GetPropertySize)

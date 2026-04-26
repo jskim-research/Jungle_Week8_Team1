@@ -49,7 +49,7 @@ public:
 	//======================================//
 	[[nodiscard]] float Dot(const FVector4& Other) const noexcept
 	{
-		const DirectX::XMVECTOR D = DirectX::XMVector3Dot(ToXMVector(), Other.ToXMVector());
+		const XMVector D = DirectX::XMVector3Dot(ToXMVector(), Other.ToXMVector());
 		return DirectX::XMVectorGetX(D);
 
 		// return X * Other.X + Y * Other.Y + Z * Other.Z;
@@ -57,8 +57,8 @@ public:
 
 	[[nodiscard]] FVector4 Cross(const FVector4& Other) const noexcept
 	{
-		const DirectX::XMVECTOR C = DirectX::XMVector3Cross(ToXMVector(), Other.ToXMVector());
-		DirectX::XMFLOAT3 T;
+		const XMVector C = DirectX::XMVector3Cross(ToXMVector(), Other.ToXMVector());
+		Float3 T;
 		DirectX::XMStoreFloat3(&T, C);
 		return { T.x, T.y, T.z, 0.0f };
 
@@ -140,7 +140,7 @@ public:
 	//======================================//
 	[[nodiscard]] FVector4 Normalize() const noexcept
 	{
-		const DirectX::XMVECTOR V = DirectX::XMVectorSet(X, Y, Z, 0.0f);
+		const XMVector V = DirectX::XMVectorSet(X, Y, Z, 0.0f);
 		const float SquareSum = DirectX::XMVectorGetX(DirectX::XMVector3LengthSq(V));
 		const float Denominator = std::sqrt(SquareSum);
 
@@ -149,8 +149,8 @@ public:
 			return ZeroVector();
 		}
 
-		const DirectX::XMVECTOR N = DirectX::XMVector3Normalize(V);
-		DirectX::XMFLOAT3 T;
+		const XMVector N = DirectX::XMVector3Normalize(V);
+		Float3 T;
 		DirectX::XMStoreFloat3(&T, N);
 		return { T.x, T.y, T.z, 0.0f };
 
@@ -168,7 +168,7 @@ public:
 
 	[[nodiscard]] float Length() const noexcept
 	{
-		const DirectX::XMVECTOR V = DirectX::XMVectorSet(X, Y, Z, 0.0f);
+		const XMVector V = DirectX::XMVectorSet(X, Y, Z, 0.0f);
 		return DirectX::XMVectorGetX(DirectX::XMVector3Length(V));
 
 		// return std::sqrt(X * X + Y * Y + Z * Z);

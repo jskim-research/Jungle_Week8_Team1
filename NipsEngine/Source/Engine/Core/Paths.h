@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include <string>
 #include <Windows.h>
 
 #include "Containers/String.h"
@@ -11,36 +10,36 @@ class FPaths
 {
 public:
 	// 프로젝트 루트 (실행 파일이 있는 디렉터리)
-	static std::wstring RootDir();
+	static FWString RootDir();
 
 	// 주요 디렉터리
-	static std::wstring ShaderDir();      // Shaders/
-	static std::wstring SceneDir();       // Asset/Scene/
-	static std::wstring DumpDir();        // Saves/Dump/
-	static std::wstring SettingsDir();    // Settings/
-	static std::wstring MaterialTextureDir(); //Model/Texture/
+	static FWString ShaderDir();      // Shaders/
+	static FWString SceneDir();       // Asset/Scene/
+	static FWString DumpDir();        // Saves/Dump/
+	static FWString SettingsDir();    // Settings/
+	static FWString MaterialTextureDir(); //Model/Texture/
 
 	// 주요 파일 경로
-	static std::wstring ShaderFilePath(); // Shaders/ShaderW0.hlsl
-	static std::wstring SettingsFilePath();  // Settings/Editor.ini
-	static std::wstring ViewerSettingsFilePath(); // Settings/ObjViewer.ini
-	static std::wstring AssetDirectoryPath();  // Settings/Resource.ini
-	static std::wstring ResourceDefaultMaterialTexture(); // Asset/Mesh/Default.png
-	static std::wstring ToRelative(const std::wstring& AbsolutePath);
-	static std::wstring ToAbsolute(const std::wstring& RelativePath);
-	static std::string ToRelativeString(const std::wstring& AbsolutePath);
-	static std::string ToAbsoluteString(const std::wstring& RelativePath);
+	static FWString ShaderFilePath(); // Shaders/ShaderW0.hlsl
+	static FWString SettingsFilePath();  // Settings/Editor.ini
+	static FWString ViewerSettingsFilePath(); // Settings/ObjViewer.ini
+	static FWString AssetDirectoryPath();  // Settings/Resource.ini
+	static FWString ResourceDefaultMaterialTexture(); // Asset/Mesh/Default.png
+	static FWString ToRelative(const FWString& AbsolutePath);
+	static FWString ToAbsolute(const FWString& RelativePath);
+	static FString ToRelativeString(const FWString& AbsolutePath);
+	static FString ToAbsoluteString(const FWString& RelativePath);
 
 	// 경로 결합: FPaths::Combine(L"Asset/Scene", L"Default.Scene")
-	static std::wstring Combine(const std::wstring& Base, const std::wstring& Child);
+	static FWString Combine(const FWString& Base, const FWString& Child);
 
 	// 디렉터리가 없으면 재귀적으로 생성
-	static void CreateDir(const std::wstring& Path);
+	static void CreateDir(const FWString& Path);
 
 	// 변환 유틸리티 (한글 경로 지원)
-	static std::wstring ToWide(const std::string& Utf8Str);
-	static std::string ToUtf8(const std::wstring& WideStr);
-	static FString ToString(const std::wstring& wstring);
+	static FWString ToWide(const FString& Utf8Str);
+	static FString ToUtf8(const FWString& WideStr);
+	static FString ToString(const FWString& wstring);
 
 	static FString Normalize(const FString& Path);
 };

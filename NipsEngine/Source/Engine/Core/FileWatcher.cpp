@@ -9,7 +9,7 @@ FFileWatcher::~FFileWatcher()
 	Stop();
 }
 
-bool FFileWatcher::Start(const std::wstring& InDirectory, bool bInRecursive)
+bool FFileWatcher::Start(const FWString& InDirectory, bool bInRecursive)
 {
 	Stop();
 
@@ -55,10 +55,10 @@ void FFileWatcher::Stop()
 	ChangedFiles.clear();
 }
 
-std::vector<std::wstring> FFileWatcher::DequeueChangedFiles()
+TArray<FWString> FFileWatcher::DequeueChangedFiles()
 {
 	std::lock_guard<std::mutex> Lock(ChangedFilesMutex);
-	std::vector<std::wstring> Result(ChangedFiles.begin(), ChangedFiles.end());
+	TArray<FWString> Result(ChangedFiles.begin(), ChangedFiles.end());
 	ChangedFiles.clear();
 	return Result;
 }
@@ -98,8 +98,8 @@ void FFileWatcher::WatchLoop()
 		while (Current != nullptr)
 		{
 			FILE_NOTIFY_INFORMATION* Notification = reinterpret_cast<FILE_NOTIFY_INFORMATION*>(Current);
-			std::wstring RelativePath(Notification->FileName, Notification->FileNameLength / sizeof(WCHAR));
-			const std::wstring FullPath =
+			FWString RelativePath(Notification->FileName, Notification->FileNameLength / sizeof(WCHAR));
+			const FWString FullPath =
 				(std::filesystem::path(WatchedDirectory) / std::filesystem::path(RelativePath)).lexically_normal().generic_wstring();
 			EnqueueChangedFile(FullPath);
 
@@ -113,7 +113,7 @@ void FFileWatcher::WatchLoop()
 	}
 }
 
-void FFileWatcher::EnqueueChangedFile(const std::wstring& InFilePath)
+void FFileWatcher::EnqueueChangedFile(const FWString& InFilePath)
 {
 	std::lock_guard<std::mutex> Lock(ChangedFilesMutex);
 	ChangedFiles.push_back(InFilePath);

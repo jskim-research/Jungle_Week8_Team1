@@ -8,9 +8,9 @@ FTransform::FTransform(const FMatrix& InMatrix) noexcept
 	, Translation(FVector::ZeroVector)
 	, Scale3D(FVector::OneVector)
 {
-	DirectX::XMVECTOR OutScale;
-	DirectX::XMVECTOR OutRotation;
-	DirectX::XMVECTOR OutTranslation;
+	XMVector OutScale;
+	XMVector OutRotation;
+	XMVector OutTranslation;
 
 	if (DirectX::XMMatrixDecompose(&OutScale, &OutRotation, &OutTranslation, InMatrix.ToXMMatrix()))
 	{

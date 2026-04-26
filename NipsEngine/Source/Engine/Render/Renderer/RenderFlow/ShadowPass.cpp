@@ -53,7 +53,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 	/***************/
 	/*  Selection  */
 	/***************/
-	std::vector<FShadowRequest> ShadowRequests = ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights());
+	TArray<FShadowRequest> ShadowRequests = ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights());
 
 	if (ShadowRequests.empty())
 	{

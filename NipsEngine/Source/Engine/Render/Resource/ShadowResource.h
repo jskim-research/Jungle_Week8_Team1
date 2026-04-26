@@ -18,6 +18,6 @@ DSV 6개 face view
 struct FShadowResource
 {
 	ID3D11ShaderResourceView* SRV;
-	std::vector<ID3D11DepthStencilView*> DSVs;
+	TArray<ID3D11DepthStencilView*> DSVs;
 	uint32 Resolution;
 };

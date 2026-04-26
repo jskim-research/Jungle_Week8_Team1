@@ -26,7 +26,6 @@
 #include "Object/ObjectIterator.h"
 #include "Runtime/Stats/ScopeCycleCounter.h"
 #include <algorithm>
-#include <unordered_set>
 
 namespace
 {
@@ -205,7 +204,7 @@ void FRenderCollector::CollectWorld(UWorld* World, const FShowFlags& ShowFlags, 
 		}
 	}
 
-	std::unordered_set<UPrimitiveComponent*> CollectCameraDependentPrimitives;
+	TSet<UPrimitiveComponent*> CollectCameraDependentPrimitives;
 	if (ViewFrustum)
 	{
 		CollectCameraDependentPrimitives.reserve(32);
@@ -500,7 +499,7 @@ bool FRenderCollector::CollectFromSelectedActor(AActor* Actor, const FShowFlags&
 	if (!Actor->IsVisible()) return false;
 
 	bool bHasSelectionMask = false;
-	std::unordered_set<int32> SeenBVHNodeIndices;
+	TSet<int32> SeenBVHNodeIndices;
 
 	for (UPrimitiveComponent* primitiveComponent : Actor->GetPrimitiveComponents())
 	{
@@ -930,7 +929,7 @@ void FRenderCollector::CollectFromComponent(UPrimitiveComponent* Primitive, cons
 	}
 }
 
-void FRenderCollector::CollectBVHInternalNodeAABBs(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags, FRenderBus& RenderBus, std::unordered_set<int32>& SeenNodeIndices)
+void FRenderCollector::CollectBVHInternalNodeAABBs(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags, FRenderBus& RenderBus, TSet<int32>& SeenNodeIndices)
 {
 	if (!ShowFlags.bBoundingVolume || !ShowFlags.bBVHBoundingVolume || PrimitiveComponent == nullptr || LineBatcher == nullptr)
 	{

@@ -14,7 +14,7 @@
 
 namespace
 {
-	std::wstring GetSceneDialogInitialDir()
+	FWString GetSceneDialogInitialDir()
 	{
 		std::filesystem::path SceneDir(FSceneSaveManager::GetSceneDirectory());
 		SceneDir = SceneDir.lexically_normal();
@@ -34,12 +34,12 @@ bool FEditorToolbarWidget::OpenSceneFileDialog(FString& OutFilePath) const
 	OutFilePath.clear();
 
 	WCHAR FileBuffer[MAX_PATH] = { 0 };
-	const std::wstring InitialDir = GetSceneDialogInitialDir();
+	const FWString InitialDir = GetSceneDialogInitialDir();
 	const std::filesystem::path PrevCwd = std::filesystem::current_path();
 	std::error_code ChdirEc;
 	std::filesystem::current_path(std::filesystem::path(InitialDir), ChdirEc);
 
-	const std::wstring OpenPattern = std::filesystem::path(InitialDir).append(L"*.Scene").wstring();
+	const FWString OpenPattern = std::filesystem::path(InitialDir).append(L"*.Scene").wstring();
 	wcsncpy_s(FileBuffer, MAX_PATH, OpenPattern.c_str(), _TRUNCATE);
 
 	OPENFILENAMEW DialogDesc = {};
@@ -69,12 +69,12 @@ bool FEditorToolbarWidget::SaveSceneFileDialog(FString& OutFilePath) const
 	OutFilePath.clear();
 
 	WCHAR FileBuffer[MAX_PATH] = { 0 };
-	const std::wstring InitialDir = GetSceneDialogInitialDir();
+	const FWString InitialDir = GetSceneDialogInitialDir();
 	const std::filesystem::path PrevCwd = std::filesystem::current_path();
 	std::error_code ChdirEc;
 	std::filesystem::current_path(std::filesystem::path(InitialDir), ChdirEc);
 
-	const std::wstring DefaultFile = std::filesystem::path(InitialDir).append(L"NewScene.Scene").wstring();
+	const FWString DefaultFile = std::filesystem::path(InitialDir).append(L"NewScene.Scene").wstring();
 	wcsncpy_s(FileBuffer, MAX_PATH, DefaultFile.c_str(), _TRUNCATE);
 
 	OPENFILENAMEW DialogDesc = {};
@@ -222,7 +222,7 @@ void FEditorToolbarWidget::RenderFilesMenu()
 		}
 		if (ImGui::MenuItem("Open Asset Folder"))
 		{
-			const std::wstring AssetDir = FPaths::ToAbsolute(L"Asset");
+			const FWString AssetDir = FPaths::ToAbsolute(L"Asset");
 			ShellExecuteW(nullptr, L"open", AssetDir.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 		}
 	}

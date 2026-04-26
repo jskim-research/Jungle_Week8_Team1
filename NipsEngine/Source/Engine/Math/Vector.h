@@ -77,10 +77,10 @@ public:
 	{
 	}
 
-	explicit FVector(DirectX::FXMVECTOR InVector) noexcept
+	explicit FVector(FXMVector InVector) noexcept
 		: X(0.f), Y(0.f), Z(0.f)
 	{
-		DirectX::XMFLOAT3 Temp;
+		Float3 Temp;
 		DirectX::XMStoreFloat3(&Temp, InVector);
 		X = Temp.x;
 		Y = Temp.y;
@@ -190,7 +190,7 @@ public:
 	// 현재 벡터를 DirectX::XMFLOAT3 형식으로 변환함
 	Float3 ToXMFLOAT3() const noexcept
 	{
-		return DirectX::XMFLOAT3(X, Y, Z);
+		return Float3(X, Y, Z);
 	}
 
 	// 현재 벡터를 DirectX::XMVECTOR 형식으로 변환함

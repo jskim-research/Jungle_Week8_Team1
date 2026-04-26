@@ -23,7 +23,7 @@ struct FShadowRequest
 class IShadowLightSelector
 {
 public:
-	virtual std::vector<FShadowRequest> 
+	virtual TArray<FShadowRequest> 
 	SelectShadowLights(const TArray<FRenderLight>& SceneLights) = 0;
 };
 
@@ -33,6 +33,6 @@ public:
 	/*
 		아직은 세부 로직이 없어서 SceneLights 만 파라미터로 넣어둠
 	*/
-	std::vector<FShadowRequest>
+	TArray<FShadowRequest>
 	SelectShadowLights(const TArray<FRenderLight>& SceneLights) override;
 };

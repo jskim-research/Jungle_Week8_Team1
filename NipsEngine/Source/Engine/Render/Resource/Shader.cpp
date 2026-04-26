@@ -5,8 +5,6 @@
 #include "Render/Scene/RenderCommand.h"
 #include "UI/EditorConsoleWidget.h"
 
-#include <vector>
-
 DEFINE_CLASS(UShader, UObject)
 
 namespace
@@ -100,8 +98,8 @@ bool UShader::CreateInputLayoutFromReflection(ID3DBlob* ShaderBlob, ID3D11Device
 		return false;
 	}
 
-	std::vector<std::string> SemanticNames;
-	std::vector<D3D11_INPUT_ELEMENT_DESC> InputLayoutDesc;
+	TArray<FString> SemanticNames;
+	TArray<D3D11_INPUT_ELEMENT_DESC> InputLayoutDesc;
 	SemanticNames.reserve(ShaderDesc.InputParameters);
 	InputLayoutDesc.reserve(ShaderDesc.InputParameters);
 

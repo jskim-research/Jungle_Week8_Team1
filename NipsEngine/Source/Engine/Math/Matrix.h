@@ -114,24 +114,24 @@ struct FMatrix
 
 	FMatrix operator+(const FMatrix& Other) const noexcept
 	{
-		const DirectX::XMVECTOR R0 =
+		const XMVector R0 =
 			DirectX::XMVectorAdd(DirectX::XMVectorSet(M[0][0], M[0][1], M[0][2], M[0][3]),
 				DirectX::XMVectorSet(Other.M[0][0], Other.M[0][1], Other.M[0][2],
 					Other.M[0][3]));
-		const DirectX::XMVECTOR R1 =
+		const XMVector R1 =
 			DirectX::XMVectorAdd(DirectX::XMVectorSet(M[1][0], M[1][1], M[1][2], M[1][3]),
 				DirectX::XMVectorSet(Other.M[1][0], Other.M[1][1], Other.M[1][2],
 					Other.M[1][3]));
-		const DirectX::XMVECTOR R2 =
+		const XMVector R2 =
 			DirectX::XMVectorAdd(DirectX::XMVectorSet(M[2][0], M[2][1], M[2][2], M[2][3]),
 				DirectX::XMVectorSet(Other.M[2][0], Other.M[2][1], Other.M[2][2],
 					Other.M[2][3]));
-		const DirectX::XMVECTOR R3 =
+		const XMVector R3 =
 			DirectX::XMVectorAdd(DirectX::XMVectorSet(M[3][0], M[3][1], M[3][2], M[3][3]),
 				DirectX::XMVectorSet(Other.M[3][0], Other.M[3][1], Other.M[3][2],
 					Other.M[3][3]));
 
-		DirectX::XMFLOAT4 T0, T1, T2, T3;
+		Float4 T0, T1, T2, T3;
 		DirectX::XMStoreFloat4(&T0, R0);
 		DirectX::XMStoreFloat4(&T1, R1);
 		DirectX::XMStoreFloat4(&T2, R2);
@@ -152,24 +152,24 @@ struct FMatrix
 
 	FMatrix operator-(const FMatrix& Other) const noexcept
 	{
-		const DirectX::XMVECTOR R0 =
+		const XMVector R0 =
 			DirectX::XMVectorSubtract(DirectX::XMVectorSet(M[0][0], M[0][1], M[0][2], M[0][3]),
 				DirectX::XMVectorSet(Other.M[0][0], Other.M[0][1],
 					Other.M[0][2], Other.M[0][3]));
-		const DirectX::XMVECTOR R1 =
+		const XMVector R1 =
 			DirectX::XMVectorSubtract(DirectX::XMVectorSet(M[1][0], M[1][1], M[1][2], M[1][3]),
 				DirectX::XMVectorSet(Other.M[1][0], Other.M[1][1],
 					Other.M[1][2], Other.M[1][3]));
-		const DirectX::XMVECTOR R2 =
+		const XMVector R2 =
 			DirectX::XMVectorSubtract(DirectX::XMVectorSet(M[2][0], M[2][1], M[2][2], M[2][3]),
 				DirectX::XMVectorSet(Other.M[2][0], Other.M[2][1],
 					Other.M[2][2], Other.M[2][3]));
-		const DirectX::XMVECTOR R3 =
+		const XMVector R3 =
 			DirectX::XMVectorSubtract(DirectX::XMVectorSet(M[3][0], M[3][1], M[3][2], M[3][3]),
 				DirectX::XMVectorSet(Other.M[3][0], Other.M[3][1],
 					Other.M[3][2], Other.M[3][3]));
 
-		DirectX::XMFLOAT4 T0, T1, T2, T3;
+		Float4 T0, T1, T2, T3;
 		DirectX::XMStoreFloat4(&T0, R0);
 		DirectX::XMStoreFloat4(&T1, R1);
 		DirectX::XMStoreFloat4(&T2, R2);
@@ -190,17 +190,17 @@ struct FMatrix
 
 	FMatrix operator*(float Scalar) const noexcept
 	{
-		const DirectX::XMVECTOR S = DirectX::XMVectorReplicate(Scalar);
-		const DirectX::XMVECTOR R0 =
+		const XMVector S = DirectX::XMVectorReplicate(Scalar);
+		const XMVector R0 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[0][0], M[0][1], M[0][2], M[0][3]), S);
-		const DirectX::XMVECTOR R1 =
+		const XMVector R1 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[1][0], M[1][1], M[1][2], M[1][3]), S);
-		const DirectX::XMVECTOR R2 =
+		const XMVector R2 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[2][0], M[2][1], M[2][2], M[2][3]), S);
-		const DirectX::XMVECTOR R3 =
+		const XMVector R3 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[3][0], M[3][1], M[3][2], M[3][3]), S);
 
-		DirectX::XMFLOAT4 T0, T1, T2, T3;
+		Float4 T0, T1, T2, T3;
 		DirectX::XMStoreFloat4(&T0, R0);
 		DirectX::XMStoreFloat4(&T1, R1);
 		DirectX::XMStoreFloat4(&T2, R2);
@@ -223,17 +223,17 @@ struct FMatrix
 	{
 		assert(Scalar != 0.f);
 		const float InvScalar = 1.0f / Scalar;
-		const DirectX::XMVECTOR S = DirectX::XMVectorReplicate(InvScalar);
-		const DirectX::XMVECTOR R0 =
+		const XMVector S = DirectX::XMVectorReplicate(InvScalar);
+		const XMVector R0 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[0][0], M[0][1], M[0][2], M[0][3]), S);
-		const DirectX::XMVECTOR R1 =
+		const XMVector R1 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[1][0], M[1][1], M[1][2], M[1][3]), S);
-		const DirectX::XMVECTOR R2 =
+		const XMVector R2 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[2][0], M[2][1], M[2][2], M[2][3]), S);
-		const DirectX::XMVECTOR R3 =
+		const XMVector R3 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[3][0], M[3][1], M[3][2], M[3][3]), S);
 
-		DirectX::XMFLOAT4 T0, T1, T2, T3;
+		Float4 T0, T1, T2, T3;
 		DirectX::XMStoreFloat4(&T0, R0);
 		DirectX::XMStoreFloat4(&T1, R1);
 		DirectX::XMStoreFloat4(&T2, R2);
@@ -254,24 +254,24 @@ struct FMatrix
 
 	FMatrix& operator+=(const FMatrix& Other) noexcept
 	{
-		const DirectX::XMVECTOR R0 =
+		const XMVector R0 =
 			DirectX::XMVectorAdd(DirectX::XMVectorSet(M[0][0], M[0][1], M[0][2], M[0][3]),
 				DirectX::XMVectorSet(Other.M[0][0], Other.M[0][1], Other.M[0][2],
 					Other.M[0][3]));
-		const DirectX::XMVECTOR R1 =
+		const XMVector R1 =
 			DirectX::XMVectorAdd(DirectX::XMVectorSet(M[1][0], M[1][1], M[1][2], M[1][3]),
 				DirectX::XMVectorSet(Other.M[1][0], Other.M[1][1], Other.M[1][2],
 					Other.M[1][3]));
-		const DirectX::XMVECTOR R2 =
+		const XMVector R2 =
 			DirectX::XMVectorAdd(DirectX::XMVectorSet(M[2][0], M[2][1], M[2][2], M[2][3]),
 				DirectX::XMVectorSet(Other.M[2][0], Other.M[2][1], Other.M[2][2],
 					Other.M[2][3]));
-		const DirectX::XMVECTOR R3 =
+		const XMVector R3 =
 			DirectX::XMVectorAdd(DirectX::XMVectorSet(M[3][0], M[3][1], M[3][2], M[3][3]),
 				DirectX::XMVectorSet(Other.M[3][0], Other.M[3][1], Other.M[3][2],
 					Other.M[3][3]));
 
-		DirectX::XMFLOAT4 T0, T1, T2, T3;
+		Float4 T0, T1, T2, T3;
 		DirectX::XMStoreFloat4(&T0, R0);
 		DirectX::XMStoreFloat4(&T1, R1);
 		DirectX::XMStoreFloat4(&T2, R2);
@@ -305,24 +305,24 @@ struct FMatrix
 
 	FMatrix& operator-=(const FMatrix& Other) noexcept
 	{
-		const DirectX::XMVECTOR R0 =
+		const XMVector R0 =
 			DirectX::XMVectorSubtract(DirectX::XMVectorSet(M[0][0], M[0][1], M[0][2], M[0][3]),
 				DirectX::XMVectorSet(Other.M[0][0], Other.M[0][1],
 					Other.M[0][2], Other.M[0][3]));
-		const DirectX::XMVECTOR R1 =
+		const XMVector R1 =
 			DirectX::XMVectorSubtract(DirectX::XMVectorSet(M[1][0], M[1][1], M[1][2], M[1][3]),
 				DirectX::XMVectorSet(Other.M[1][0], Other.M[1][1],
 					Other.M[1][2], Other.M[1][3]));
-		const DirectX::XMVECTOR R2 =
+		const XMVector R2 =
 			DirectX::XMVectorSubtract(DirectX::XMVectorSet(M[2][0], M[2][1], M[2][2], M[2][3]),
 				DirectX::XMVectorSet(Other.M[2][0], Other.M[2][1],
 					Other.M[2][2], Other.M[2][3]));
-		const DirectX::XMVECTOR R3 =
+		const XMVector R3 =
 			DirectX::XMVectorSubtract(DirectX::XMVectorSet(M[3][0], M[3][1], M[3][2], M[3][3]),
 				DirectX::XMVectorSet(Other.M[3][0], Other.M[3][1],
 					Other.M[3][2], Other.M[3][3]));
 
-		DirectX::XMFLOAT4 T0, T1, T2, T3;
+		Float4 T0, T1, T2, T3;
 		DirectX::XMStoreFloat4(&T0, R0);
 		DirectX::XMStoreFloat4(&T1, R1);
 		DirectX::XMStoreFloat4(&T2, R2);
@@ -356,17 +356,17 @@ struct FMatrix
 
 	FMatrix& operator*=(float Scalar) noexcept
 	{
-		const DirectX::XMVECTOR S = DirectX::XMVectorReplicate(Scalar);
-		const DirectX::XMVECTOR R0 =
+		const XMVector S = DirectX::XMVectorReplicate(Scalar);
+		const XMVector R0 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[0][0], M[0][1], M[0][2], M[0][3]), S);
-		const DirectX::XMVECTOR R1 =
+		const XMVector R1 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[1][0], M[1][1], M[1][2], M[1][3]), S);
-		const DirectX::XMVECTOR R2 =
+		const XMVector R2 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[2][0], M[2][1], M[2][2], M[2][3]), S);
-		const DirectX::XMVECTOR R3 =
+		const XMVector R3 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[3][0], M[3][1], M[3][2], M[3][3]), S);
 
-		DirectX::XMFLOAT4 T0, T1, T2, T3;
+		Float4 T0, T1, T2, T3;
 		DirectX::XMStoreFloat4(&T0, R0);
 		DirectX::XMStoreFloat4(&T1, R1);
 		DirectX::XMStoreFloat4(&T2, R2);
@@ -402,17 +402,17 @@ struct FMatrix
 	{
 		assert(Scalar != 0.f);
 		const float InvScalar = 1.0f / Scalar;
-		const DirectX::XMVECTOR S = DirectX::XMVectorReplicate(InvScalar);
-		const DirectX::XMVECTOR R0 =
+		const XMVector S = DirectX::XMVectorReplicate(InvScalar);
+		const XMVector R0 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[0][0], M[0][1], M[0][2], M[0][3]), S);
-		const DirectX::XMVECTOR R1 =
+		const XMVector R1 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[1][0], M[1][1], M[1][2], M[1][3]), S);
-		const DirectX::XMVECTOR R2 =
+		const XMVector R2 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[2][0], M[2][1], M[2][2], M[2][3]), S);
-		const DirectX::XMVECTOR R3 =
+		const XMVector R3 =
 			DirectX::XMVectorMultiply(DirectX::XMVectorSet(M[3][0], M[3][1], M[3][2], M[3][3]), S);
 
-		DirectX::XMFLOAT4 T0, T1, T2, T3;
+		Float4 T0, T1, T2, T3;
 		DirectX::XMStoreFloat4(&T0, R0);
 		DirectX::XMStoreFloat4(&T1, R1);
 		DirectX::XMStoreFloat4(&T2, R2);
@@ -461,7 +461,7 @@ struct FMatrix
   public:
 	XMMatrix ToXMMatrix() const noexcept
 	{
-		return DirectX::XMMATRIX(M[0][0], M[0][1], M[0][2], M[0][3], M[1][0], M[1][1], M[1][2],
+		return XMMatrix(M[0][0], M[0][1], M[0][2], M[0][3], M[1][0], M[1][1], M[1][2],
 								 M[1][3], M[2][0], M[2][1], M[2][2], M[2][3], M[3][0], M[3][1],
 								 M[3][2], M[3][3]);
 	}
@@ -511,7 +511,7 @@ struct FMatrix
 
 	FVector4 TransformVector4(const FVector4& V, const FMatrix & M) const noexcept
 	{
-		DirectX::XMVECTOR T = DirectX::XMVector4Transform(V.ToXMVector(), M.ToXMMatrix());
+		XMVector T = DirectX::XMVector4Transform(V.ToXMVector(), M.ToXMMatrix());
 		return FVector4(DirectX::XMVectorGetX(T), DirectX::XMVectorGetY(T), DirectX::XMVectorGetZ(T), DirectX::XMVectorGetW(T));
 	}
 
@@ -603,8 +603,8 @@ struct FMatrix
 	// Inverse 전에 판단할 때 중요한 함수
 	float Determinant() const noexcept
 	{
-		const DirectX::XMMATRIX XM = ToXMMatrix();
-		const DirectX::XMVECTOR Det = DirectX::XMMatrixDeterminant(XM);
+		const XMMatrix XM = ToXMMatrix();
+		const XMVector Det = DirectX::XMMatrixDeterminant(XM);
 		return DirectX::XMVectorGetX(Det);
 	}
 
@@ -614,10 +614,10 @@ struct FMatrix
 	// 디버깅 투명성을 높이려면 원본 유지 + false 반환 정책도 고려할 수 있습니다.
 	FMatrix GetInverse(float Tolerance = 1.e-8f) const noexcept
 	{
-		const DirectX::XMMATRIX XM = ToXMMatrix();
+		const XMMatrix XM = ToXMMatrix();
 
-		DirectX::XMVECTOR       Det;
-		const DirectX::XMMATRIX Inv = DirectX::XMMatrixInverse(&Det, XM);
+		XMVector       Det;
+		const XMMatrix Inv = DirectX::XMMatrixInverse(&Det, XM);
 
 		const float DeterminantValue = DirectX::XMVectorGetX(Det);
 		if (std::fabs(DeterminantValue) <= Tolerance)
@@ -638,10 +638,10 @@ struct FMatrix
 	// 디버깅 투명성을 높이려면 원본 유지 + false 반환 정책도 고려할 수 있습니다.
 	[[nodiscard]] bool Inverse(float Tolerance = 1.e-8f) noexcept
 	{
-		const DirectX::XMMATRIX XM = ToXMMatrix();
+		const XMMatrix XM = ToXMMatrix();
 
-		DirectX::XMVECTOR       Det;
-		const DirectX::XMMATRIX Inv = DirectX::XMMatrixInverse(&Det, XM);
+		XMVector       Det;
+		const XMMatrix Inv = DirectX::XMMatrixInverse(&Det, XM);
 
 		const float DeterminantValue = DirectX::XMVectorGetX(Det);
 		if (std::fabs(DeterminantValue) <= Tolerance)

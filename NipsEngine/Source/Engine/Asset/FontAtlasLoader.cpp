@@ -16,8 +16,8 @@ bool FFontAtlasLoader::Load(const FName& FontName, const FString& Path, uint32 C
 		return false;
 	}
 
-	std::wstring FullPath = FPaths::Combine(FPaths::RootDir(), FPaths::ToWide(Path));
-	const std::wstring Extension = std::filesystem::path(FullPath).extension().wstring();
+	FWString FullPath = FPaths::Combine(FPaths::RootDir(), FPaths::ToWide(Path));
+	const FWString Extension = std::filesystem::path(FullPath).extension().wstring();
 
 	HRESULT Hr = E_FAIL;
 

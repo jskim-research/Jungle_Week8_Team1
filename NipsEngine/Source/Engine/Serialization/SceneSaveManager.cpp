@@ -4,7 +4,6 @@
 #include <fstream>
 #include <chrono>
 #include <functional>
-#include <unordered_map>
 
 #include "SimpleJSON/json.hpp"
 #include "GameFramework/World.h"
@@ -81,7 +80,7 @@ void FSceneSaveManager::SaveSceneAsJSON(const string& InSceneName, FWorldContext
 	if (!WorldContext.World) return;
 
 	string FinalName = InSceneName.empty() ? "Save_" + GetCurrentTimeStamp() : InSceneName;
-	std::wstring SceneDir = GetSceneDirectory();
+	FWString SceneDir = GetSceneDirectory();
 	std::filesystem::path FileDestination = std::filesystem::path(SceneDir) / (FPaths::ToWide(FinalName) + SceneExtension);
 	std::filesystem::create_directories(SceneDir);
 
@@ -389,7 +388,7 @@ void FSceneSaveManager::Save(const FString& FilePath, FWorldContext& WorldContex
 	FJsonWriter Writer(Root);
 
 	string FinalName = FilePath.empty() ? "Save_" + GetCurrentTimeStamp() : FilePath;
-	std::wstring SceneDir = GetSceneDirectory();
+	FWString SceneDir = GetSceneDirectory();
 	std::filesystem::path FileDestination = std::filesystem::path(SceneDir) / (FPaths::ToWide(FinalName) + SceneExtension);
 	std::filesystem::create_directories(SceneDir);
 
@@ -654,10 +653,10 @@ void FSceneSaveManager::DeserializePrimitivesToWorld(json::JSON& PrimitivesNode,
 	// 1단계: 씬/비씬 노드 분류
 	// OwnerRootUUID 키가 있으면 비씬 ActorComponent, 없으면 SceneComponent
 	// ---------------------------------------------------------------
-	std::unordered_map<uint32, json::JSON*> SceneNodeMap;
-	std::unordered_map<uint32, json::JSON*> NonSceneNodeMap;
-	std::unordered_map<uint32, std::vector<uint32>> ChildrenMap;
-	std::vector<uint32> RootUUIDs;
+	TMap<uint32, json::JSON*> SceneNodeMap;
+	TMap<uint32, json::JSON*> NonSceneNodeMap;
+	TMap<uint32, TArray<uint32>> ChildrenMap;
+	TArray<uint32> RootUUIDs;
 
 	for (auto& Pair : PrimitivesNode.ObjectRange())
 	{
@@ -695,9 +694,9 @@ void FSceneSaveManager::DeserializePrimitivesToWorld(json::JSON& PrimitivesNode,
 	};
 
 	// UUID → SceneComponent* 맵: SceneComponentRef 역직렬화에 사용
-	std::unordered_map<uint32, USceneComponent*> UUIDToSceneComp;
+	TMap<uint32, USceneComponent*> UUIDToSceneComp;
 	// 루트SceneComponent UUID → Actor* 맵: 비씬 컴포넌트 귀속에 사용
-	std::unordered_map<uint32, AActor*> RootUUIDToActor;
+	TMap<uint32, AActor*> RootUUIDToActor;
 
 	// ---------------------------------------------------------------
 	// 2단계: SceneComponent 트리 복원 (기존 로직 + UUID 맵 구축)
@@ -829,7 +828,7 @@ USceneComponent* FSceneSaveManager::DeserializeSceneComponentTree(json::JSON& No
 }
 
 void FSceneSaveManager::DeserializeProperties(UActorComponent* Comp, json::JSON& PropsJSON,
-											  const std::unordered_map<uint32, USceneComponent*>* UUIDToSceneComp)
+											  const TMap<uint32, USceneComponent*>* UUIDToSceneComp)
 {
 	TArray<FPropertyDescriptor> Descriptors;
 	Comp->GetEditableProperties(Descriptors);
@@ -847,7 +846,7 @@ void FSceneSaveManager::DeserializeProperties(UActorComponent* Comp, json::JSON&
 }
 
 void FSceneSaveManager::DeserializePropertyValue(FPropertyDescriptor& Prop, json::JSON& Value,
-												 const std::unordered_map<uint32, USceneComponent*>* UUIDToSceneComp)
+												 const TMap<uint32, USceneComponent*>* UUIDToSceneComp)
 {
 	switch (Prop.Type) {
 	case EPropertyType::Bool:
@@ -987,7 +986,7 @@ string FSceneSaveManager::GetCurrentTimeStamp()
 TArray<FString> FSceneSaveManager::GetSceneFileList()
 {
 	TArray<FString> Result;
-	std::wstring SceneDir = GetSceneDirectory();
+	FWString SceneDir = GetSceneDirectory();
 	if (!std::filesystem::exists(SceneDir))
 	{
 		return Result;

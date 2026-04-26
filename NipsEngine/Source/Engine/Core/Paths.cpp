@@ -1,9 +1,9 @@
 ﻿#include "Engine/Core/Paths.h"
 #include <filesystem>
 
-std::wstring FPaths::RootDir()
+FWString FPaths::RootDir()
 {
-	static std::wstring Cached;
+	static FWString Cached;
 	if (Cached.empty())
 	{
 		WCHAR Buffer[MAX_PATH];
@@ -52,54 +52,54 @@ std::wstring FPaths::RootDir()
 
 // 나머지 함수는 동일 ...
 
-std::wstring FPaths::ShaderDir() { return RootDir() + L"Shaders/"; }
-std::wstring FPaths::SceneDir() { return RootDir() + L"Asset/Scene/"; }
-std::wstring FPaths::DumpDir() { return RootDir() + L"Saves/Dump/"; }
-std::wstring FPaths::SettingsDir() { return RootDir() + L"Settings/"; }
-std::wstring FPaths::ShaderFilePath() { return RootDir() + L"Shaders/ShaderW0.hlsl"; }
-std::wstring FPaths::SettingsFilePath() { return RootDir() + L"Settings/Editor.ini"; }
-std::wstring FPaths::ViewerSettingsFilePath() { return RootDir() + L"Settings/ObjViewer.ini"; }
-std::wstring FPaths::AssetDirectoryPath() { return RootDir() + L"Asset"; }
-std::wstring FPaths::ResourceDefaultMaterialTexture() { return RootDir() + L"Asset/Mesh/Default.png"; }
+FWString FPaths::ShaderDir() { return RootDir() + L"Shaders/"; }
+FWString FPaths::SceneDir() { return RootDir() + L"Asset/Scene/"; }
+FWString FPaths::DumpDir() { return RootDir() + L"Saves/Dump/"; }
+FWString FPaths::SettingsDir() { return RootDir() + L"Settings/"; }
+FWString FPaths::ShaderFilePath() { return RootDir() + L"Shaders/ShaderW0.hlsl"; }
+FWString FPaths::SettingsFilePath() { return RootDir() + L"Settings/Editor.ini"; }
+FWString FPaths::ViewerSettingsFilePath() { return RootDir() + L"Settings/ObjViewer.ini"; }
+FWString FPaths::AssetDirectoryPath() { return RootDir() + L"Asset"; }
+FWString FPaths::ResourceDefaultMaterialTexture() { return RootDir() + L"Asset/Mesh/Default.png"; }
 
 
-std::wstring FPaths::Combine(const std::wstring& Base, const std::wstring& Child)
+FWString FPaths::Combine(const FWString& Base, const FWString& Child)
 {
 	std::filesystem::path Result(Base);
 	Result /= Child;
 	return Result.generic_wstring(); // backslash를 slash로 변환해서 반환한다.
 }
 
-void FPaths::CreateDir(const std::wstring& Path)
+void FPaths::CreateDir(const FWString& Path)
 {
 	std::filesystem::create_directories(Path);
 }
 
-std::wstring FPaths::ToWide(const std::string& Utf8Str)
+FWString FPaths::ToWide(const FString& Utf8Str)
 {
 	if (Utf8Str.empty()) return {};
 	int32_t Size = MultiByteToWideChar(CP_UTF8, 0, Utf8Str.c_str(), -1, nullptr, 0);
-	std::wstring Result(Size - 1, L'\0');
+	FWString Result(Size - 1, L'\0');
 	MultiByteToWideChar(CP_UTF8, 0, Utf8Str.c_str(), -1, &Result[0], Size);
 	return Result;
 }
 
-std::string FPaths::ToUtf8(const std::wstring& WideStr)
+FString FPaths::ToUtf8(const FWString& WideStr)
 {
 	if (WideStr.empty()) return {};
 	int32_t Size = WideCharToMultiByte(CP_UTF8, 0, WideStr.c_str(), static_cast<int>(WideStr.length()), nullptr, 0, nullptr, nullptr);
-	std::string Result(Size, '\0');
+	FString Result(Size, '\0');
 	WideCharToMultiByte(CP_UTF8, 0, WideStr.c_str(), static_cast<int>(WideStr.length()), Result.data(), Size, nullptr, nullptr);
 	return Result;
 }
 
-FString FPaths::ToString(const std::wstring& wstring)
+FString FPaths::ToString(const FWString& wstring)
 {
 	return ToUtf8(wstring);
 }
 
 //	절대경로를 입력받아서 RootDir 기준의 상대 경로로 변환한다.
-std::wstring FPaths::ToRelative(const std::wstring& AbsolutePath)
+FWString FPaths::ToRelative(const FWString& AbsolutePath)
 {
 	if (AbsolutePath.empty()) return L"";
 
@@ -113,7 +113,7 @@ std::wstring FPaths::ToRelative(const std::wstring& AbsolutePath)
 }
 
 //	상대 경로를 입력받아서 RootDir 기준의 절대 경로로 변환한다.
-std::wstring FPaths::ToAbsolute(const std::wstring& RelativePath)
+FWString FPaths::ToAbsolute(const FWString& RelativePath)
 {
 	if (RelativePath.empty()) return L"";
 
@@ -132,21 +132,21 @@ std::wstring FPaths::ToAbsolute(const std::wstring& RelativePath)
 }
 
 // 절대경로를 입력받아서 RootDir 기준의 상대 경로 string으로 변환한다.
-std::string FPaths::ToRelativeString(const std::wstring &AbsolutePath) 
+FString FPaths::ToRelativeString(const FWString &AbsolutePath) 
 {
 	return ToUtf8(ToRelative(AbsolutePath));
 }
 
 // 상대 경로를 입력받아서 RootDir 기준의 절대 경로 string으로 변환한다.
-std::string FPaths::ToAbsoluteString(const std::wstring &RelativePath) 
+FString FPaths::ToAbsoluteString(const FWString &RelativePath) 
 {
 	return ToUtf8(ToAbsolute(RelativePath));
 }
 
 FString FPaths::Normalize(const FString& Path)
 {
-	std::wstring WidePath = ToWide(Path);
+	FWString WidePath = ToWide(Path);
 	std::filesystem::path NormalizedPath(WidePath);
-	std::wstring NormalizedWide = NormalizedPath.lexically_normal().generic_wstring();
+	FWString NormalizedWide = NormalizedPath.lexically_normal().generic_wstring();
 	return ToUtf8(NormalizedWide);
 }

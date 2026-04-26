@@ -15,11 +15,6 @@
 #include "Render/Resource/RenderResources.h"
 #include <d3d11.h>
 #include <chrono>
-#include <set>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
 
 // 리소스를 관리하는 싱글턴.
 // Resource.ini에서 리소스 경로/그리드 정보를 읽고, GPU 리소스를 로드/캐싱합니다.
@@ -113,7 +108,7 @@ public:
 	bool LoadShader(const FShaderCompileKey& CompileKey);
 	bool LoadShader(const FShaderCompileKey& CompileKey,
 					const D3D11_INPUT_ELEMENT_DESC* InputElements, UINT InputElementCount);
-	void ProcessShaderHotReloads(const std::vector<std::wstring>& ChangedFiles);
+	void ProcessShaderHotReloads(const TArray<FWString>& ChangedFiles);
 	//ID3DBlob* CompileShaderWithDefines(const WCHAR* filename,
 	//                                   const D3D_SHADER_MACRO* defines,
 	//                                   const char* entryPoint,
@@ -172,20 +167,20 @@ private:
 							  const D3D11_INPUT_ELEMENT_DESC* InputElements,
 							  UINT InputElementCount,
 							  UShader* OutShader,
-							  std::string* OutFailureMessage = nullptr,
+							  FString* OutFailureMessage = nullptr,
 							  bool bLogFailures = true);
 	void CacheShaderVariantInputLayout(const FShaderCompileKey& NormalizedKey,
 									   const D3D11_INPUT_ELEMENT_DESC* InputElements,
 									   UINT InputElementCount);
 	bool BuildCachedInputLayout(const FShaderCompileKey& NormalizedKey, TArray<D3D11_INPUT_ELEMENT_DESC>& OutInputElements) const;
 	void InvalidateAllMaterialShaderBindings();
-	void ReloadShaders(const std::set<std::wstring>& DirtyFiles);
-	void CollectShaderDependencies(const std::wstring& ShaderFilePath,
-								   std::unordered_set<std::wstring>& OutDependencies,
-								   std::unordered_map<std::wstring, std::unordered_set<std::wstring>>& Cache);
-	std::wstring NormalizeShaderPath(const std::wstring& InPath) const;
-	std::wstring NormalizeShaderPath(const FString& InPath) const;
-	bool IsShaderSourceFile(const std::wstring& InPath) const;
+	void ReloadShaders(const std::set<FWString>& DirtyFiles);
+	void CollectShaderDependencies(const FWString& ShaderFilePath,
+								   TSet<FWString>& OutDependencies,
+								   TMap<FWString, TSet<FWString>>& Cache);
+	FWString NormalizeShaderPath(const FWString& InPath) const;
+	FWString NormalizeShaderPath(const FString& InPath) const;
+	bool IsShaderSourceFile(const FWString& InPath) const;
 		
 	FTextureAssetMeta LoadOrCreateTextureMeta(const std::filesystem::path& FilePath) const;
 
@@ -228,7 +223,7 @@ private:
 		TArray<FShaderInputElementStorage> Elements;
 	};
 	TMap<FShaderCompileKey, FShaderVariantInputLayout> ShaderVariantInputLayouts;
-	std::unordered_map<std::wstring, std::chrono::steady_clock::time_point> PendingShaderFiles;
+	TMap<FWString, std::chrono::steady_clock::time_point> PendingShaderFiles;
 
 	TMap<FString, UTexture*> Textures;
 	TMap<FString, UMaterial*> Materials;

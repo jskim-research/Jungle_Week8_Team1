@@ -419,7 +419,7 @@ void FEditorViewportOverlayWidget::RenderShortcutsWindow()
 	ImGui::Separator();
 	ImGui::Text("현재 코드상 실제로 동작하는 에디터 단축키만 정리했습니다.");
 
-	auto DrawShortcutTable = [](const char* Header, std::initializer_list<std::pair<const char*, const char*>> Rows)
+	auto DrawShortcutTable = [](const char* Header, std::initializer_list<TPair<const char*, const char*>> Rows)
 	{
 		if (!ImGui::CollapsingHeader(Header, ImGuiTreeNodeFlags_DefaultOpen))
 		{
