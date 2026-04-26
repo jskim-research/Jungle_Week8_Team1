@@ -715,9 +715,6 @@ void FEditorPropertyWidget::RenderLightPreview()
 
     // 패널 너비에 맞춰 16:9 비율로 크기 조정
     float PanelWidth = ImGui::GetContentRegionAvail().x;
-    float PreviewWidth = PanelWidth;
-    float PreviewHeight = PreviewWidth * (9.0f / 16.0f);
-
     ImGui::Image(TexID, ImVec2(PanelWidth, PanelWidth));
     ImGui::Spacing();
 }
