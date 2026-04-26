@@ -181,34 +181,116 @@ bool FShadowPass::BuildCascades(const FRenderPassContext* Context, const FShadow
             FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
             FCascadeData CascadeData;
 
-			FVector LightDir = Light.Direction; // normalize 되어 있어야 함
+            const FCameraState& Cam = Context->RenderBus->GetCameraState();
 
-            FVector Center = Context->RenderBus->GetCameraPosition();
-            /**
-             * 테스트용으로 넣어뒀고, 실제로는 Scene AABB 크기에 맞춰서 설정해야함 
-             */
-            FVector Eye = Center - LightDir * 100.0f; // 뒤에서 바라보게
-            FVector Target = Context->RenderBus->GetCameraPosition();
+            float Near = Cam.NearZ;
+            float Far = Cam.FarZ;
+            float FovY = Cam.FOV;
+            float Aspect = Cam.AspectRatio;
 
+            FVector CamPos = Context->RenderBus->GetCameraPosition();
+            FVector CamForward = Context->RenderBus->GetCameraForward();
+            FVector CamRight = Context->RenderBus->GetCameraRight();
+            FVector CamUp = Context->RenderBus->GetCameraUp();
 
-			FVector Up = FVector(0, 0, 1);
+            // =========================
+            // 1. Frustum 크기 계산
+            // =========================
+            float NearH = 2.0f * Near * tanf(FovY * 0.5f);
+            float NearW = NearH * Aspect;
+
+            float FarH = 2.0f * Far * tanf(FovY * 0.5f);
+            float FarW = FarH * Aspect;
+
+            FVector NearCenter = CamPos + CamForward * Near;
+            FVector FarCenter = CamPos + CamForward * Far;
+
+            FVector FrustumCorners[8];
+
+            // Near
+            FrustumCorners[0] = NearCenter + CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f);
+            FrustumCorners[1] = NearCenter + CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f);
+            FrustumCorners[2] = NearCenter - CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f);
+            FrustumCorners[3] = NearCenter - CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f);
+
+            // Far
+            FrustumCorners[4] = FarCenter + CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f);
+            FrustumCorners[5] = FarCenter + CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f);
+            FrustumCorners[6] = FarCenter - CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f);
+            FrustumCorners[7] = FarCenter - CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f);
+
+            // =========================
+            // 2. Frustum Center
+            // =========================
+            FVector Center(0, 0, 0);
+            for (int j = 0; j < 8; j++)
+            {
+                Center += FrustumCorners[j];
+            }
+            Center /= 8.0f;
+
+            // =========================
+            // 3. Light View 생성
+            // =========================
+            FVector LightDir = Light.Direction; // normalize 되어 있어야 함
+
+            FVector Eye = Center - LightDir * 500.0f;
+            FVector Target = Center;
+
+            FVector Up = FVector(0, 0, 1);
             if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
             {
-                Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
+                Up = FVector(1, 0, 0);
             }
 
-            CascadeData.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
-            float OrthoSize = 1024.0f;
+            FMatrix LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
+
+            // =========================
+            // 4. Frustum → Light Space AABB
+            // =========================
+            FVector Min(FLT_MAX, FLT_MAX, FLT_MAX);
+            FVector Max(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+            for (int j = 0; j < 8; j++)
+            {
+                FVector P = LightView.TransformPosition(FrustumCorners[j]);
+
+                Min.X = std::min<float>(Min.X, P.X);
+                Min.Y = std::min<float>(Min.Y, P.Y);
+                Min.Z = std::min<float>(Min.Z, P.Z);
+
+                Max.X = std::max<float>(Max.X, P.X);
+                Max.Y = std::max<float>(Max.Y, P.Y);
+                Max.Z = std::max<float>(Max.Z, P.Z);
+            }
+
+            // =========================
+            // 5. Centered Ortho 맞추기 (핵심)
+            // =========================
+            FVector CenterLS = (Min + Max) * 0.5f;
+
+            // LightView를 Center 기준으로 이동
+            FMatrix CenterOffset = FMatrix::MakeTranslation(-CenterLS);
+            CascadeData.LightView = CenterOffset * LightView;
+
+            float ViewWidth = (Max.X - Min.X);
+            float ViewHeight = (Max.Y - Min.Y);
+
+            float NearZ = 0.0f;
+            float FarZ = (Max.Z - Min.Z) + 200.0f; // 여유
+
+            // =========================
+            // 6. Projection
+            // =========================
             CascadeData.LightProjection = FMatrix::MakeOrthographicLH(
-                OrthoSize, // Width
-                OrthoSize, // Height
-                1.0f,      // Near
-                2000.0f    // Far (Eye에서 500 뒤에 있으니 충분히 크게)
-            );
+                ViewWidth,
+                ViewHeight,
+                NearZ,
+                FarZ);
 
-            CascadeData.SplitDepth = 1000;
+            CascadeData.SplitDepth = Far; // 일단 전체 (CSM 전 단계)
 
-			OutCascadeDataArray.push_back(CascadeData);
+            OutCascadeDataArray.push_back(CascadeData);
         }
 		break;
 
