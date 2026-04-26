@@ -8,7 +8,7 @@ class FShadowPass : public FBaseRenderPass
 public:
     bool Initialize();
     bool Release();
-    TArray<FShadowMap>& GetShadowMaps() { return ShadowMaps; }
+    static TArray<FShadowMap>& GetShadowMaps();
 
 protected:
     bool Begin(const FRenderPassContext* Context);
@@ -27,7 +27,6 @@ private:
 
 private:
     FShadowLightSelector ShadowLightSelector;
-    TArray<FShadowMap> ShadowMaps;
     bool bSkip = false;
 
     std::shared_ptr<FShaderBindingInstance> ShaderBinding;

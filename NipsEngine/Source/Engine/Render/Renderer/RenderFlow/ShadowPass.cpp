@@ -3,6 +3,12 @@
 #include "Core/ResourceManager.h"
 #include "Editor/UI/EditorConsoleWidget.h"
 
+namespace
+{
+	// 현재 Pass 간 Input, Output 연결 구조가 아니어서 전역으로 놓았는데, 나중에 바꿔야 함
+	TArray<FShadowMap> GShadowMaps;
+}
+
 bool FShadowPass::Initialize()
 {
 	return true;
@@ -12,6 +18,11 @@ bool FShadowPass::Release()
 {
     ShaderBinding.reset();
 	return true;
+}
+
+TArray<FShadowMap>& FShadowPass::GetShadowMaps()
+{
+    return GShadowMaps;
 }
 
 bool FShadowPass::Begin(const FRenderPassContext* Context)
@@ -28,13 +39,13 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
         return true;
     }
 
-	if (!ShadowMaps.empty())
+	if (!GShadowMaps.empty())
 	{
-		for (FShadowMap& ShadowMap : ShadowMaps)
+		for (FShadowMap& ShadowMap : GShadowMaps)
 		{
             Context->ShadowResourcePool->Release(ShadowMap.Resource);
 		}
-        ShadowMaps.clear();
+        GShadowMaps.clear();
 	}
 
     bSkip = false;
@@ -57,22 +68,22 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 	{
         FShadowMap ShadowMap;
 		if (MakeShadowMap(Context, ShadowRequest, ShadowMap))
-	        ShadowMaps.push_back(ShadowMap);
+	        GShadowMaps.push_back(ShadowMap);
 	}
 
-	if (ShadowMaps.empty())
+	if (GShadowMaps.empty())
 	{
         bSkip = true;
         return true;
 	}
 
-	OutSRV = ShadowMaps[0].Resource->SRV;
+	OutSRV = GShadowMaps[0].Resource->SRV;
     OutRTV = nullptr;
 
     ShaderBinding->ApplyFrameParameters(*Context->RenderBus);
 	// 만약 Shadow Pass 만 도는 경우 Light 첫 번째를 기준으로 시각화 용도
-    ShaderBinding->SetMatrix4("View", ShadowMaps[0].Views[0].LightView);
-    ShaderBinding->SetMatrix4("Projection", ShadowMaps[0].Views[0].LightProjection);
+    ShaderBinding->SetMatrix4("View", GShadowMaps[0].Views[0].LightView);
+    ShaderBinding->SetMatrix4("Projection", GShadowMaps[0].Views[0].LightProjection);
 
 	return true;
 }
@@ -89,10 +100,19 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
     if (Commands.empty())
         return true;
 
-	for (uint32 i = 0; i < ShadowMaps[0].Resource->DSVs.size(); i++)
+	for (uint32 i = 0; i < GShadowMaps[0].Resource->DSVs.size(); i++)
 	{
-        Context->DeviceContext->ClearDepthStencilView(ShadowMaps[0].Resource->DSVs[i], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-        Context->DeviceContext->OMSetRenderTargets(0, nullptr, ShadowMaps[0].Resource->DSVs[i]);
+        D3D11_VIEWPORT ShadowViewport = {};
+        ShadowViewport.TopLeftX = 0.0f;
+        ShadowViewport.TopLeftY = 0.0f;
+        ShadowViewport.Width = (float)GShadowMaps[0].Resource->Resolution;
+        ShadowViewport.Height = (float)GShadowMaps[0].Resource->Resolution;
+        ShadowViewport.MinDepth = 0.0f;
+        ShadowViewport.MaxDepth = 1.0f;
+        Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
+
+        Context->DeviceContext->ClearDepthStencilView(GShadowMaps[0].Resource->DSVs[i], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+        Context->DeviceContext->OMSetRenderTargets(0, nullptr, GShadowMaps[0].Resource->DSVs[i]);
 
         for (const FRenderCommand& Cmd : Commands)
         {
@@ -310,10 +330,18 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
             FVector Target = Eye + Light.Direction;
 
             FVector Up = FVector(0, 0, 1);
+
+            // Z-up과 너무 평행할 때
             if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
             {
-                Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
+                Up = FVector(1, 0, 0);
             }
+
+            // Up이 LightDir과 수직인지 보장
+            FVector Right = FVector::CrossProduct(Up, LightDir);
+            Right.Normalize();
+            Up = FVector::CrossProduct(LightDir, Right);
+            Up.Normalize();
 
             ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
             ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
@@ -324,7 +352,7 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
             ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
                 FovRad,
                 1.0f,        // 정사각형 섀도우 맵
-                1.0f,        // Near
+                0.1f,        // Near
                 Light.Radius // Far = 라이트 반경
             );
 
