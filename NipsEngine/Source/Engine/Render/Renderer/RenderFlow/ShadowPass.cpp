@@ -390,7 +390,7 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 			ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
 			ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
 
-			float FovRad = (90 * (3.141592 / 180));          // 전체 FOV
+			float FovRad = (90.0f * (3.141592f / 180.0f));          // 전체 FOV
 
 			ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
 				FovRad,

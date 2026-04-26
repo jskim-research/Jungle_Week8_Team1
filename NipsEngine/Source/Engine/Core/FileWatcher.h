@@ -1,8 +1,12 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
+#include "Core/Containers/String.h"
+
 #include <Windows.h>
 
 #include <atomic>
+#include <deque>
 #include <mutex>
 #include <thread>
 

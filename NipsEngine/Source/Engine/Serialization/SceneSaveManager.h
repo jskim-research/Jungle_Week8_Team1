@@ -18,8 +18,6 @@ namespace json {
 
 struct FPropertyDescriptor;
 
-using FString;
-
 // Perspective 카메라 상태 — 씬 파일에 저장/복원되는 에디터 전용 데이터
 struct FEditorCameraState
 {
@@ -41,9 +39,9 @@ public:
 	 * Legacy 직렬화 코드
 	 */
 	// CameraState 는 nullable — nullptr 이면 카메라 섹션을 무시합니다 (게임/PIE 호환)
-	static void SaveSceneAsJSON(const string& SceneName, FWorldContext& WorldContext,
+	static void SaveSceneAsJSON(const FString& SceneName, FWorldContext& WorldContext,
 	                            const FEditorCameraState* CameraState = nullptr);
-	static void LoadSceneFromJSON(const string& filepath, FWorldContext& OutWorldContext,
+	static void LoadSceneFromJSON(const FString& filepath, FWorldContext& OutWorldContext,
 	                              FEditorCameraState* OutCameraState = nullptr);
 
 	/**
@@ -81,5 +79,5 @@ private:
 	                                     const TMap<uint32, USceneComponent*>* UUIDToSceneComp = nullptr);
 	static void DeserializeCameraState(json::JSON& root, FEditorCameraState* OutCameraState = nullptr);
 
-	static string GetCurrentTimeStamp();
+	static FString GetCurrentTimeStamp();
 };

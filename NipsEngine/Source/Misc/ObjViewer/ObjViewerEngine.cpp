@@ -13,6 +13,8 @@
 #include "ImGui/imgui.h"
 #include "Viewport/ViewportCamera.h"
 
+#include <shellapi.h>
+
 DEFINE_CLASS(UObjViewerEngine, UEngine)
 REGISTER_FACTORY(UObjViewerEngine)
 
