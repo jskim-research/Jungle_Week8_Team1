@@ -8,6 +8,7 @@ class FShadowPass : public FBaseRenderPass
 public:
     bool Initialize();
     bool Release();
+    TArray<FShadowMap>& GetShadowMaps() { return ShadowMaps; }
 
 protected:
     bool Begin(const FRenderPassContext* Context);
@@ -23,7 +24,7 @@ private:
 	bool BuildSlices(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowSlice>& OutShadowSlices);
     // Desc에 맞는 적절한 Resource 반환
 	bool AcquireResource(const FRenderPassContext* Context, const FShadowRequestDesc& Req, FShadowResource** OutShadowResource);
-    
+
 private:
     FShadowLightSelector ShadowLightSelector;
     TArray<FShadowMap> ShadowMaps;

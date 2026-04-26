@@ -8,6 +8,7 @@
 #include "Core/CoreTypes.h"
 
 struct ID3D11Debug;
+struct FShadowMap;
 
 /**
  * 데이터 전달용 구조체 (소유 데이터 아님)
@@ -33,6 +34,9 @@ struct FRenderTargetSet
 
 	ID3D11RenderTargetView* FinalRTV = nullptr;
     ID3D11ShaderResourceView* FinalSRV = nullptr;
+
+	// Shadow Map 디버깅용으로 넣어둠
+	FShadowMap* ShadowMap = nullptr;
 
 	float Width = 0.0f;
 	float Height = 0.0f;

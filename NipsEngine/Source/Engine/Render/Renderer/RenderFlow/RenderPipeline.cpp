@@ -84,7 +84,6 @@ bool FRenderPipeline::Initialize()
 	 */
     RenderPasses.push_back(ShadowPass);
 
-	/*
     RenderPasses.push_back(LightCullingPass);
     RenderPasses.push_back(SkyRenderPass);
     RenderPasses.push_back(ToonOutlineRenderPass);
@@ -104,7 +103,7 @@ bool FRenderPipeline::Initialize()
     RenderPasses.push_back(EditorRenderPass);
     RenderPasses.push_back(DepthLessRenderPass);
     RenderPasses.push_back(PostProcessOutlineRenderPass);
-	*/
+	
 
     return true;
 }
@@ -126,6 +125,11 @@ bool FRenderPipeline::Render(const FRenderPassContext* Context)
 
 	Context->RenderTargets->FinalSRV = OutSRV;
     Context->RenderTargets->FinalRTV = OutRTV;
+
+	if (ShadowPass->GetShadowMaps().empty())
+        Context->RenderTargets->ShadowMap = nullptr;
+    else
+        Context->RenderTargets->ShadowMap = &ShadowPass->GetShadowMaps()[0];
 
     return true;
 }
