@@ -100,16 +100,22 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
     if (Commands.empty())
         return true;
 
+	// 이전 뷰포트 설정 저장
+	D3D11_VIEWPORT oldVP[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
+    UINT oldVPCount = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
+    Context->DeviceContext->RSGetViewports(&oldVPCount, oldVP);
+	
+    D3D11_VIEWPORT ShadowViewport = {};
+    ShadowViewport.TopLeftX = 0.0f;
+    ShadowViewport.TopLeftY = 0.0f;
+    ShadowViewport.Width = (float)GShadowMaps[0].Resource->Resolution;
+    ShadowViewport.Height = (float)GShadowMaps[0].Resource->Resolution;
+    ShadowViewport.MinDepth = 0.0f;
+    ShadowViewport.MaxDepth = 1.0f;
+    Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
+
 	for (uint32 i = 0; i < GShadowMaps[0].Resource->DSVs.size(); i++)
 	{
-        D3D11_VIEWPORT ShadowViewport = {};
-        ShadowViewport.TopLeftX = 0.0f;
-        ShadowViewport.TopLeftY = 0.0f;
-        ShadowViewport.Width = (float)GShadowMaps[0].Resource->Resolution;
-        ShadowViewport.Height = (float)GShadowMaps[0].Resource->Resolution;
-        ShadowViewport.MinDepth = 0.0f;
-        ShadowViewport.MaxDepth = 1.0f;
-        Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
 
         Context->DeviceContext->ClearDepthStencilView(GShadowMaps[0].Resource->DSVs[i], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
         Context->DeviceContext->OMSetRenderTargets(0, nullptr, GShadowMaps[0].Resource->DSVs[i]);
@@ -165,7 +171,10 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
             }
         }
 	}
-   
+
+	// 상태 복구
+	Context->DeviceContext->RSSetViewports(oldVPCount, oldVP);
+
 	return true;
 }
 

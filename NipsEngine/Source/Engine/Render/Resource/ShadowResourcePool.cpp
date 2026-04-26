@@ -7,6 +7,8 @@ FShadowResource* FShadowResourcePool::Acquire(ID3D11Device* Device, const FShado
 	// 테스트 용도긴 한데 자원 누수 신경써야함
     FShadowResource* ShadowResource = new FShadowResource;
 
+	ShadowResource->Resolution = Desc.Resolution;
+
     if (Desc.MapType == EShadowMapType::DepthCube) // Cubemap 분기
     {
         DSR = FDepthStencilFactory::CreateDepthStencilViewCubemap(Device, Desc.Resolution, Desc.Resolution);
