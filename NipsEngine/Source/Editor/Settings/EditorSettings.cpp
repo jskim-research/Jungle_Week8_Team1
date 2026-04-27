@@ -37,6 +37,12 @@ namespace EditorKey
 	constexpr const char* bBoundingVolume = "bBoundingVolume";
 	constexpr const char* bEnableLOD = "bEnableLOD";
 	constexpr const char* bBVHBoundingVolume = "bBVHBoundingVolume";
+	constexpr const char* bDirectionalLightDebug = "bDirectionalLightDebug";
+	constexpr const char* bPointLightDebug = "bPointLightDebug";
+	constexpr const char* bSpotLightDebug = "bSpotLightDebug";
+	constexpr const char* bDecals = "bDecals";
+	constexpr const char* bFog = "bFog";
+	constexpr const char* bShowLightHitmapOverlay = "bShowLightHitmapOverlay";
 	constexpr const char* FXAAEnabled = "FXAAEnabled";
 	constexpr const char* FXAAThreshold = "FXAAThreshold"; // Backward compatibility
 
@@ -103,6 +109,12 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 	ViewObj[EditorKey::bBoundingVolume] = ShowFlags.bBoundingVolume;
 	ViewObj[EditorKey::bEnableLOD] = ShowFlags.bEnableLOD;
 	ViewObj[EditorKey::bBVHBoundingVolume] = ShowFlags.bBVHBoundingVolume;
+	ViewObj[EditorKey::bDirectionalLightDebug] = ShowFlags.bDirectionalLightDebug;
+	ViewObj[EditorKey::bPointLightDebug] = ShowFlags.bPointLightDebug;
+	ViewObj[EditorKey::bSpotLightDebug] = ShowFlags.bSpotLightDebug;
+	ViewObj[EditorKey::bDecals] = ShowFlags.bDecals;
+	ViewObj[EditorKey::bFog] = ShowFlags.bFog;
+	ViewObj[EditorKey::bShowLightHitmapOverlay] = ShowFlags.bShowLightHitmapOverlay;
 	ViewObj[EditorKey::FXAAEnabled] = bEnableFXAA;
 	Root[EditorKey::View] = ViewObj;
 
@@ -241,6 +253,18 @@ void FEditorSettings::LoadFromFile(const FString& Path)
 			ShowFlags.bEnableLOD = ViewObj[EditorKey::bEnableLOD].ToBool();
 		if (ViewObj.hasKey(EditorKey::bBVHBoundingVolume))
 			ShowFlags.bBVHBoundingVolume = ViewObj[EditorKey::bBVHBoundingVolume].ToBool();
+		if (ViewObj.hasKey(EditorKey::bDirectionalLightDebug))
+			ShowFlags.bDirectionalLightDebug = ViewObj[EditorKey::bDirectionalLightDebug].ToBool();
+		if (ViewObj.hasKey(EditorKey::bPointLightDebug))
+			ShowFlags.bPointLightDebug = ViewObj[EditorKey::bPointLightDebug].ToBool();
+		if (ViewObj.hasKey(EditorKey::bSpotLightDebug))
+			ShowFlags.bSpotLightDebug = ViewObj[EditorKey::bSpotLightDebug].ToBool();
+		if (ViewObj.hasKey(EditorKey::bDecals))
+			ShowFlags.bDecals = ViewObj[EditorKey::bDecals].ToBool();
+		if (ViewObj.hasKey(EditorKey::bFog))
+			ShowFlags.bFog = ViewObj[EditorKey::bFog].ToBool();
+		if (ViewObj.hasKey(EditorKey::bShowLightHitmapOverlay))
+			ShowFlags.bShowLightHitmapOverlay = ViewObj[EditorKey::bShowLightHitmapOverlay].ToBool();
 		if (ViewObj.hasKey(EditorKey::FXAAEnabled))
 			bEnableFXAA = ViewObj[EditorKey::FXAAEnabled].ToBool();
 		else if (ViewObj.hasKey(EditorKey::FXAAThreshold))

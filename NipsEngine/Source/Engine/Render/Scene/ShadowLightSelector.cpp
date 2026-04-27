@@ -41,12 +41,12 @@ TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRe
 	}
 
 	FShadowRequest Req;
-	Req.LightId = static_cast<uint32>(SelectedLightId);
-	Req.Type = SelectedType;
-	Req.Resolution = 1024;
-	Req.ProjectionMode = EShadowProjectionMode::Default;
-	Req.CascadeCount = 1;
-	Req.bUseVSM = false;
+    Req.LightId = static_cast<uint32>(SelectedLightId);
+    Req.Type = SelectedType;
+    Req.Resolution = 2048;
+    Req.ProjectionMode = EShadowProjectionMode::Default;
+    Req.CascadeCount = 1;
+    Req.bUseVSM = false;
 
 	SelectedLights.push_back(Req);
 	

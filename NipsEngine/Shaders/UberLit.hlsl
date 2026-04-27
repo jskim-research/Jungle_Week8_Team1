@@ -34,9 +34,11 @@ cbuffer VisibleLightInfo : register(b4)
     uint TileCountX;
     uint TileCountY;
     uint TileSize;
-    uint MaxLightsPerTile;
-    uint VisibleLightCount;
-    float3 _VisibleLightInfoPad0;
+    uint MaxPointLightsPerTile;
+    uint MaxSpotLightsPerTile;
+    uint PointLightCount;
+    uint SpotLightCount;
+    float _VisibleLightInfoPad;
 }
 
 cbuffer ShadowLightViewInfo : register(b6)
@@ -53,26 +55,43 @@ cbuffer ShadowLightViewInfo : register(b6)
     uint _ShadowPad0;
 }
 
-struct FVisibleLightData
+struct FPointLightData
 {
     float3 WorldPos;
     float Radius;
     float3 Color;
     float Intensity;
-    float RadiusFalloff;
-    uint Type;
-    float SpotInnerCos;
-    float SpotOuterCos;
-    float3 Direction;
-    float _Pad;
 };
 
-StructuredBuffer<FVisibleLightData> VisibleLights : register(t8);
-StructuredBuffer<uint> TileVisibleLightCount : register(t9);
-StructuredBuffer<uint> TileVisibleLightIndices : register(t10);
-// 테스트용 임시 Texture
-Texture2D ShadowMap2D : register(t11);
-TextureCube ShadowMapCube : register(t12);
+struct FSpotLightData
+{
+    float3 WorldPos;
+    float Radius;
+    float3 Color;
+    float Intensity;
+    float3 Direction;
+    float InnerConeCos;
+    float OuterConeCos;
+    float3 Padding;
+};
+
+// 2.5D Light Culling Buffers (Aligned with SceneLightBinding.h: PSSetShaderResources(8, 6, SRVs))
+// t8: PointLightBuffer
+// t9: SpotLightBuffer
+// t10: TilePointLightGrid
+// t11: TilePointLightIndices
+// t12: TileSpotLightGrid
+// t13: TileSpotLightIndices
+StructuredBuffer<FPointLightData> PointLights : register(t8);
+StructuredBuffer<FSpotLightData> SpotLights : register(t9);
+StructuredBuffer<uint2> TilePointLightGrid : register(t10);
+StructuredBuffer<uint> TilePointLightIndices : register(t11);
+StructuredBuffer<uint2> TileSpotLightGrid : register(t12);
+StructuredBuffer<uint> TileSpotLightIndices : register(t13);
+
+// Shadow resources are separated from the 2.5D culling SRV range.
+Texture2D ShadowMap2D : register(t14);
+TextureCube ShadowMapCube : register(t15);
 SamplerState ShadowSampler : register(s1);
 
 static const uint LIGHT_TYPE_DIRECTIONAL = 0u;
@@ -106,10 +125,9 @@ float ComputePointShadowFactor(float3 WorldPos)
 
     const float3 SampleDir = ToPixel / Distance;
 
-    // CubeMap face 인덱싱과 별도로, 큐브 투영에서 depth를 결정하는 축(major axis)로 현재 깊이를 계산한다.
-    // 이렇게 하면 셰이더의 face 선택 로직과 하드웨어 cube face 선택이 어긋날 때 생기는 쐐기 아티팩트를 줄일 수 있다.
+    // Reconstruct depth using the major axis chosen by cube-map sampling.
     const float ViewDepth = max(abs(ToPixel.x), max(abs(ToPixel.y), abs(ToPixel.z)));
-    const float PointShadowNear = 1.0f;
+    const float PointShadowNear = 0.1f;
     if (ShadowFar <= PointShadowNear + 1.0e-4f)
     {
         return 1.0f;
@@ -132,7 +150,7 @@ float ComputePointShadowFactor(float3 WorldPos)
     return (StoredDepth + ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
 }
 
-float ComputeDistanceAttenuation(float Distance, float Radius, float FalloffExponent)
+float ComputeDistanceAttenuation(float Distance, float Radius)
 {
     if (Radius <= 0.0f)
     {
@@ -140,39 +158,25 @@ float ComputeDistanceAttenuation(float Distance, float Radius, float FalloffExpo
     }
 
     const float T = saturate(1.0f - (Distance / max(Radius, 1.0e-4f)));
-    return pow(T, max(FalloffExponent, 1.0e-4f));
+    return T * T; // Quadratic falloff
 }
 
 void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3 LightContribution, inout FLightingResult Result)
 {
 #if defined(LIGHTING_MODEL_TOON)
-    // --- Diffuse: 3-band 계단 처리 ---
-    const float HalfLambert = dot(N, L) * 0.5f + 0.5f;    
+    const float HalfLambert = dot(N, L) * 0.5f + 0.5f;
 
     float ToonDiffuse;
     if (HalfLambert > 0.75f)
-        ToonDiffuse = 1.0f;       // 밝은 영역
+        ToonDiffuse = 1.0f;
     else if (HalfLambert > 0.4f)
-        ToonDiffuse = 0.6f;       // 중간 영역
+        ToonDiffuse = 0.6f;
     else
-        ToonDiffuse = 0.15f;      // 그림자 영역
+        ToonDiffuse = 0.15f;
 
     Result.Diffuse += LightContribution * ToonDiffuse;
-
-    /*
-    const float3 H = normalize(L + V);
-    const float NdotH = saturate(dot(N, H));
-    const float ToonSpec = step(0.97f, pow(NdotH, max(Shininess, 1.0e-4f)));
-    Result.Specular += SpecularColor * LightContribution * ToonSpec;
-    
-    const float RimDot = 1.0f - saturate(dot(N, V));
-    // step으로 끊어서 툰 느낌 유지
-    const float RimIntensity = step(0.6f, RimDot * saturate(dot(L, V) + 0.5f));
-    Result.Diffuse += LightContribution * RimIntensity * 0.4f;
-    */    
-    
 #else
-    const float NdotL = saturate(dot(N, L) * 0.5f + 0.5f);
+    const float NdotL = saturate(dot(N, L));
     Result.Diffuse += LightContribution * NdotL;
 
 #if defined(LIGHTING_MODEL_GOURAUD) || defined(LIGHTING_MODEL_PHONG)
@@ -183,9 +187,9 @@ void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3
 #endif
 }
 
-void AccumulateVisiblePointLights(float3 WorldPos, float3 N, float3 V, float2 ScreenPos, inout FLightingResult Result)
+void AccumulateVisibleLights(float3 WorldPos, float3 N, float3 V, float2 ScreenPos, inout FLightingResult Result)
 {
-    if (VisibleLightCount == 0u || TileCountX == 0u || TileCountY == 0u || TileSize == 0u || MaxLightsPerTile == 0u)
+    if (TileCountX == 0u || TileCountY == 0u || TileSize == 0u)
     {
         return;
     }
@@ -194,48 +198,25 @@ void AccumulateVisiblePointLights(float3 WorldPos, float3 N, float3 V, float2 Sc
     const uint TileY = min((uint)ScreenPos.y / TileSize, TileCountY - 1u);
     const uint TileIndex = TileY * TileCountX + TileX;
 
-    const uint LocalCount = min(TileVisibleLightCount[TileIndex], MaxLightsPerTile);
-    const uint TileOffset = TileIndex * MaxLightsPerTile;
+    // --- Point Lights ---
+    const uint2 PointGrid = TilePointLightGrid[TileIndex];
+    const uint PointOffset = PointGrid.x;
+    const uint LocalPointCount = PointGrid.y;
 
     [loop]
-    for (uint VisIdx = 0u; VisIdx < LocalCount; ++VisIdx)
+    for (uint pIdx = 0u; pIdx < LocalPointCount; ++pIdx)
     {
-        const uint LightIndex = TileVisibleLightIndices[TileOffset + VisIdx];
-        if (LightIndex >= VisibleLightCount)
-        {
-            continue;
-        }
+        const uint LightIndex = TilePointLightIndices[PointOffset + pIdx];
+        const FPointLightData Light = PointLights[LightIndex];
 
-        const FVisibleLightData Light = VisibleLights[LightIndex];
         const float3 ToLight = Light.WorldPos - WorldPos;
         const float Distance = length(ToLight);
-        if (Distance <= 1.0e-4f || Distance >= Light.Radius)
-        {
-            continue;
-        }
+        if (Distance >= Light.Radius) continue;
 
-        const float3 L = ToLight / Distance;
-        float Att = ComputeDistanceAttenuation(Distance, Light.Radius, Light.RadiusFalloff);
-        if (Att <= 0.0f)
-        {
-            continue;
-        }
+        const float3 L = ToLight / max(Distance, 1.0e-4f);
+        float Att = ComputeDistanceAttenuation(Distance, Light.Radius);
 
-        if (Light.Type == LIGHT_TYPE_SPOT)
-        {
-            const float3 SpotDir = normalize(Light.Direction);
-            const float CosAngle = dot(SpotDir, -L);
-            const float ConeRange = max(Light.SpotInnerCos - Light.SpotOuterCos, 1.0e-4f);
-            Att *= saturate((CosAngle - Light.SpotOuterCos) / ConeRange);
-            if (Att <= 0.0f)
-            {
-                continue;
-            }
-        }
-
-        if (bShadowEnabled != 0u &&
-            ShadowMapType == SHADOW_MAP_TYPE_DEPTHCUBE &&
-            Light.Type == LIGHT_TYPE_POINT)
+        if (bShadowEnabled != 0u && ShadowMapType == SHADOW_MAP_TYPE_DEPTHCUBE)
         {
             const bool bMatchesShadowLight =
                 all(abs(Light.WorldPos - ShadowLightPosition) < float3(0.01f, 0.01f, 0.01f)) &&
@@ -253,6 +234,36 @@ void AccumulateVisiblePointLights(float3 WorldPos, float3 N, float3 V, float2 Sc
         }
 
         AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
+    }
+
+    // --- Spot Lights ---
+    const uint2 SpotGrid = TileSpotLightGrid[TileIndex];
+    const uint SpotOffset = SpotGrid.x;
+    const uint LocalSpotCount = SpotGrid.y;
+
+    [loop]
+    for (uint sIdx = 0u; sIdx < LocalSpotCount; ++sIdx)
+    {
+        const uint LightIndex = TileSpotLightIndices[SpotOffset + sIdx];
+        const FSpotLightData Light = SpotLights[LightIndex];
+
+        const float3 ToLight = Light.WorldPos - WorldPos;
+        const float Distance = length(ToLight);
+        if (Distance >= Light.Radius) continue;
+
+        const float3 L = ToLight / max(Distance, 1.0e-4f);
+        float Att = ComputeDistanceAttenuation(Distance, Light.Radius);
+
+        const float3 SpotDir = normalize(Light.Direction);
+        const float CosAngle = dot(SpotDir, -L);
+        float spotFactor = smoothstep(Light.OuterConeCos, Light.InnerConeCos, CosAngle);
+        spotFactor *= spotFactor;
+        Att *= spotFactor;
+
+        if (Att > 0.0f)
+        {
+            AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
+        }
     }
 }
 
@@ -293,7 +304,7 @@ FLightingResult EvaluateLightingFromWorld(float3 WorldPos, float3 WorldNormal, f
     }
 
     Result.Diffuse += AmbientContribution;
-    AccumulateVisiblePointLights(WorldPos, N, V, ScreenPos, Result);
+    AccumulateVisibleLights(WorldPos, N, V, ScreenPos, Result);
 
     return Result;
 }
@@ -310,9 +321,6 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
     float3 AmbientAccum = 0.0f.xxx;
     uint HasAmbient = 0u;
 
-    // =========================
-    // 1. Scene Global Lights (Directional + Ambient)
-    // =========================
     [loop]
     for (uint i = 0u; i < SceneGlobalLightCount; ++i)
     {
@@ -326,54 +334,52 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
                 AmbientAccum = 0.0f.xxx;
                 HasAmbient = 1u;
             }
-
             AmbientAccum += LightColor;
             continue;
         }
 
         if (Light.Type == LIGHT_TYPE_DIRECTIONAL)
         {
-            const float3 L = normalize(Light.Direction);
-            AccumulateDirectLight(WorldPos, N, V, L, LightColor, Result);
+            AccumulateDirectLight(WorldPos, N, V, normalize(Light.Direction), LightColor, Result);
         }
     }
 
     Result.Diffuse += AmbientAccum;
 
-    // =========================
-    // 2. Local Lights (Point / Spot) - brute force
-    // 해당 함수는 구로 셰이딩 모드에서만 들어오고, 픽셀 단위 컬링을 쓰지 않기 때문에 전체 순회
-    // =========================
     [loop]
-    for (uint j = 0u; j < VisibleLightCount; ++j)
+    for (uint p = 0u; p < PointLightCount; ++p)
     {
-        const FVisibleLightData Light = VisibleLights[j];
-
+        const FPointLightData Light = PointLights[p];
         const float3 ToLight = Light.WorldPos - WorldPos;
         const float Dist = length(ToLight);
-
-        if (Dist <= 1.0e-4f || Dist >= Light.Radius)
-            continue;
-
-        const float3 L = ToLight / Dist;
-
-        float Att = ComputeDistanceAttenuation(Dist, Light.Radius, Light.RadiusFalloff);
-        
-        if (Att <= 0.0f)
-            continue;
-
-        if (Light.Type == LIGHT_TYPE_SPOT)
+        if (Dist < Light.Radius)
         {
+            float Att = ComputeDistanceAttenuation(Dist, Light.Radius);
+            AccumulateDirectLight(WorldPos, N, V, ToLight / max(Dist, 1.0e-4f), Light.Color * Light.Intensity * Att, Result);
+        }
+    }
+
+    [loop]
+    for (uint s = 0u; s < SpotLightCount; ++s)
+    {
+        const FSpotLightData Light = SpotLights[s];
+        const float3 ToLight = Light.WorldPos - WorldPos;
+        const float Dist = length(ToLight);
+        if (Dist < Light.Radius)
+        {
+            float Att = ComputeDistanceAttenuation(Dist, Light.Radius);
+            const float3 L = ToLight / max(Dist, 1.0e-4f);
             const float3 SpotDir = normalize(Light.Direction);
             const float CosAngle = dot(SpotDir, -L);
-            const float ConeRange = max(Light.SpotInnerCos - Light.SpotOuterCos, 1.0e-4f);
+            float spotFactor = smoothstep(Light.OuterConeCos, Light.InnerConeCos, CosAngle);
+            spotFactor *= spotFactor;
+            Att *= spotFactor;
 
-            Att *= saturate((CosAngle - Light.SpotOuterCos) / ConeRange);
-            if (Att <= 0.0f)
-                continue;
+            if (Att > 0.0f)
+            {
+                AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
+            }
         }
-
-        AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
     }
 
     return Result;
@@ -392,23 +398,20 @@ float3 ApplyShadow(FUberSurfaceData Surface, float3 ColorAfterLighting)
     }
 
     float4 ShadowLightPos = mul(mul(float4(Surface.WorldPos, 1), ShadowLightView), ShadowLightProjection);
-    
+
     float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
     float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
     float CurrentDepth = NDC.z;
-    
+
     if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 ||
         ShadowUV.y < 0.0 || ShadowUV.y > 1.0 ||
         CurrentDepth < 0.0 || CurrentDepth > 1.0)
         return ColorAfterLighting;
-    
+
     float ShadowLightDepth = ShadowMap2D.Sample(ShadowSampler, ShadowUV);
-    float ShadowFactor = (ShadowLightDepth + ShadowBias >= CurrentDepth) ? 1.0 : 0.0;
-    
+    float ShadowFactor = (ShadowLightDepth + ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
+
     return ColorAfterLighting * ShadowFactor;
-    // return float3(ShadowLightDepth, ShadowLightDepth, ShadowLightDepth);
-    // return float3(CurrentDepth, CurrentDepth, CurrentDepth);
-    // return float3(ShadowUV, 0);
 }
 
 #if defined(MATERIAL_DOMAIN_DECAL)
@@ -431,10 +434,10 @@ FUberSurfaceData EvaluateProjectedDecal(FUberPSInput Input)
     Surface.WorldNormal = normalize(Input.WorldNormal);
     Surface.bIsEmissive = any(EmissiveColor > 0.0f) ? 1u : 0u;
 
-    const float4 LocalPos = mul(float4(Input.WorldPos, 1.0f), InvDecalWorld);
-    clip(0.5f - abs(LocalPos.xyz));
+    const float4 localPos = mul(float4(Input.WorldPos, 1.0f), InvDecalWorld);
+    clip(0.5f - abs(localPos.xyz));
 
-    Surface.UV = float2(LocalPos.y + 0.5f, 1.0f - (LocalPos.z + 0.5f));
+    Surface.UV = float2(localPos.y + 0.5f, 1.0f - (localPos.z + 0.5f));
     Surface.DiffuseSample = DiffuseMap.Sample(SampleState, Surface.UV);
     Surface.WorldNormal = ResolveSurfaceWorldNormal(Input, Surface.UV, Surface.WorldNormal);
     Surface.Albedo = BaseColor * Surface.DiffuseSample.rgb;
@@ -503,15 +506,12 @@ FUberPSOutput mainPS(FUberPSInput Input)
 #if defined(LIGHTING_MODEL_GOURAUD)
     Lighting.Diffuse = Input.VertexDiffuseLighting;
     Lighting.Specular = Input.VertexSpecularLighting;
-    
+
 #elif defined(LIGHTING_MODEL_LAMBERT)
     Lighting = EvaluateLightingFromWorld(Surface.WorldPos, Surface.WorldNormal, Input.ClipPos.xy);
     Lighting.Specular = 0.0f.xxx;
 #else
-    // TOON | PHONG (함수 내에서 내부적으로 계산 흐름 분리)
     Lighting = EvaluateLightingFromWorld(Surface.WorldPos, Surface.WorldNormal, Input.ClipPos.xy);
-
-
 #endif
     const float3 LitColor = ApplyLighting(Surface, Lighting);
     return ComposeOutput(Surface, ApplyShadow(Surface, LitColor));

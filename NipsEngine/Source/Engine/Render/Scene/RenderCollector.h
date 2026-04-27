@@ -64,7 +64,7 @@ private:
 	void ResetCullingStats();
 	void ResetDecalStats();
 
-	void CollectLight(UWorld* World, FRenderBus& RenderBus, const FFrustum* ViewFrustum = nullptr);
+	void CollectLight(UWorld* World, const FShowFlags& ShowFlags, FRenderBus& RenderBus, const FFrustum* ViewFrustum = nullptr);
 	void CollectFromActor(AActor* Actor, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus, EWorldType WorldType);
 	bool CollectFromSelectedActor(AActor* Actor, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus);
 	void CollectFromComponent(UPrimitiveComponent* Primitive, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus, EWorldType WorldType);

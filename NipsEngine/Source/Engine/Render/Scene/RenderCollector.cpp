@@ -189,7 +189,7 @@ void FRenderCollector::CollectWorld(UWorld* World, const FShowFlags& ShowFlags, 
 
 	if (!World) return;
 	
-	CollectLight(World, RenderBus, ViewFrustum);
+	CollectLight(World, ShowFlags, RenderBus, ViewFrustum);
 
 	if (ViewFrustum)
 	{
@@ -263,7 +263,7 @@ void FRenderCollector::ResetDecalStats()
 }
 
 // 조명을 Frustum Culling을 통해 수집한다.
-void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const FFrustum* ViewFrustum)
+void FRenderCollector::CollectLight(UWorld* World, const FShowFlags& ShowFlags, FRenderBus& RenderBus, const FFrustum* ViewFrustum)
 {
 	const TArray<FLightSlot>& LightSlots = World->GetWorldLightSlots();
 
@@ -298,13 +298,15 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 			RenderLight.Direction = DirectionToLight;
 			RenderBus.AddLight(RenderLight);
 
-			// TODO: PIE에서도 화살표를 보여주고 있음.. PIE 월드를 감지할 필요가 있다.
-			LineBatcher->AddDirectionalLight(
-				LightComponent->GetWorldLocation(),
-				RenderLight.Direction * -1.0f,
-				LightComponent->GetRightVector(),
-				LightComponent->GetLightColor().ToVector4()
-			);
+			if (LineBatcher && ShowFlags.bDirectionalLightDebug)
+			{
+				LineBatcher->AddDirectionalLight(
+					LightComponent->GetWorldLocation(),
+					RenderLight.Direction * -1.0f,
+					LightComponent->GetRightVector(),
+					LightComponent->GetLightColor().ToVector4()
+				);
+			}
 			break;
 		}
 
@@ -330,6 +332,15 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 			RenderLight.Radius = PointLight->GetAttenuationRadius();
 			RenderLight.FalloffExponent = PointLight->GetLightFalloffExponent();
 			RenderBus.AddLight(RenderLight);
+
+			if (LineBatcher && ShowFlags.bPointLightDebug)
+			{
+				LineBatcher->AddPointLight(
+					PointLight->GetWorldLocation(),
+					PointLight->GetAttenuationRadius(),
+					PointLight->GetRightVector(),
+					PointLight->GetUpVector());
+			}
 			break;
 		}
 
@@ -341,7 +352,7 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 				continue;
 			}
 			
-			const float InnerAngle = SpotLight->GetOuterConeAngle(); // Degree 단위 주의
+			const float InnerAngle = SpotLight->GetInnerConeAngle(); // Degree 단위 주의
 			const float OuterAngle = SpotLight->GetOuterConeAngle();
 
 			// -z 축을 forward로 사용
@@ -383,6 +394,17 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 			RenderLight.SpotInnerCos = std::cos(MathUtil::DegreesToRadians(InnerAngle));
 			RenderLight.SpotOuterCos = std::cos(MathUtil::DegreesToRadians(OuterAngle));
 			RenderBus.AddLight(RenderLight);
+
+			if (LineBatcher && ShowFlags.bSpotLightDebug)
+			{
+				LineBatcher->AddSpotLight(
+					SpotLight->GetWorldLocation(),
+					SpotLight->GetUpVector() * -1.0f,
+					SpotLight->GetRightVector() * -1.0f,
+					SpotLight->GetAttenuationRadius(),
+					SpotLight->GetInnerConeAngle(),
+					SpotLight->GetOuterConeAngle());
+			}
 			break;
 		}
 
@@ -592,49 +614,6 @@ bool FRenderCollector::CollectFromSelectedActor(AActor* Actor, const FShowFlags&
 		}
 
 		CollectBVHInternalNodeAABBs(primitiveComponent, ShowFlags, RenderBus, SeenBVHNodeIndices);
-	}
-
-	// 선택된 Light Components의 Bounding 시각화
-	for (UActorComponent* Component : Actor->GetComponents())
-	{
-		const ULightComponent* LightComponent = Cast<ULightComponent>(Component);
-		if (LightComponent == nullptr || !LightComponent->IsVisible())
-		{
-			continue;
-		}
-
-		switch (LightComponent->GetLightType())
-		{
-		case ELightType::LightType_Directional:
-		case ELightType::LightType_AmbientLight:
-		{
-			break;
-		}
-
-		case ELightType::LightType_Point:
-		{
-			const UPointLightComponent* PointLightComponent = Cast<UPointLightComponent>(LightComponent);
-			LineBatcher->AddPointLight(
-				PointLightComponent->GetWorldLocation(),
-				PointLightComponent->GetAttenuationRadius(),
-				PointLightComponent->GetRightVector(),
-				PointLightComponent->GetUpVector());
-			break;
-		}
-
-		case ELightType::LightType_Spot:
-		{
-			const USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(LightComponent);
-			LineBatcher->AddSpotLight(
-				SpotLightComponent->GetWorldLocation(),
-				SpotLightComponent->GetUpVector() * -1.0f,
-				SpotLightComponent->GetRightVector() * -1.0f,
-				SpotLightComponent->GetAttenuationRadius(),
-				SpotLightComponent->GetInnerConeAngle(),
-				SpotLightComponent->GetOuterConeAngle());
-			break;
-		}
-		}
 	}
 
 	return bHasSelectionMask;
