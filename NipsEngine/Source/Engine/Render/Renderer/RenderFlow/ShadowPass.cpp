@@ -320,11 +320,14 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 			float OuterAngleRad = acos(Light.SpotOuterCos); // 반각(half angle)
 			float FovRad = OuterAngleRad * 2.0f;            // 전체 FOV
 
+			float NearZ = 0.1f;
+            float FarZ = std::max(Light.Radius, NearZ + 0.1f);
+
 			ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
 				FovRad,
 				1.0f,        // 정사각형 섀도우 맵
-				1.0f,        // Near
-				Light.Radius // Far = 라이트 반경
+				NearZ,        // Near
+				FarZ // Far = 라이트 반경
 			);
 
 			OutViewInfoArray.push_back(ViewInfo);
@@ -362,11 +365,14 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 
 			float FovRad = (90.0f * (3.141592f / 180.0f));          // 전체 FOV
 
+            float NearZ = 0.1f;
+            float FarZ = std::max(Light.Radius, NearZ + 0.1f);
+
 			ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
 				FovRad,
 				1.0f,        // 정사각형 섀도우 맵
-				1.0f,        // Near
-				Light.Radius // Far = 라이트 반경
+				NearZ,        // Near
+				FarZ // Far = 라이트 반경
 			);
 
 			OutViewInfoArray.push_back(ViewInfo);
