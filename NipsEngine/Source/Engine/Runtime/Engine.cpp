@@ -1,14 +1,13 @@
 ﻿#include "Engine/Runtime/Engine.h"
-#include "Engine/Runtime/Engine.h"
 
-#include "Core/Paths.h"
-#include "Core/Logging/Stats.h"
 #include "Core/Logging/GPUProfiler.h"
+#include "Core/Logging/Stats.h"
+#include "Core/Paths.h"
+#include "Core/ResourceManager.h"
 #include "Engine/Input/InputSystem.h"
 #include "Engine/Runtime/WindowsWindow.h"
-#include "Core/ResourceManager.h"
-#include "Render/Renderer/DefaultRenderPipeline.h"
 #include "GameFramework/World.h"
+#include "Render/Renderer/DefaultRenderPipeline.h"
 
 DEFINE_CLASS(UEngine, UObject)
 

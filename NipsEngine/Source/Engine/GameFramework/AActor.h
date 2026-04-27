@@ -19,7 +19,7 @@ public:
 
 	virtual void Serialize(FArchive& Ar) override;
 
-    virtual void InitDefaultComponents() {}
+	virtual void InitDefaultComponents() {}
 
 	// 컴포넌트 생성 + Owner 설정 + 등록만 수행. Attach는 별도로 호출할 것.
 	template<typename T>
@@ -117,7 +117,7 @@ protected:
 
 	bool bVisible = true;
 	bool bIsActive = true;
-    bool bTickInEditor = false;
+	bool bTickInEditor = false;
 
 	TArray<UActorComponent*> OwnedComponents;
 

@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include <Core/CoreTypes.h>
+#include "Core/CoreTypes.h"
 /**
  * WndProc 가 호출할 인터페이스.
  * 현재 FWindowsApplication 에 콜백이 있지만, 멀티 viewport + Slate 구조로 가려면 
@@ -32,3 +32,4 @@ public:
 	virtual bool OnSetFocus(void* hwnd) = 0;
 	virtual bool OnKillFocus(void* hwnd) = 0;
 };
+

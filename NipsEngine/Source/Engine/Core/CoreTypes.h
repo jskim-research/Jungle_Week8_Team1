@@ -30,8 +30,14 @@ using XMMatrix = DirectX::XMMATRIX;
 using FXMMatrix = DirectX::FXMMATRIX;
 using CXMMatrix = DirectX::CXMMATRIX;
 
+// If Windows SDK headers are already included, they provide SIZE_T.
+#if !defined(_BASETSD_H_) && !defined(_BASETSD_H)
 using SIZE_T = std::size_t;
+#endif
 
 using ANSICHAR = char;
 using WIDECHAR = wchar_t;
+// If WinNT is already included, it provides TCHAR.
+#if !defined(_WINNT_) && !defined(_TCHAR_DEFINED)
 using TCHAR = WIDECHAR;
+#endif

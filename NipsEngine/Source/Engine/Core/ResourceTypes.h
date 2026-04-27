@@ -1,10 +1,7 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
 #include "Object/FName.h"
-#include "Render/Common/ComPtr.h"
 #include "Render/Resource/Texture.h"
-#include <d3d11.h>
 
 struct FTextureResource
 {

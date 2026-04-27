@@ -37,7 +37,7 @@ public:
 	virtual void UpdateWorldAABB() const = 0;
 	bool Raycast(const FRay& Ray, FHitResult& OutHitResult);
 	bool IntersectTriangle(const FVector& RayOrigin, const FVector& RayDir, const FVector& V0, const FVector& V1,
-	                       const FVector& V2, float& OutT);
+						   const FVector& V2, float& OutT);
 	virtual bool RaycastMesh(const FRay& Ray, FHitResult& OutHitResult) = 0;
 
 	/* For Transform */
@@ -52,12 +52,12 @@ public:
 
 	virtual bool SupportsOutline() const { return true; }
 
-    virtual void OnRegister() override;
-    virtual void OnUnregister() override;
+	virtual void OnRegister() override;
+	virtual void OnUnregister() override;
 
 protected:
-    void OnTransformDirty() override;
-    void NotifySpatialIndexDirty() const;
+	void OnTransformDirty() override;
+	void NotifySpatialIndexDirty() const;
 
 protected:
 	mutable FAABB WorldAABB;

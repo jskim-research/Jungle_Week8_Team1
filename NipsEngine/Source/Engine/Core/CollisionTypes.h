@@ -1,19 +1,23 @@
 ﻿#pragma once
-#include "Math/Vector.h" // 필요한 최소한의 수학 라이브러리만
+
+#include "Core/CoreTypes.h"
+#include "Math/Vector.h"
+#include <cfloat>
+class UPrimitiveComponent;
 
 struct FHitResult 
 {
-    class UPrimitiveComponent* HitComponent = nullptr;
+	UPrimitiveComponent* HitComponent = nullptr;
 
-    float Distance = FLT_MAX;
+	float Distance = FLT_MAX;
 	
 	//	World 기준
-    FVector Location = { 0, 0, 0 };
-    FVector Normal = { 0, 0, 0 };
+	FVector Location = { 0, 0, 0 };
+	FVector Normal = { 0, 0, 0 };
 	
-    int FaceIndex = -1; 
+	int32 FaceIndex = -1;
 
-    bool bHit = false;
+	bool bHit = false;
 	
 	void Reset()
 	{
@@ -30,3 +34,4 @@ struct FHitResult
 		return bHit && (HitComponent != nullptr);
 	}
 };
+

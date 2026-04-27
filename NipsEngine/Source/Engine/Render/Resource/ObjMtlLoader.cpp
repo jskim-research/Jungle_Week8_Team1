@@ -2,11 +2,8 @@
 #include "Asset/FileUtils.h"
 #include "Core/Paths.h"
 #include "Core/ResourceManager.h"
+#include "Core/StringUtils.h"
 #include "UI/EditorConsoleWidget.h"
-
-#include <algorithm>
-#include <cctype>
-#include <filesystem>
 
 namespace
 {
@@ -55,7 +52,7 @@ namespace
 		FString CurrentToken;
 		CurrentToken.reserve(Stem.size());
 
-		for (size_t Index = 0; Index < Stem.size(); ++Index)
+		for (SIZE_T Index = 0; Index < Stem.size(); ++Index)
 		{
 			const char CharValue = Stem[Index];
 			if (IsTokenSeparator(CharValue))

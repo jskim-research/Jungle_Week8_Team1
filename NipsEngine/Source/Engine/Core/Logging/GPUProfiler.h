@@ -1,13 +1,9 @@
 ﻿#pragma once
-#pragma once
-
-#include "Core/CoreMinimal.h"
-#include "Core/CoreTypes.h"
-#include "Core/Singleton.h"
+#include <d3d11.h>
 #include "Core/Logging/Stats.h"
+#include "Core/Singleton.h"
 
 #include "Render/Common/ComPtr.h"
-#include <d3d11.h>
 
 // --- GPU Timestamp Profiler ---
 // DX11 Timestamp Query 기반 GPU 시간 측정.
@@ -94,3 +90,4 @@ private:
 #else
 #define GPU_SCOPE_STAT(Name) ((void)0)
 #endif
+

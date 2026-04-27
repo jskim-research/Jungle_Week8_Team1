@@ -1,9 +1,9 @@
 ﻿#pragma once
 
-#include <string>
-#include <filesystem>
-#include <unordered_map>
-#include "Core/CoreMinimal.h"
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
+#include "Math/Rotator.h"
+#include "Math/Vector.h"
 #include "Core/Paths.h"
 #include "GameFramework/WorldContext.h"
 
@@ -20,8 +20,6 @@ namespace json {
 
 struct FPropertyDescriptor;
 
-using std::string;
-
 // Perspective 카메라 상태 — 씬 파일에 저장/복원되는 에디터 전용 데이터
 struct FEditorCameraState
 {
@@ -37,15 +35,15 @@ class FSceneSaveManager {
 public:
 	static constexpr const wchar_t* SceneExtension = L".Scene";
 
-	static std::wstring GetSceneDirectory() { return FPaths::SceneDir(); }
+	static FWString GetSceneDirectory() { return FPaths::SceneDir(); }
 
 	/**
 	 * Legacy 직렬화 코드
 	 */
 	// CameraState 는 nullable — nullptr 이면 카메라 섹션을 무시합니다 (게임/PIE 호환)
-	static void SaveSceneAsJSON(const string& SceneName, FWorldContext& WorldContext,
+	static void SaveSceneAsJSON(const FString& SceneName, FWorldContext& WorldContext,
 	                            const FEditorCameraState* CameraState = nullptr);
-	static void LoadSceneFromJSON(const string& filepath, FWorldContext& OutWorldContext,
+	static void LoadSceneFromJSON(const FString& filepath, FWorldContext& OutWorldContext,
 	                              FEditorCameraState* OutCameraState = nullptr);
 
 	/**
@@ -78,10 +76,11 @@ private:
 	static USceneComponent* DeserializeSceneComponentTree(json::JSON& Node, AActor* Owner);
 	// UUIDToSceneComp: SceneComponentRef 타입 역직렬화에 사용. nullptr이면 SceneComponentRef 무시.
 	static void DeserializeProperties(UActorComponent* Comp, json::JSON& PropsJSON,
-	                                  const std::unordered_map<uint32, USceneComponent*>* UUIDToSceneComp = nullptr);
+	                                  const TMap<uint32, USceneComponent*>* UUIDToSceneComp = nullptr);
 	static void DeserializePropertyValue(FPropertyDescriptor& Prop, json::JSON& Value,
-	                                     const std::unordered_map<uint32, USceneComponent*>* UUIDToSceneComp = nullptr);
+	                                     const TMap<uint32, USceneComponent*>* UUIDToSceneComp = nullptr);
 	static void DeserializeCameraState(json::JSON& root, FEditorCameraState* OutCameraState = nullptr);
 
-	static string GetCurrentTimeStamp();
+	static FString GetCurrentTimeStamp();
 };
+

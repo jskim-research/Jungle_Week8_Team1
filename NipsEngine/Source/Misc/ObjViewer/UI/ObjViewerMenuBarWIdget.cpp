@@ -67,7 +67,7 @@ void FObjViewerMenuBarWidget::LoadObj()
 void FObjViewerMenuBarWidget::LoadScene()
 {
 	FString FilePath = OpenFileDialog(L"Scene Files (*.Scene; *.json)\0*.Scene;*.json\0All Files\0*.*\0");
-    if (FilePath.empty()) return;
+	if (FilePath.empty()) return;
 
 	FWorldContext LoadCtx;
 	FEditorCameraState LoadedCam;
@@ -98,45 +98,45 @@ void FObjViewerMenuBarWidget::LoadScene()
 
 FString FObjViewerMenuBarWidget::OpenFileDialog(const wchar_t* Filter)
 {
-    OPENFILENAMEW ofn;
-    wchar_t szFile[MAX_PATH] = { 0 };
+	OPENFILENAMEW ofn;
+	wchar_t szFile[MAX_PATH] = { 0 };
 
-    ZeroMemory(&ofn, sizeof(ofn));
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = static_cast<HWND>(Engine->GetWindow()->GetHWND());
-    ofn.lpstrFile = szFile;
-    ofn.nMaxFile = sizeof(szFile) / sizeof(WCHAR);
-    ofn.lpstrFilter = Filter; // 매개변수 적용
-    ofn.nFilterIndex = 1;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = static_cast<HWND>(Engine->GetWindow()->GetHWND());
+	ofn.lpstrFile = szFile;
+	ofn.nMaxFile = sizeof(szFile) / sizeof(WCHAR);
+	ofn.lpstrFilter = Filter; // 매개변수 적용
+	ofn.nFilterIndex = 1;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
 
-    ShowCursor(TRUE);  // 엔진 내부의 커서 숨김 초기화
+	ShowCursor(TRUE);  // 엔진 내부의 커서 숨김 초기화
 
-    if (GetOpenFileNameW(&ofn) == TRUE)
-    {
-        return FPaths::ToRelativeString(ofn.lpstrFile);
-    }
-    return FString();
+	if (GetOpenFileNameW(&ofn) == TRUE)
+	{
+		return FPaths::ToRelativeString(ofn.lpstrFile);
+	}
+	return FString();
 }
 
 FString FObjViewerMenuBarWidget::SaveFileDialog(const wchar_t* Filter, const wchar_t* DefExt)
 {
-    OPENFILENAMEW ofn;
-    wchar_t szFile[MAX_PATH] = { 0 };
+	OPENFILENAMEW ofn;
+	wchar_t szFile[MAX_PATH] = { 0 };
 
-    ZeroMemory(&ofn, sizeof(ofn));
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = static_cast<HWND>(Engine->GetWindow()->GetHWND());
-    ofn.lpstrFile = szFile;
-    ofn.nMaxFile = sizeof(szFile) / sizeof(wchar_t);
-    ofn.lpstrFilter = Filter; 
-    ofn.lpstrDefExt = DefExt;
-    ofn.nFilterIndex = 1;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = static_cast<HWND>(Engine->GetWindow()->GetHWND());
+	ofn.lpstrFile = szFile;
+	ofn.nMaxFile = sizeof(szFile) / sizeof(wchar_t);
+	ofn.lpstrFilter = Filter; 
+	ofn.lpstrDefExt = DefExt;
+	ofn.nFilterIndex = 1;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
 
-    if (GetSaveFileNameW(&ofn) == TRUE)
-    {
-        return FPaths::ToAbsoluteString(ofn.lpstrFile);
-    }
-    return FString();
+	if (GetSaveFileNameW(&ofn) == TRUE)
+	{
+		return FPaths::ToAbsoluteString(ofn.lpstrFile);
+	}
+	return FString();
 }

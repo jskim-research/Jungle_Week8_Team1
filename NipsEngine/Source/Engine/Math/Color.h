@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
 #include "Math/Vector4.h"
 
 struct FColor

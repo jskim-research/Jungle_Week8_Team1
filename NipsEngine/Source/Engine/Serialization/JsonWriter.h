@@ -1,8 +1,6 @@
 ﻿#pragma once
 
 #include "Archive.h"
-#include "Core/Containers/String.h"
-#include "Core/Containers/Array.h"
 #include "SimpleJSON/json.hpp"
 
 struct FJsonWriter : public FArchive

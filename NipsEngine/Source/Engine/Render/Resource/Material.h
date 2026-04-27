@@ -13,21 +13,21 @@
 
 struct FMaterial
 {
-    FString Name;
+	FString Name;
 
-    FVector BaseColor      = { 0.8f, 0.8f, 0.8f }; // Kd
-    FVector SpecularColor  = { 0.0f, 0.0f, 0.0f }; // Ks
-    FVector EmissiveColor  = { 0.0f, 0.0f, 0.0f }; // Ke
+	FVector BaseColor      = { 0.8f, 0.8f, 0.8f }; // Kd
+	FVector SpecularColor  = { 0.0f, 0.0f, 0.0f }; // Ks
+	FVector EmissiveColor  = { 0.0f, 0.0f, 0.0f }; // Ke
 
-    float Shininess  = 0.0f; 
-    float Opacity    = 1.0f; 
-    int   IllumModel = 2;    
+	float Shininess  = 0.0f; 
+	float Opacity    = 1.0f; 
+	int   IllumModel = 2;    
 
 	// Texture 정보
-    FString DiffuseTexPath;   // map_Kd
+	FString DiffuseTexPath;   // map_Kd
 	bool	bHasDiffuseTexture = { false };
 
-    FString SpecularTexPath;  // map_Ks
+	FString SpecularTexPath;  // map_Ks
 	bool	bHasSpecularTexture = { false };
 
 	FString NormalTexPath;     // norm / map_norm / map_Kn

@@ -5,8 +5,6 @@
 #include "Render/Scene/RenderCommand.h"
 #include "UI/EditorConsoleWidget.h"
 
-#include <vector>
-
 DEFINE_CLASS(UShader, UObject)
 
 namespace
@@ -100,8 +98,8 @@ bool UShader::CreateInputLayoutFromReflection(ID3DBlob* ShaderBlob, ID3D11Device
 		return false;
 	}
 
-	std::vector<std::string> SemanticNames;
-	std::vector<D3D11_INPUT_ELEMENT_DESC> InputLayoutDesc;
+	TArray<FString> SemanticNames;
+	TArray<D3D11_INPUT_ELEMENT_DESC> InputLayoutDesc;
 	SemanticNames.reserve(ShaderDesc.InputParameters);
 	InputLayoutDesc.reserve(ShaderDesc.InputParameters);
 
@@ -263,6 +261,23 @@ std::shared_ptr<FShaderBindingInstance> UShader::CreateBindingInstance(ID3D11Dev
 	}
 
 	return Binding;
+}
+
+void UShader::AdoptCompiledState(UShader& SourceShader)
+{
+	if (this == &SourceShader)
+	{
+		return;
+	}
+
+	ShaderData.Release();
+	ShaderData = SourceShader.ShaderData;
+	SourceShader.ShaderData = {};
+
+	for (uint32 StageIndex = 0; StageIndex < static_cast<uint32>(EShaderStage::Count); ++StageIndex)
+	{
+		ReflectResults[StageIndex] = std::move(SourceShader.ReflectResults[StageIndex]);
+	}
 }
 
 bool FShaderBindingInstance::Initialize(ID3D11Device* Device, const UShader* InShader)
@@ -493,7 +508,7 @@ void FShaderBindingInstance::SetAllSamplers(ID3D11SamplerState* Sampler)
 
 void FShaderBindingInstance::ApplyFrameParameters(const FRenderBus& RenderBus, ID3D11ShaderResourceView* SceneGlobalLightBufferSRV, uint32 SceneGlobalLightCount)
 {
-    const FMatrix ViewProjection = RenderBus.GetView() * RenderBus.GetProj();
+	const FMatrix ViewProjection = RenderBus.GetView() * RenderBus.GetProj();
 
 	SetMatrix4("View", RenderBus.GetView());
 	SetMatrix4("Projection", RenderBus.GetProj());

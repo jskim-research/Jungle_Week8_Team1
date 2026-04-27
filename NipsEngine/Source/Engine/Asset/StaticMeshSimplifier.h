@@ -1,12 +1,19 @@
 ﻿#pragma once
 
-#include "StaticMesh.h"
-#include "Geometry/Edge.h"
-#include <queue>
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
+#include "Core/Containers/Set.h"
+#include "Core/CoreTypes.h"
+#include "Engine/Geometry/Edge.h"
+#include "Math/Matrix.h"
+#include "Math/Vector.h"
+#include <cfloat>
+struct FStaticMesh;
+class UStaticMesh;
 
 struct FTopoUVBounds 
 {
-    float MinU, MaxU, MinV, MaxV;
+	float MinU, MaxU, MinV, MaxV;
 };
 
 struct FTopologicalVertex
@@ -72,3 +79,4 @@ private:
 	TArray<FTopoUVBounds> TopoUVBounds;
 	TArray<TArray<uint32>> VertexToTriangleMap;
 };
+

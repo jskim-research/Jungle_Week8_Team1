@@ -11,8 +11,8 @@ public:
 	// Overrides
 	void				BeginPlay() override;
 	void				TickComponent(float DeltaTime) override;
-    void				GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
-    void				PostDuplicate(UObject* Original) override;
+	void				GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
+	void				PostDuplicate(UObject* Original) override;
 	float				GetMaxSpeed() const override { return 0; };
 
 
@@ -43,8 +43,8 @@ private:
 	float UpdateLerpInterval		= 2.0f;
 	float DetectionRadius			= 20.f;
 	float PursuitSpeed				= 1.f;
-    float TargetPitch				= 0.f;
-    float TargetYaw					= 0.f;
+	float TargetPitch				= 0.f;
+	float TargetYaw					= 0.f;
 
 	bool bIsActive					= true;
 	bool bFaceTargetDir				= true;

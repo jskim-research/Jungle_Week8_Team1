@@ -4,15 +4,15 @@
 class UAmbientLightComponent : public ULightComponent
 {
 public:
-    DECLARE_CLASS(UAmbientLightComponent, ULightComponent)
+	DECLARE_CLASS(UAmbientLightComponent, ULightComponent)
 
-    UAmbientLightComponent();
-    ~UAmbientLightComponent() override = default;
+	UAmbientLightComponent();
+	~UAmbientLightComponent() override = default;
 
-    void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
-    void Serialize(FArchive& Ar) override;
-    void PostDuplicate(UObject* Original) override;
+	void GetEditableProperties(TArray<FPropertyDescriptor>& OutProps) override;
+	void Serialize(FArchive& Ar) override;
+	void PostDuplicate(UObject* Original) override;
 
 protected:
-    FString GetVisualizationTexturePath() const override { return "Asset/Texture/Icons/SkyLight.PNG"; }
+	FString GetVisualizationTexturePath() const override { return "Asset/Texture/Icons/SkyLight.PNG"; }
 };

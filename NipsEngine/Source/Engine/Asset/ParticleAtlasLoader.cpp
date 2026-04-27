@@ -6,8 +6,6 @@
 #include "DDSTextureLoader.h"
 #include "WICTextureLoader.h"
 
-#include <filesystem>
-
 bool FParticleAtlasLoader::Load(const FName& ParticleName, const FString& Path, uint32 Columns, uint32 Rows,
 	ID3D11Device* Device, FParticleResource& OutResource) const
 {
@@ -16,8 +14,8 @@ bool FParticleAtlasLoader::Load(const FName& ParticleName, const FString& Path, 
 		return false;
 	}
 
-	std::wstring FullPath = FPaths::Combine(FPaths::RootDir(), FPaths::ToWide(Path));
-	const std::wstring Extension = std::filesystem::path(FullPath).extension().wstring();
+	FWString FullPath = FPaths::Combine(FPaths::RootDir(), FPaths::ToWide(Path));
+	const FWString Extension = std::filesystem::path(FullPath).extension().wstring();
 
 	HRESULT Hr = E_FAIL;
 

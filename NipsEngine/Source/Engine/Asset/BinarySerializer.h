@@ -1,8 +1,10 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
-
+#include "Core/Containers/Array.h"
+#include "Core/Containers/String.h"
+#include "Core/CoreTypes.h"
 #include <fstream>
+#include <iosfwd>
 
 struct FStaticMesh;
 
@@ -61,3 +63,4 @@ private:
 	void WriteBounds(std::ofstream& Out, const FStaticMesh& Data);
 	bool ReadBounds(std::ifstream& In, FStaticMesh& OutData) const;
 };
+
