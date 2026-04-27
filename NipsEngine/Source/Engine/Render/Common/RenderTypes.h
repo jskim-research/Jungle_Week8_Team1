@@ -1,23 +1,6 @@
 ﻿#pragma once
 
-//	Windows API Include
-#include <Windows.h>
-#include <windowsx.h>
-
-//	D3D API Include
-#pragma comment(lib, "user32")
-#pragma comment(lib, "d3d11")
-#pragma comment(lib, "d3dcompiler")
-#pragma comment(lib, "dxguid.lib")
-
-#include <d3d11.h>
-#include <d3dcompiler.h>
-#include <dxgi1_5.h>
-#include "Render/Common/ComPtr.h"
-
-#pragma comment(lib, "dxgi")
 #include "Core/CoreTypes.h"
-
 //	Primtive Type Enum
 enum class EPrimitiveType
 {
@@ -34,18 +17,18 @@ enum class EPrimitiveType
 	EPT_SKY,
 	EPT_FOG,
 	EPT_Decal,
-    MAX
+	MAX
 };
 
 enum class ERenderPass : uint32
 {
 	Sky,
-    Shadow,
+	Shadow,
 	Opaque,
 	Decal,
 	Light,
-    Fog,
-    FXAA,
+	Fog,
+	FXAA,
 	Font, // TextRenderComponent → FontBatcher 경유
 	SubUV, // SubUVComponent     → SubUVBatcher 경유
 	Billboard,
@@ -54,16 +37,17 @@ enum class ERenderPass : uint32
 	Grid, 
 	Editor,
 	DepthLess,
-    PostProcessOutline,
+	PostProcessOutline,
 	ToonOutline,
 	MAX
 };
 
 enum class ELightType
 {
-    LightType_Directional = 0,
+	LightType_Directional = 0,
 	LightType_Point = 1,
 	LightType_Spot = 2,
 	LightType_AmbientLight = 3,
 	Max
 };
+

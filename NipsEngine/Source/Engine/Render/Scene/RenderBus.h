@@ -5,12 +5,12 @@
 	Renderer가 RenderBus에 담긴 Draw Call 요청들을 처리할 수 있게 합니다.
 */
 
-#include "Core/CoreMinimal.h"
-#include "Render/Scene/RenderCommand.h"
-
-#include "Render/Common/ViewTypes.h"
 #include "Component/CameraComponent.h"
-
+#include "Math/Matrix.h"
+#include "Math/Vector.h"
+#include "Math/Vector2.h"
+#include "Render/Common/ViewTypes.h"
+#include "Render/Scene/RenderCommand.h"
 
 class FRenderBus
 {
@@ -25,11 +25,11 @@ public:
 	// Getter, Setter
 	void SetViewProjection(const FMatrix& InView, const FMatrix& InProj);
 	void SetRenderSettings(const EViewMode NewViewMode, const FShowFlags NewShowFlags);
-    void SetCameraState(const FCameraState& InCameraState) { CameraState = InCameraState; }
+	void SetCameraState(const FCameraState& InCameraState) { CameraState = InCameraState; }
 
 	const FMatrix& GetView() const { return View; }
-    const FMatrix& GetProj() const { return Proj; }
-    const FCameraState& GetCameraState() const { return CameraState; }
+	const FMatrix& GetProj() const { return Proj; }
+	const FCameraState& GetCameraState() const { return CameraState; }
 	const FVector& GetCameraPosition() const { return CameraPosition;  }
 	const FVector& GetCameraForward() const { return CameraForward; }
 	const FVector& GetCameraUp() const { return CameraUp; }

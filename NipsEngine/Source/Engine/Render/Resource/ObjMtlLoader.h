@@ -1,7 +1,8 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
 #include "Render/Resource/Material.h"
+
+struct ID3D11Device;
 
 /**
  * @brief Obj전용 .mtl 파일 파서

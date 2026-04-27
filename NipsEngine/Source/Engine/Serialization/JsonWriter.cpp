@@ -198,7 +198,7 @@ FArchive& FJsonWriter::operator<<(FMatrix& Value)
 	if (ScopeStack.back()->JSONType() == json::JSON::Class::Array)
 	{
 		json::JSON MatrixArray = json::Array();
-		for (int i = 0; i < 4; ++i)
+		for (int32 i = 0; i < 4; ++i)
 		{
 			json::JSON RowArray = json::Array(Value.M[i][0], Value.M[i][1], Value.M[i][2], Value.M[i][3]);
 			MatrixArray.append(RowArray);
@@ -208,7 +208,7 @@ FArchive& FJsonWriter::operator<<(FMatrix& Value)
 	else if (!CurrentKey.empty())
 	{
 		json::JSON MatrixArray = json::Array();
-		for (int i = 0; i < 4; ++i)
+		for (int32 i = 0; i < 4; ++i)
 		{
 			json::JSON RowArray = json::Array(Value.M[i][0], Value.M[i][1], Value.M[i][2], Value.M[i][3]);
 			MatrixArray.append(RowArray);

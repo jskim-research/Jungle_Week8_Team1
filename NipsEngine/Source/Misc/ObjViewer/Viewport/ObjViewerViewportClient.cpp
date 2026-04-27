@@ -49,8 +49,8 @@ namespace
 
 void FObjViewerViewportClient::Initialize(FWindowsWindow* InWindow)
 {
-    Window = InWindow;
-    // UE_LOG("Hello ZZup Engine! %d", 2026);
+	Window = InWindow;
+	// UE_LOG("Hello ZZup Engine! %d", 2026);
 }
 
 void FObjViewerViewportClient::CreateCamera()
@@ -71,8 +71,8 @@ void FObjViewerViewportClient::DestroyCamera()
 // 카메라를 초기 위치로 이동시킨다.
 void FObjViewerViewportClient::ResetCamera()
 {
-    if (!Camera || !Settings)
-        return;
+	if (!Camera || !Settings)
+		return;
 
 	ObjViewerModelInfo ModelInfo = GetModelInfo();
 	float ModelRadius = ModelInfo.ModelRadius;
@@ -80,7 +80,7 @@ void FObjViewerViewportClient::ResetCamera()
 	FVector Offset(ModelRadius, ModelRadius, ModelRadius);
 
 	float DistanceMultiplier = ModelRadius / std::sin(Camera->GetFOV() * 0.5f);;
-    FVector CameraPos = Center + (Offset * DistanceMultiplier);
+	FVector CameraPos = Center + (Offset * DistanceMultiplier);
 
 	Camera->SetLocation(CameraPos);
 	LookAt(*Camera, Center);
@@ -93,21 +93,21 @@ void FObjViewerViewportClient::ResetCamera()
 // 카메라를 초기 위치로 애니메이션과 함께 부드럽게 이동시킨다.
 void FObjViewerViewportClient::ResetCameraSmoothly()
 {
-    if (!Camera || !Settings)
-        return;
+	if (!Camera || !Settings)
+		return;
 
 	FVector TargetPos = SavedCameraLocation;
 	FQuat TargetRot = SavedCameraRotation;
 
-    // 2. 현재 상태를 '시작점'으로, 계산된 값을 '목표점'으로 저장
-    CameraGUIParams.ResetStartLocation = Camera->GetLocation();
-    CameraGUIParams.ResetStartRotation = Camera->GetRotation();
-    CameraGUIParams.ResetTargetLocation = TargetPos;
-    CameraGUIParams.ResetTargetRotation = TargetRot;
+	// 2. 현재 상태를 '시작점'으로, 계산된 값을 '목표점'으로 저장
+	CameraGUIParams.ResetStartLocation = Camera->GetLocation();
+	CameraGUIParams.ResetStartRotation = Camera->GetRotation();
+	CameraGUIParams.ResetTargetLocation = TargetPos;
+	CameraGUIParams.ResetTargetRotation = TargetRot;
 
-    // 3. 애니메이션 시작 트리거 ON
-    CameraGUIParams.bIsResettingCamera = true;
-    CameraGUIParams.ResetCameraProgress = 0.0f;
+	// 3. 애니메이션 시작 트리거 ON
+	CameraGUIParams.bIsResettingCamera = true;
+	CameraGUIParams.ResetCameraProgress = 0.0f;
 }
 
 void FObjViewerViewportClient::SaveCameraPosition()
@@ -126,23 +126,23 @@ void FObjViewerViewportClient::ClampCameraPosition()
 {
 	if (!Camera || !World) return;
 
-    // 허용되는 최대 거리를 설정
+	// 허용되는 최대 거리를 설정
 	ObjViewerModelInfo ModelInfo = GetModelInfo();
 	float ModelRadius = ModelInfo.ModelRadius;
 	FVector ModelCenter = ModelInfo.ModelCenter;
-    float MaxAllowedDistance = ModelRadius * 8.0f;
+	float MaxAllowedDistance = ModelRadius * 8.0f;
 
-    // 카메라 위치를 확인하고 이동 범위 제한(Clamp)을 적용
-    FVector CamPos = Camera->GetLocation();
-    float CurrentDistance = (CamPos - ModelCenter).Size();
-    if (CurrentDistance > MaxAllowedDistance)
-    {
-        FVector Direction = CamPos - ModelCenter;
-        Direction.Normalize();
+	// 카메라 위치를 확인하고 이동 범위 제한(Clamp)을 적용
+	FVector CamPos = Camera->GetLocation();
+	float CurrentDistance = (CamPos - ModelCenter).Size();
+	if (CurrentDistance > MaxAllowedDistance)
+	{
+		FVector Direction = CamPos - ModelCenter;
+		Direction.Normalize();
 
-        FVector ClampedPosition = ModelCenter + Direction * MaxAllowedDistance;
-        Camera->SetLocation(ClampedPosition);
-    }
+		FVector ClampedPosition = ModelCenter + Direction * MaxAllowedDistance;
+		Camera->SetLocation(ClampedPosition);
+	}
 }
 
 void FObjViewerViewportClient::SetViewportSize(float InWidth, float InHeight)
@@ -211,7 +211,7 @@ void FObjViewerViewportClient::TickInput(float DeltaTime)
 		// 3. 구면 좌표계를 다시 방향 벡터(NewForward)로 변환
 		float PitchRad = MathUtil::DegreesToRadians(TargetPitch);
 		float YawRad = MathUtil::DegreesToRadians(TargetYaw);
-    
+	
 		FVector NewForward(
 			std::cos(PitchRad) * std::cos(YawRad),
 			std::cos(PitchRad) * std::sin(YawRad),
@@ -274,15 +274,15 @@ void FObjViewerViewportClient::TickInteraction(float DeltaTime)
 
 	// 뷰포트를 더블 클릭하면 카메라가 모델을 향해 부드럽게 리셋된다.
 	if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-    {
-        ResetCameraSmoothly();
-    }
+	{
+		ResetCameraSmoothly();
+	}
 
 	// Viewer에서는 Zoom이 일어나는 대신 카메라를 전후로 이동한다.
-    const float ZoomSpeed = Settings ? Settings->CameraZoomSpeed : 500.f;
-    float ScrollNotches = InputSystem::Get().GetScrollNotches();
-    if (ScrollNotches != 0.0f)
-    {
+	const float ZoomSpeed = Settings ? Settings->CameraZoomSpeed : 500.f;
+	float ScrollNotches = InputSystem::Get().GetScrollNotches();
+	if (ScrollNotches != 0.0f)
+	{
 		ObjViewerModelInfo ModelInfo = GetModelInfo();
 		float ModelRadius = ModelInfo.ModelRadius;
 		float DynamicZoomSpeed = ZoomSpeed * ModelRadius;
@@ -299,17 +299,17 @@ void FObjViewerViewportClient::TickInteraction(float DeltaTime)
 		}
 	}
 
-    POINT MousePoint = InputSystem::Get().GetMousePos();
-    MousePoint = Window->ScreenToClientPoint(MousePoint);
+	POINT MousePoint = InputSystem::Get().GetMousePos();
+	MousePoint = Window->ScreenToClientPoint(MousePoint);
 
-    // 위젯이 없는 뷰포트 영역(Central Node)을 기준으로 마우스 좌표 보정
-    float LocalMouseX = static_cast<float>(MousePoint.x) - ViewportX;
-    float LocalMouseY = static_cast<float>(MousePoint.y) - ViewportY;
+	// 위젯이 없는 뷰포트 영역(Central Node)을 기준으로 마우스 좌표 보정
+	float LocalMouseX = static_cast<float>(MousePoint.x) - ViewportX;
+	float LocalMouseY = static_cast<float>(MousePoint.y) - ViewportY;
 
-    // 보정된 마우스 좌표로 Raycast 수행
-    FRay Ray = Camera->DeprojectScreenToWorld(LocalMouseX, LocalMouseY, WindowWidth, WindowHeight);
-    CursorOverlayState.ScreenX = LocalMouseX;
-    CursorOverlayState.ScreenY = LocalMouseY;
+	// 보정된 마우스 좌표로 Raycast 수행
+	FRay Ray = Camera->DeprojectScreenToWorld(LocalMouseX, LocalMouseY, WindowWidth, WindowHeight);
+	CursorOverlayState.ScreenX = LocalMouseX;
+	CursorOverlayState.ScreenY = LocalMouseY;
 
 	if (InputSystem::Get().GetKeyDown(VK_LBUTTON))
 	{
@@ -438,16 +438,16 @@ void FObjViewerViewportClient::ClampCameraPanToObject()
 	ObjViewerModelInfo ModelInfo = GetModelInfo();
 
 	float ModelRadius = ModelInfo.ModelRadius;
-    FVector ModelCenter = ModelInfo.ModelCenter;
-    FVector CamPos = Camera->GetLocation();
-    FVector CamFwd = Camera->GetForwardVector();
-    FVector CamRight = Camera->GetRightVector();
-    FVector CamUp = Camera->GetUpVector();
+	FVector ModelCenter = ModelInfo.ModelCenter;
+	FVector CamPos = Camera->GetLocation();
+	FVector CamFwd = Camera->GetForwardVector();
+	FVector CamRight = Camera->GetRightVector();
+	FVector CamUp = Camera->GetUpVector();
 
-    FVector ToObject = ModelCenter - CamPos;
-    float DistZ = ToObject.DotProduct(CamFwd);
-    float DistX = ToObject.DotProduct(CamRight);
-    float DistY = ToObject.DotProduct(CamUp);
+	FVector ToObject = ModelCenter - CamPos;
+	float DistZ = ToObject.DotProduct(CamFwd);
+	float DistX = ToObject.DotProduct(CamRight);
+	float DistY = ToObject.DotProduct(CamUp);
 
 	// 피타고라스의 정리를 이용해 '화면 중앙에서의 2D 직선 거리' 계산
 	float CurrentPanDist = std::sqrt(DistX * DistX + DistY * DistY);
@@ -481,10 +481,10 @@ ObjViewerModelInfo FObjViewerViewportClient::GetModelInfo()
 
 	ObjViewerModelInfo ModelInfo;
 
-    // 스폰된 액터를 순회하며 AABB 박스를 계산한다. (Viewer에서는 보통 하나)
-    for (AActor* Actor : World->GetActors())
-    {
-        if (!Actor || !Actor->GetRootComponent()) continue;
+	// 스폰된 액터를 순회하며 AABB 박스를 계산한다. (Viewer에서는 보통 하나)
+	for (AActor* Actor : World->GetActors())
+	{
+		if (!Actor || !Actor->GetRootComponent()) continue;
 
 		for (auto* primitive : Actor->GetPrimitiveComponents())
 		{
@@ -508,10 +508,10 @@ ObjViewerModelInfo FObjViewerViewportClient::GetModelInfo()
 
 	// 씬 중심점과 모델의 가장 긴 축을 기반으로 그린 정육면체의 반지름을 계산
 	ModelInfo.ModelRadius = 2.0f;
-    if (bHasValidMesh)
-    {
-        ModelInfo.ModelRadius = (MaxAABB - MinAABB).Size() * 0.5f; 
-    }
+	if (bHasValidMesh)
+	{
+		ModelInfo.ModelRadius = (MaxAABB - MinAABB).Size() * 0.5f; 
+	}
 	if (bHasValidMesh)
 	{
 		ModelInfo.ModelCenter = (MaxAABB + MinAABB) / 2.0f;
@@ -526,17 +526,17 @@ ObjViewerModelInfo FObjViewerViewportClient::GetModelInfo()
 
 void FObjViewerViewportClient::SetViewportRect(float InX, float InY, float InWidth, float InHeight)
 {
-    ViewportX = InX;
-    ViewportY = InY;
-    
-    // 최소 1 픽셀 크기를 보장하여 0으로 나누기(Divide by Zero) 에러 방지
-    WindowWidth = InWidth > 0.0f ? InWidth : 1.0f;
-    WindowHeight = InHeight > 0.0f ? InHeight : 1.0f;
+	ViewportX = InX;
+	ViewportY = InY;
+	
+	// 최소 1 픽셀 크기를 보장하여 0으로 나누기(Divide by Zero) 에러 방지
+	WindowWidth = InWidth > 0.0f ? InWidth : 1.0f;
+	WindowHeight = InHeight > 0.0f ? InHeight : 1.0f;
 
-    if (Camera)
-    {
-        Camera->OnResize(static_cast<uint32>(WindowWidth), static_cast<uint32>(WindowHeight));
-    }
+	if (Camera)
+	{
+		Camera->OnResize(static_cast<uint32>(WindowWidth), static_cast<uint32>(WindowHeight));
+	}
 }
 
 void FObjViewerViewportClient::HandleDragStart(const FRay& Ray)
@@ -600,25 +600,25 @@ void FObjViewerViewportClient::TickCameraReset(float DeltaTime)
 {
 	FCameraGUIParameters& params = CameraGUIParams;
 
-    if (!params.bIsResettingCamera || !Camera) return;
+	if (!params.bIsResettingCamera || !Camera) return;
 	
-    // 진행도 업데이트 (0.0 ~ 1.0 Clamp)
-    params.ResetCameraProgress += DeltaTime * params.ResetCameraSpeed;
-    if (params.ResetCameraProgress >= 1.0f)
-    {
-        params.ResetCameraProgress = 1.0f;
-        params.bIsResettingCamera = false; // 애니메이션 종료
-    }
+	// 진행도 업데이트 (0.0 ~ 1.0 Clamp)
+	params.ResetCameraProgress += DeltaTime * params.ResetCameraSpeed;
+	if (params.ResetCameraProgress >= 1.0f)
+	{
+		params.ResetCameraProgress = 1.0f;
+		params.bIsResettingCamera = false; // 애니메이션 종료
+	}
 
-    // 부드러운 가감속을 위한 Smoothstep 공식 적용
-    float t = params.ResetCameraProgress;
-    float Alpha = t * t * (3.0f - 2.0f * t);
+	// 부드러운 가감속을 위한 Smoothstep 공식 적용
+	float t = params.ResetCameraProgress;
+	float Alpha = t * t * (3.0f - 2.0f * t);
 
-    // 위치 보간 (Lerp)
-    FVector CurrentLocation = params.ResetStartLocation + (params.ResetTargetLocation - params.ResetStartLocation) * Alpha;
-    Camera->SetLocation(CurrentLocation);
+	// 위치 보간 (Lerp)
+	FVector CurrentLocation = params.ResetStartLocation + (params.ResetTargetLocation - params.ResetStartLocation) * Alpha;
+	Camera->SetLocation(CurrentLocation);
 
-    // 회전 보간 (Slerp - 구면 선형 보간)
-    FQuat CurrentRotation = FQuat::Slerp(params.ResetStartRotation, params.ResetTargetRotation, Alpha);
-    Camera->SetRotation(CurrentRotation);
+	// 회전 보간 (Slerp - 구면 선형 보간)
+	FQuat CurrentRotation = FQuat::Slerp(params.ResetStartRotation, params.ResetTargetRotation, Alpha);
+	Camera->SetRotation(CurrentRotation);
 }

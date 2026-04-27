@@ -1,10 +1,12 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
-#include "Core/Singleton.h"
-
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
+#include "Core/CoreTypes.h"
 #include <Windows.h>
 #include <cfloat>
+#include "Core/Singleton.h"
+
 
 // --- 빌드 설정 ---
 #ifndef STATS
@@ -79,3 +81,4 @@ private:
 #else
 #define SCOPE_STAT(Name) ((void)0)
 #endif
+

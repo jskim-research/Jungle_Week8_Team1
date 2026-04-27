@@ -1,15 +1,22 @@
 ﻿#include "ShadowLightSelector.h"
 
-std::vector<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRenderLight>& SceneLights)
+TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRenderLight>& SceneLights)
 {
-    std::vector<FShadowRequest> SelectedLights;
+	TArray<FShadowRequest> SelectedLights;
 
 	if (SceneLights.empty())
-        return SelectedLights;
+		return SelectedLights;
 
 	/**
 	 * Test 용으로 맨 처음 Light 만 Req 에 포함 
 	 */
+	FShadowRequest Req;
+    Req.LightId = 0;
+    Req.Type = (ELightType)SceneLights[0].Type;
+    Req.Resolution = 2048;
+    Req.ProjectionMode = EShadowProjectionMode::Default;
+    Req.CascadeCount = 1;
+    Req.bUseVSM = false;
 
 	for (int i=0;i < SceneLights.size();i++)
     {
@@ -24,5 +31,5 @@ std::vector<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArra
         SelectedLights.push_back(Req);
     }
 	
-    return SelectedLights;
+	return SelectedLights;
 }

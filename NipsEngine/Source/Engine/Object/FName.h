@@ -1,6 +1,9 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
+#include "Core/Containers/String.h"
+#include "Core/CoreTypes.h"
 #include "Core/Singleton.h"
 
 // ============================================================
@@ -26,7 +29,7 @@ public:
 	// 해시 지원 (TMap/TSet 키로 사용 가능)
 	struct Hash
 	{
-		size_t operator()(const FName& Name) const;
+		SIZE_T operator()(const FName& Name) const;
 	};
 
 	// 원본 대소문자 유지된 표시용 문자열 반환
@@ -64,9 +67,9 @@ public:
 	const TArray<FString>& GetEntries() const { return Entries; }
 
 	// 풀이 차지하는 총 문자열 바이트 크기 반환 (각 FString의 문자 데이터 합산)
-	size_t GetTotalBytes() const
+	SIZE_T GetTotalBytes() const
 	{
-		size_t Total = 0;
+		SIZE_T Total = 0;
 		for (const FString& S : Entries) Total += S.size();
 		return Total;
 	}
@@ -77,4 +80,5 @@ private:
 	TArray<FString> Entries;
 	TMap<FString, uint32> LookupMap;
 };
+
 

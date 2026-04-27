@@ -1,8 +1,6 @@
 ﻿#pragma once
 
 #include "Vector.h"
-#include "Core/EngineTypes.h"
-
 struct FMatrix;
 struct FRotator;
 

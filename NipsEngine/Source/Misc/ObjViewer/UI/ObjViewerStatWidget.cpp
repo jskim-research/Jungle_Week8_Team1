@@ -1,6 +1,5 @@
 ﻿#include "ObjViewerStatWidget.h"
 #include "Misc/ObjViewer/ObjViewerEngine.h"
-#include "Engine/Core/CoreTypes.h"
 #include "ImGui/imgui.h"
 
 void FObjViewerStatWidget::Render(float DeltaTime)

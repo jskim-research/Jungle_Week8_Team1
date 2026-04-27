@@ -1,17 +1,18 @@
 ﻿#include "Renderer.h"
 
-#include <iostream>
-#include <algorithm>
+#include "Core/Logging/GPUProfiler.h"
+#include "Core/Logging/Stats.h"
 #include "Core/Paths.h"
 #include "Core/ResourceManager.h"
-#include "Render/Common/RenderTypes.h"
-#include "Render/Mesh/MeshManager.h"
-#include "Core/Logging/Stats.h"
-#include "Core/Logging/GPUProfiler.h"
 #include "Editor/UI/EditorConsoleWidget.h"
 #include "Editor/Viewport/FSceneViewport.h"
-#include "Render/Renderer/RenderTarget/RenderTargetFactory.h"
+#include "Render/Common/RenderTypes.h"
+#include "Render/Mesh/MeshManager.h"
 #include "Render/Renderer/RenderTarget/DepthStencilFactory.h"
+#include "Render/Renderer/RenderTarget/RenderTargetFactory.h"
+
+#include <algorithm>
+#include <iostream>
 
 void FRenderer::Create(HWND hWindow)
 {
@@ -24,30 +25,35 @@ void FRenderer::Create(HWND hWindow)
 
 	FResourceManager::Get().SetCachedDevice(Device.GetDevice());
 	FResourceManager::Get().LoadShader("Shaders/Primitive.hlsl", "VS", "PS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
-    FResourceManager::Get().LoadShader("Shaders/ShaderSubUV.hlsl", "VS", "PS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
-    FResourceManager::Get().LoadShader("Shaders/Gizmo.hlsl", "VS", "PS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
-    FResourceManager::Get().LoadShader("Shaders/Editor.hlsl", "VS", "PS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
-    FResourceManager::Get().LoadShader("Shaders/SelectionMask.hlsl", "VS", "PS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
-    FResourceManager::Get().LoadShader("Shaders/BillboardSelectionMask.hlsl", "VS", "PS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
-    FResourceManager::Get().LoadShader("Shaders/OutlinePostProcess.hlsl", "VS", "PS", nullptr, 0, nullptr);
-    FResourceManager::Get().LoadShader("Shaders/UberLit.hlsl", "mainVS", "mainPS", NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout), nullptr);
-    FResourceManager::Get().LoadShader(MakeUberLitShaderCompileKey(EMaterialDomain::Surface, ELightingModel::Gouraud), NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout));
-    FResourceManager::Get().LoadShader(MakeUberLitShaderCompileKey(EMaterialDomain::Surface, ELightingModel::Lambert), NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout));
-    FResourceManager::Get().LoadShader(MakeUberLitShaderCompileKey(EMaterialDomain::Surface, ELightingModel::Phong), NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout));
-    FResourceManager::Get().LoadShader(MakeUberLitShaderCompileKey(EMaterialDomain::Surface, ELightingModel::Toon), NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout));
-    FResourceManager::Get().LoadShader(MakeUberLitShaderCompileKey(EMaterialDomain::Decal), NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout));
-    FResourceManager::Get().LoadShader("Shaders/UberUnlit.hlsl", "mainVS", "mainPS", NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout), nullptr);
-    FResourceManager::Get().LoadShader("Shaders/Multipass/LightPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
-    FResourceManager::Get().LoadShader("Shaders/Multipass/BufferVisualizationPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
-    FResourceManager::Get().LoadShader("Shaders/Multipass/SkyPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
-    FResourceManager::Get().LoadShader("Shaders/Multipass/FogPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
-    FResourceManager::Get().LoadShader("Shaders/Multipass/FXAAPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
-    FResourceManager::Get().LoadShader("Shaders/ShaderFont.hlsl", "VS", "PS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
-    FResourceManager::Get().LoadShader("Shaders/ShaderLine.hlsl", "mainVS", "mainPS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
-    FResourceManager::Get().LoadShader("Shaders/ShaderGrid.hlsl", "GridVS", "GridPS", nullptr, 0, nullptr);
-    FResourceManager::Get().LoadShader("Shaders/ShaderAxis.hlsl", "VS", "PS", nullptr, 0, nullptr);
-    FResourceManager::Get().LoadShader("Shaders/ShaderBillboard.hlsl", "mainVS", "mainPS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
-    FResourceManager::Get().LoadShader("Shaders/Multipass/ToonOutlinePass.hlsl", "mainVS", "mainPS", NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/ShaderSubUV.hlsl", "VS", "PS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Gizmo.hlsl", "VS", "PS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Editor.hlsl", "VS", "PS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/SelectionMask.hlsl", "VS", "PS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/BillboardSelectionMask.hlsl", "VS", "PS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/OutlinePostProcess.hlsl", "VS", "PS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/UberLit.hlsl", "mainVS", "mainPS", NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout), nullptr);
+	FResourceManager::Get().LoadShader(MakeUberLitShaderCompileKey(EMaterialDomain::Surface, ELightingModel::Gouraud), NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout));
+	FResourceManager::Get().LoadShader(MakeUberLitShaderCompileKey(EMaterialDomain::Surface, ELightingModel::Lambert), NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout));
+	FResourceManager::Get().LoadShader(MakeUberLitShaderCompileKey(EMaterialDomain::Surface, ELightingModel::Phong), NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout));
+	FResourceManager::Get().LoadShader(MakeUberLitShaderCompileKey(EMaterialDomain::Surface, ELightingModel::Toon), NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout));
+	FResourceManager::Get().LoadShader(MakeUberLitShaderCompileKey(EMaterialDomain::Decal), NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout));
+	FResourceManager::Get().LoadShader("Shaders/UberUnlit.hlsl", "mainVS", "mainPS", NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Multipass/LightPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Multipass/BufferVisualizationPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Multipass/SkyPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Multipass/FogPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Multipass/FXAAPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/ShaderFont.hlsl", "VS", "PS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/ShaderLine.hlsl", "mainVS", "mainPS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/ShaderGrid.hlsl", "GridVS", "GridPS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/ShaderAxis.hlsl", "VS", "PS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/ShaderBillboard.hlsl", "mainVS", "mainPS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Multipass/ToonOutlinePass.hlsl", "mainVS", "mainPS", NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout), nullptr);
+
+	if (!ShaderFileWatcher.Start(FPaths::ShaderDir(), true))
+	{
+		UE_LOG("[ShaderHotReload] Failed to start shader file watcher.");
+	}
 }
 
 void FRenderer::CreateResources()
@@ -71,15 +77,17 @@ void FRenderer::CreateResources()
 	FGPUProfiler::Get().Initialize(Device.GetDevice(), Device.GetDeviceContext());
 
 	RenderPipeline.Initialize();
-    RenderPassContext = std::make_shared<FRenderPassContext>();
+	RenderPassContext = std::make_shared<FRenderPassContext>();
 }
 
 void FRenderer::Release()
 {
+	ShaderFileWatcher.Stop();
+
 	InvalidateSceneFinalTargets();
 
 	RenderPipeline.Release();
-    RenderPassContext.reset();
+	RenderPassContext.reset();
 
 	FGPUProfiler::Get().Shutdown();
 
@@ -90,8 +98,8 @@ void FRenderer::Release()
 	SceneLightBuffer.Release();
 	SceneGlobalLightUploadScratch.clear();
 
-    // Device::ReportLiveObjects 이전에 ResourceManager가 잡고 있던 D3D 객체를 먼저 해제한다.
-    FResourceManager::Get().ReleaseGPUResources();
+	// Device::ReportLiveObjects 이전에 ResourceManager가 잡고 있던 D3D 객체를 먼저 해제한다.
+	FResourceManager::Get().ReleaseGPUResources();
 
 	Device.Release();
 }
@@ -133,6 +141,7 @@ const TArray<FRenderCommand>& FRenderer::GetAlignedCommands(ERenderPass Pass, co
 //	GPU 프레임 시작. 반드시 Render 이전에 호출되어야 함.
 void FRenderer::BeginFrame()
 {
+	FResourceManager::Get().ProcessShaderHotReloads(ShaderFileWatcher.DequeueChangedFiles());
 	Device.BeginFrame();
 	UseBackBufferRenderTargets();
 
@@ -143,11 +152,11 @@ void FRenderer::BeginFrame()
 
 void FRenderer::BeginViewportFrame(FRenderTargetSet* InRenderTargetSet)
 {
-    Device.BeginViewportFrame(InRenderTargetSet);
-    UseViewportRenderTargets(InRenderTargetSet);
+	Device.BeginViewportFrame(InRenderTargetSet);
+	UseViewportRenderTargets(InRenderTargetSet);
 
 #if STATS
-    FGPUProfiler::Get().BeginFrame();
+	FGPUProfiler::Get().BeginFrame();
 #endif
 }
 
@@ -157,10 +166,10 @@ void FRenderer::UseBackBufferRenderTargets()
 
 	if (CurrentRenderTargets && CurrentRenderTargets->IsValid())
 	{
-        ID3D11RenderTargetView* RTV =
-                CurrentRenderTargets->SceneColorRTV; // Back Buffer 의 경우 SceneColorRTV 가 FinalRTV 역할
-        SceneFinalRTV = RTV;
-        
+		ID3D11RenderTargetView* RTV =
+				CurrentRenderTargets->SceneColorRTV; // Back Buffer 의 경우 SceneColorRTV 가 FinalRTV 역할
+		SceneFinalRTV = RTV;
+		
 		Device.GetDeviceContext()->OMSetRenderTargets(1, &RTV, CurrentRenderTargets->DepthStencilView);
 		Device.SetSubViewport(0, 0,
 			static_cast<int32>(CurrentRenderTargets->Width),
@@ -170,20 +179,20 @@ void FRenderer::UseBackBufferRenderTargets()
 
 void FRenderer::UseViewportRenderTargets(FRenderTargetSet* InRenderTargetSet)
 {
-    CurrentRenderTargets = InRenderTargetSet;
+	CurrentRenderTargets = InRenderTargetSet;
 
-    if (CurrentRenderTargets == nullptr || !CurrentRenderTargets->IsValid())
-    {
-        InvalidateSceneFinalTargets();
+	if (CurrentRenderTargets == nullptr || !CurrentRenderTargets->IsValid())
+	{
+		InvalidateSceneFinalTargets();
 		// Back Buffer 아마 쓰이면 안될텐데 여기 중단점 찍히면 확인
 		// 기존 단일 Viewport 구조에서 쓰이던 내용
-        UseBackBufferRenderTargets();
-        return;
-    }
+		UseBackBufferRenderTargets();
+		return;
+	}
 
-    Device.SetSubViewport(0, 0,
-                          static_cast<int32>(CurrentRenderTargets->Width),
-                          static_cast<int32>(CurrentRenderTargets->Height));
+	Device.SetSubViewport(0, 0,
+						  static_cast<int32>(CurrentRenderTargets->Width),
+						  static_cast<int32>(CurrentRenderTargets->Height));
 }
 
 void FRenderer::InvalidateSceneFinalTargets()
@@ -195,48 +204,48 @@ void FRenderer::InvalidateSceneFinalTargets()
 
 void FRenderer::UpdateSceneLightBuffer(const FRenderBus& InRenderBus)
 {
-    TArray<FRenderLight> GlobalLights;
+	TArray<FRenderLight> GlobalLights;
 	const TArray<FRenderLight>& SceneLights = InRenderBus.GetLights();
-    GlobalLights.reserve(SceneLights.size());
+	GlobalLights.reserve(SceneLights.size());
 
 	/**
 	 * Culling 제외할 Global Light 추출
 	 * 애초에 Global Light 추가 때부터 따로 Array 로 분리한다면 효율적으로 추출 가능
 	 */
 	for (const FRenderLight& Light : SceneLights)
-    {
-        // 전역 Light 는 Culling X
-        if (Light.Type != (uint32)ELightType::LightType_AmbientLight &&
-            Light.Type != (uint32)ELightType::LightType_Directional)
-            continue;
+	{
+		// 전역 Light 는 Culling X
+		if (Light.Type != (uint32)ELightType::LightType_AmbientLight &&
+			Light.Type != (uint32)ELightType::LightType_Directional)
+			continue;
 
-        FRenderLight GlobalLight = {};
-        GlobalLight.Position = Light.Position;
-        GlobalLight.Radius = Light.Radius;
-        GlobalLight.Color = Light.Color;
-        GlobalLight.Intensity = Light.Intensity;
-        GlobalLight.FalloffExponent = Light.FalloffExponent;
-        GlobalLight.Type = Light.Type;
-        GlobalLight.SpotInnerCos = Light.SpotInnerCos;
-        GlobalLight.SpotOuterCos = Light.SpotOuterCos;
-        GlobalLight.Direction = Light.Direction;
+		FRenderLight GlobalLight = {};
+		GlobalLight.Position = Light.Position;
+		GlobalLight.Radius = Light.Radius;
+		GlobalLight.Color = Light.Color;
+		GlobalLight.Intensity = Light.Intensity;
+		GlobalLight.FalloffExponent = Light.FalloffExponent;
+		GlobalLight.Type = Light.Type;
+		GlobalLight.SpotInnerCos = Light.SpotInnerCos;
+		GlobalLight.SpotOuterCos = Light.SpotOuterCos;
+		GlobalLight.Direction = Light.Direction;
 
-        GlobalLights.push_back(GlobalLight);
-    }
+		GlobalLights.push_back(GlobalLight);
+	}
 
 	// 최대 개수를 넘을 경우 전역 라이트 자름
 	uint32 UploadCount = static_cast<uint32>(GlobalLights.size());
 	if (UploadCount > MaxSceneGlobalLightCount)
 	{
 		UE_LOG("[Renderer] Scene light count exceeded the %u light cap. Clamping %u lights to %u.",
-               MaxSceneGlobalLightCount, UploadCount, MaxSceneGlobalLightCount);
-        UploadCount = MaxSceneGlobalLightCount;
+			   MaxSceneGlobalLightCount, UploadCount, MaxSceneGlobalLightCount);
+		UploadCount = MaxSceneGlobalLightCount;
 	}
 
 	SceneGlobalLightUploadScratch.clear();
 	if (UploadCount > 0)
 	{
-        SceneGlobalLightUploadScratch.assign(GlobalLights.begin(), GlobalLights.begin() + UploadCount);
+		SceneGlobalLightUploadScratch.assign(GlobalLights.begin(), GlobalLights.begin() + UploadCount);
 	}
 
 	SceneLightBuffer.Update(
@@ -252,17 +261,17 @@ void FRenderer::UpdateSceneLightBuffer(const FRenderBus& InRenderBus)
 void FRenderer::Render(const FRenderBus& InRenderBus)
 {
 	/** Opaque 만 테스트 */
-    
+	
 	RenderPassContext->Device = Device.GetDevice();
-    RenderPassContext->DeviceContext = Device.GetDeviceContext();
-    RenderPassContext->RenderBus = &InRenderBus;
-    RenderPassContext->RenderTargets = CurrentRenderTargets;
-    RenderPassContext->RenderResources = &Resources;
-    RenderPassContext->FontBatcher = &FontBatcher;
-    RenderPassContext->SubUVBatcher = &SubUVBatcher;
-    RenderPassContext->GridLineBatcher = &GridLineBatcher;
-    RenderPassContext->EditorLineBatcher = &EditorLineBatcher;
-    RenderPassContext->ShadowResourcePool = &ShadowResourcePool;
+	RenderPassContext->DeviceContext = Device.GetDeviceContext();
+	RenderPassContext->RenderBus = &InRenderBus;
+	RenderPassContext->RenderTargets = CurrentRenderTargets;
+	RenderPassContext->RenderResources = &Resources;
+	RenderPassContext->FontBatcher = &FontBatcher;
+	RenderPassContext->SubUVBatcher = &SubUVBatcher;
+	RenderPassContext->GridLineBatcher = &GridLineBatcher;
+	RenderPassContext->EditorLineBatcher = &EditorLineBatcher;
+	RenderPassContext->ShadowResourcePool = &ShadowResourcePool;
 	UpdateSceneLightBuffer(InRenderBus);
 	RenderPipeline.Render(RenderPassContext.get());
 	
@@ -271,132 +280,132 @@ void FRenderer::Render(const FRenderBus& InRenderBus)
 
 FViewportRenderResource& FRenderer::AcquireViewportResource(FSceneViewport* VP, uint32 Width, uint32 Height, int32 Index)
 {
-    assert(Index < 4 && "Index Out of Bound");
+	assert(Index < 4 && "Index Out of Bound");
 
-    FViewportRenderResource& Res = ViewportResources[Index];
+	FViewportRenderResource& Res = ViewportResources[Index];
 
-    if (Device.GetDevice() == nullptr || Width == 0 || Height == 0)
-    {
-        ReleaseViewportResource(VP, Index);
-        return Res;
-    }
+	if (Device.GetDevice() == nullptr || Width == 0 || Height == 0)
+	{
+		ReleaseViewportResource(VP, Index);
+		return Res;
+	}
 
-    const bool bSameSize =
-        (Res.Width == Width) &&
-        (Res.Height == Height);
+	const bool bSameSize =
+		(Res.Width == Width) &&
+		(Res.Height == Height);
 
-    const bool bResourcesValid =
-        (Res.ColorRTV != nullptr) &&
-        (Res.SelectionMaskRTV != nullptr) &&
-        (Res.DepthStencilView != nullptr);
+	const bool bResourcesValid =
+		(Res.ColorRTV != nullptr) &&
+		(Res.SelectionMaskRTV != nullptr) &&
+		(Res.DepthStencilView != nullptr);
 
-    if (bSameSize && bResourcesValid)
-    {
-        return Res;
-    }
+	if (bSameSize && bResourcesValid)
+	{
+		return Res;
+	}
 
-    // 재생성
-    ReleaseViewportResource(VP, Index);
-    InitializeViewportResource(VP, Width, Height, Index);
+	// 재생성
+	ReleaseViewportResource(VP, Index);
+	InitializeViewportResource(VP, Width, Height, Index);
 
-    return Res;
+	return Res;
 }
 
 void FRenderer::InitializeViewportResource(FSceneViewport* VP, uint32 Width, uint32 Height, int32 Index)
 {
-    FViewportRenderResource& Res = ViewportResources[Index];
+	FViewportRenderResource& Res = ViewportResources[Index];
 
-    FRenderTarget RT;
+	FRenderTarget RT;
 
-    Res.Width = Width;
-    Res.Height = Height;
+	Res.Width = Width;
+	Res.Height = Height;
 
-    RT = FRenderTargetFactory::CreateSceneColor(Device.GetDevice(), Width, Height);
-    Res.ColorTex = RT.Texture;
-    Res.ColorRTV = RT.RTV;
-    Res.ColorSRV = RT.SRV;
+	RT = FRenderTargetFactory::CreateSceneColor(Device.GetDevice(), Width, Height);
+	Res.ColorTex = RT.Texture;
+	Res.ColorRTV = RT.RTV;
+	Res.ColorSRV = RT.SRV;
 
-    RT = FRenderTargetFactory::CreateSceneNormal(Device.GetDevice(), Width, Height);
-    Res.NormalTex = RT.Texture;
-    Res.NormalRTV = RT.RTV;
-    Res.NormalSRV = RT.SRV;
+	RT = FRenderTargetFactory::CreateSceneNormal(Device.GetDevice(), Width, Height);
+	Res.NormalTex = RT.Texture;
+	Res.NormalRTV = RT.RTV;
+	Res.NormalSRV = RT.SRV;
 
-    RT = FRenderTargetFactory::CreateSelectionMask(Device.GetDevice(), Width, Height);
-    Res.SelectionMaskTex = RT.Texture;
-    Res.SelectionMaskRTV = RT.RTV;
-    Res.SelectionMaskSRV = RT.SRV;
+	RT = FRenderTargetFactory::CreateSelectionMask(Device.GetDevice(), Width, Height);
+	Res.SelectionMaskTex = RT.Texture;
+	Res.SelectionMaskRTV = RT.RTV;
+	Res.SelectionMaskSRV = RT.SRV;
 
-    RT = FRenderTargetFactory::CreateSceneLight(Device.GetDevice(), Width, Height);
-    Res.LightTex = RT.Texture;
-    Res.LightRTV = RT.RTV;
-    Res.LightSRV = RT.SRV;
+	RT = FRenderTargetFactory::CreateSceneLight(Device.GetDevice(), Width, Height);
+	Res.LightTex = RT.Texture;
+	Res.LightRTV = RT.RTV;
+	Res.LightSRV = RT.SRV;
 
-    RT = FRenderTargetFactory::CreateSceneFog(Device.GetDevice(), Width, Height);
-    Res.FogTex = RT.Texture;
-    Res.FogRTV = RT.RTV;
-    Res.FogSRV = RT.SRV;
+	RT = FRenderTargetFactory::CreateSceneFog(Device.GetDevice(), Width, Height);
+	Res.FogTex = RT.Texture;
+	Res.FogRTV = RT.RTV;
+	Res.FogSRV = RT.SRV;
 
-    RT = FRenderTargetFactory::CreateSceneWorldPos(Device.GetDevice(), Width, Height);
-    Res.WorldPosTex = RT.Texture;
-    Res.WorldPosRTV = RT.RTV;
-    Res.WorldPosSRV = RT.SRV;
+	RT = FRenderTargetFactory::CreateSceneWorldPos(Device.GetDevice(), Width, Height);
+	Res.WorldPosTex = RT.Texture;
+	Res.WorldPosRTV = RT.RTV;
+	Res.WorldPosSRV = RT.SRV;
 
-    RT = FRenderTargetFactory::CreateSceneFXAA(Device.GetDevice(), Width, Height);
-    Res.FXAATex = RT.Texture;
-    Res.FXAARTV = RT.RTV;
-    Res.FXAASRV = RT.SRV;
+	RT = FRenderTargetFactory::CreateSceneFXAA(Device.GetDevice(), Width, Height);
+	Res.FXAATex = RT.Texture;
+	Res.FXAARTV = RT.RTV;
+	Res.FXAASRV = RT.SRV;
 
-    // Depth
-    FDepthStencilResource DSR =
-        FDepthStencilFactory::CreateDepthStencilView(Device.GetDevice(), Width, Height);
+	// Depth
+	FDepthStencilResource DSR =
+		FDepthStencilFactory::CreateDepthStencilView(Device.GetDevice(), Width, Height);
 
-    Res.DepthTex = DSR.Texture;
+	Res.DepthTex = DSR.Texture;
 	// Render 에 쓰는 DSV 는 Default 가정 (Cubemap 등 배제)
-    Res.DepthStencilView = DSR.DSVs[0];
-    Res.DepthStencilSRV = DSR.SRV;
+	Res.DepthStencilView = DSR.DSVs[0];
+	Res.DepthStencilSRV = DSR.SRV;
 }
 
 void FRenderer::ReleaseViewportResource(FSceneViewport* VP, int32 Index)
 {
-    assert(Index < 4 && "Index Out of Bound");
+	assert(Index < 4 && "Index Out of Bound");
 
-    FViewportRenderResource& Res = ViewportResources[Index];
+	FViewportRenderResource& Res = ViewportResources[Index];
 
-    Res.SelectionMaskSRV.Reset();
-    Res.SelectionMaskRTV.Reset();
-    Res.SelectionMaskTex.Reset();
+	Res.SelectionMaskSRV.Reset();
+	Res.SelectionMaskRTV.Reset();
+	Res.SelectionMaskTex.Reset();
 
-    Res.ColorSRV.Reset();
-    Res.ColorRTV.Reset();
-    Res.ColorTex.Reset();
+	Res.ColorSRV.Reset();
+	Res.ColorRTV.Reset();
+	Res.ColorTex.Reset();
 
-    Res.NormalRTV.Reset();
-    Res.NormalSRV.Reset();
-    Res.NormalTex.Reset();
+	Res.NormalRTV.Reset();
+	Res.NormalSRV.Reset();
+	Res.NormalTex.Reset();
 
-    Res.LightRTV.Reset();
-    Res.LightSRV.Reset();
-    Res.LightTex.Reset();
+	Res.LightRTV.Reset();
+	Res.LightSRV.Reset();
+	Res.LightTex.Reset();
 
-    Res.DepthStencilView.Reset();
-    Res.DepthTex.Reset();
-    Res.DepthStencilSRV.Reset();
+	Res.DepthStencilView.Reset();
+	Res.DepthTex.Reset();
+	Res.DepthStencilSRV.Reset();
 
-    Res.FogTex.Reset();
-    Res.FogRTV.Reset();
-    Res.FogSRV.Reset();
+	Res.FogTex.Reset();
+	Res.FogRTV.Reset();
+	Res.FogSRV.Reset();
 
-    Res.WorldPosRTV.Reset();
-    Res.WorldPosSRV.Reset();
-    Res.WorldPosTex.Reset();
+	Res.WorldPosRTV.Reset();
+	Res.WorldPosSRV.Reset();
+	Res.WorldPosTex.Reset();
 
-    Res.FXAARTV.Reset();
-    Res.FXAASRV.Reset();
-    Res.FXAATex.Reset();
+	Res.FXAARTV.Reset();
+	Res.FXAASRV.Reset();
+	Res.FXAATex.Reset();
 
-    Res.Width = 0;
-    Res.Height = 0;
-    Res.RenderTargetSet = {};
+	Res.Width = 0;
+	Res.Height = 0;
+	Res.RenderTargetSet = {};
 }
 
 // ============================================================
@@ -405,11 +414,11 @@ void FRenderer::ReleaseViewportResource(FSceneViewport* VP, int32 Index)
 void FRenderer::InitializePassBatchers()
 {
 	// --- Grid 패스: ShaderGrid/ShaderAxis가 직접 procedural draw ---
-    PassBatchers[(uint32)ERenderPass::Grid] = {
-        /*.Clear   =*/[this]()
-        { GridLineBatcher.Clear(); },
-        /*.Collect =*/[](const FRenderCommand&, const FRenderBus&) {},
-    };
+	PassBatchers[(uint32)ERenderPass::Grid] = {
+		/*.Clear   =*/[this]()
+		{ GridLineBatcher.Clear(); },
+		/*.Collect =*/[](const FRenderCommand&, const FRenderBus&) {},
+	};
 
 	// --- Font 패스: 텍스트 → FontBatcher ---
 	PassBatchers[(uint32)ERenderPass::Font] = {

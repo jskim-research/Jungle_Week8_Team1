@@ -1,14 +1,13 @@
 ﻿#pragma once
 
-#include "Core/Containers/Array.h"
 #include "Serialization/Archive.h"
 
 struct FMemoryWriter : public FArchive
 {
-	TArray<unsigned char>& Bytes;
+	TArray<uint8>& Bytes;
 	uint32 Offset;
 
-	FMemoryWriter(TArray<unsigned char>& InBytes)
+	FMemoryWriter(TArray<uint8>& InBytes)
 		: Bytes(InBytes), Offset(0)
 	{
 	}

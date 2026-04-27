@@ -6,17 +6,15 @@
 	RenderCommand는 Renderer에서 Draw Call을 1회 수행하기 위해 필요한 정보를 담고 있습니다.
 */
 
+#include "Core/ResourceTypes.h"
+#include "Math/Matrix.h"
+#include "Math/Vector.h"
+#include "Math/Vector2.h"
+#include "Math/Vector4.h"
 #include "Render/Common/RenderTypes.h"
 #include "Render/Common/ViewTypes.h"
 #include "Render/Resource/Buffer.h"
 #include "Render/Resource/Material.h"
-#include "Render/Device/D3DDevice.h"
-#include "Core/CoreMinimal.h"
-#include "Core/ResourceTypes.h"
-
-#include "Math/Matrix.h"
-#include "Math/Vector.h"
-
 
 struct ID3D11ShaderResourceView;
 
@@ -149,27 +147,27 @@ constexpr uint32 MaxFogLayerCount = 32;
 struct FFogConstants
 {
 	FVector4 FogColor;
-    float    FogDensity;
-    float    HeightFalloff;
-    float        FogHeight;
-    float        FogStartDistance;
-    float        FogCutoffDistance;
-    float        FogMaxOpacity;
-    float        Padding[2];
+	float    FogDensity;
+	float    HeightFalloff;
+	float        FogHeight;
+	float        FogStartDistance;
+	float        FogCutoffDistance;
+	float        FogMaxOpacity;
+	float        Padding[2];
 };
 
 struct FFogPassConstants
 {
-    uint32 FogCount = 0;
-    float  Padding0[3] = {0.0f, 0.0f, 0.0f};
-    FFogConstants Layers[MaxFogLayerCount] = {};
+	uint32 FogCount = 0;
+	float  Padding0[3] = {0.0f, 0.0f, 0.0f};
+	FFogConstants Layers[MaxFogLayerCount] = {};
 };
 
 struct FFXAAConstants
 {
-    float InvResolution[2]; // (1/Width, 1/Height)
-    uint32 bEnabled;       // 0: off, 1: on
-    float  Padding;
+	float InvResolution[2]; // (1/Width, 1/Height)
+	uint32 bEnabled;       // 0: off, 1: on
+	float  Padding;
 };
 
 struct FSkyConstants
@@ -189,16 +187,16 @@ struct FSkyConstants
 
 struct alignas(16) FGPULight
 {
-    uint32 Type = static_cast<uint32>(ELightType::Max);
-    float  Intensity = 0.0f;
-    float  Radius = 0.0f;
-    float  FalloffExponent = 1.0f;
+	uint32 Type = static_cast<uint32>(ELightType::Max);
+	float  Intensity = 0.0f;
+	float  Radius = 0.0f;
+	float  FalloffExponent = 1.0f;
 
-    FVector Color = FVector::ZeroVector;
-    float   SpotInnerCos = 0.0f;
+	FVector Color = FVector::ZeroVector;
+	float   SpotInnerCos = 0.0f;
 
-    FVector Position = FVector::ZeroVector;
-    float   SpotOuterCos = 0.0f;
+	FVector Position = FVector::ZeroVector;
+	float   SpotOuterCos = 0.0f;
 
     FVector Direction = FVector::ZeroVector;
     int ShadowIndex;
@@ -225,9 +223,9 @@ struct FRenderCommand
 		FFontConstants Font;
 		FSubUVConstants SubUV;
 		FBillboardConstants Billboard;
-        FSkyConstants Sky;
-        FFogConstants Fog;
-        FFXAAConstants FXAA;
+		FSkyConstants Sky;
+		FFogConstants Fog;
+		FFXAAConstants FXAA;
 	} Constants;
 
 	ERenderCommandType Type = ERenderCommandType::Primitive;

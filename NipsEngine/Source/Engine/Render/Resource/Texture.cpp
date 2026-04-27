@@ -11,7 +11,7 @@ bool UTexture::LoadFromFile(const FString& InFilePath, ID3D11Device* InDevice)
 {
 	FilePath = InFilePath;
 
-	std::wstring FullPath = FPaths::Combine(FPaths::RootDir(), FPaths::ToWide(InFilePath));
+	FWString FullPath = FPaths::Combine(FPaths::RootDir(), FPaths::ToWide(InFilePath));
 
 	HRESULT hr;
 	if (FullPath.size() >= 4 && FullPath.substr(FullPath.size() - 4) == L".dds")

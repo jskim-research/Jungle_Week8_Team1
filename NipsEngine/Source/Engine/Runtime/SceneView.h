@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Engine/Geometry/Frustum.h"
 #include "Math/Matrix.h"
 #include "Render/Common/ViewTypes.h"
 #include "ViewportRect.h"
@@ -28,4 +29,5 @@ struct FSceneView
 
 	bool bOrthographic = false;
 };
+
 

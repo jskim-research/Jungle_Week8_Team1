@@ -79,8 +79,8 @@ const char* ToLightingModelString(ELightingModel LightingModel)
 {
 	switch (LightingModel)
 	{
-    case ELightingModel::Toon:
-        return "Toon";
+	case ELightingModel::Toon:
+		return "Toon";
 	case ELightingModel::Gouraud:
 		return "Gouraud";
 	case ELightingModel::Lambert:
@@ -142,8 +142,8 @@ bool TryParseLightingModel(const FString& Value, ELightingModel& OutLightingMode
 
 	if (Value == "Toon")
 	{
-        OutLightingModel = ELightingModel::Toon;
-        return true;
+		OutLightingModel = ELightingModel::Toon;
+		return true;
 	}
 
 	return false;
@@ -164,9 +164,9 @@ FShaderCompileKey MakeUberLitShaderCompileKey(EMaterialDomain MaterialDomain, EL
 
 	switch (LightingModel)
 	{
-    case ELightingModel::Toon:
-        Key.Macros.push_back({ "LIGHTING_MODEL_TOON", "1" });
-        break;
+	case ELightingModel::Toon:
+		Key.Macros.push_back({ "LIGHTING_MODEL_TOON", "1" });
+		break;
 	case ELightingModel::Gouraud:
 		Key.Macros.push_back({ "LIGHTING_MODEL_GOURAUD", "1" });
 		break;

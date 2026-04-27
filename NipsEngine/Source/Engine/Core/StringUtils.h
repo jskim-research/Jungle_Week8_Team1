@@ -1,20 +1,23 @@
-#pragma once
+﻿#pragma once
 
-#include <sstream>
+
 #include "Core/CoreTypes.h"
-
+#include "Core/Containers/Array.h"
+#include "Core/Containers/String.h"
+#include <cctype>
+#include <sstream>
 namespace StringUtils
 {
 	//	문자열의 양쪽 공백 제거
 	inline FString Trim(const FString& Str)
 	{
-		size_t Start = 0;
+		SIZE_T Start = 0;
 		while (Start < Str.size() && std::isspace(static_cast<unsigned char>(Str[Start])))
 		{
 			Start++;
 		}
 		
-		size_t End = Str.size();
+		SIZE_T End = Str.size();
 		while (End > Start && std::isspace(static_cast<unsigned char>(Str[End - 1])))
 		{
 			End--;
@@ -44,3 +47,5 @@ namespace StringUtils
 	}
 	
 }
+
+

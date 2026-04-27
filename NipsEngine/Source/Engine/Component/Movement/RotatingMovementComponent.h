@@ -14,10 +14,10 @@ public:
 	const FVector& GetRotationRate() const { return RotationRate; }
 
 	void SetPivotTranslation(const FVector& InPivot) { PivotTranslation = InPivot; }
-    const FVector& GetPivotTranslation() const { return PivotTranslation; }
+	const FVector& GetPivotTranslation() const { return PivotTranslation; }
 
 	void SetRotationInLocalSpace(bool bInLocalSpace) { bRotationInLocalSpace = bInLocalSpace; }
-    bool IsRotationInLocalSpace() const { return bRotationInLocalSpace; }
+	bool IsRotationInLocalSpace() const { return bRotationInLocalSpace; }
 
 	virtual float GetMaxSpeed() const override { return 0.0f; } // 회전 컴포넌트이므로 0.0f 반환
 

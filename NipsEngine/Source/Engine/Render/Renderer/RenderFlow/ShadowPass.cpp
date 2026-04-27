@@ -30,7 +30,7 @@ bool FShadowPass::Release()
 
 TArray<FShadowMap>& FShadowPass::GetShadowMaps()
 {
-    return GShadowMaps;
+	return GShadowMaps;
 }
 
 const TArray<int32>& FShadowPass::GetLightToShadowIndices()
@@ -44,17 +44,17 @@ const FOpaqueRenderPass::FShadowArrayCB& FShadowPass::GetShadowCBData()
 
 bool FShadowPass::Begin(const FRenderPassContext* Context)
 {
-    UShader* Shader = FResourceManager::Get().GetShader("Shaders/Primitive.hlsl");
-    if (!ShaderBinding || ShaderBinding->GetShader() != Shader)
-    {
-        ShaderBinding = Shader->CreateBindingInstance(Context->Device);
-    }
+	UShader* Shader = FResourceManager::Get().GetShader("Shaders/Primitive.hlsl");
+	if (!ShaderBinding || ShaderBinding->GetShader() != Shader)
+	{
+		ShaderBinding = Shader->CreateBindingInstance(Context->Device);
+	}
 
-    if (!ShaderBinding)
-    {
-        bSkip = true;
-        return true;
-    }
+	if (!ShaderBinding)
+	{
+		bSkip = true;
+		return true;
+	}
 
     if (!GShadowMaps.empty())
     {
@@ -65,7 +65,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
         GShadowMaps.clear();
     }
 
-    bSkip = false;
+	bSkip = false;
 
     /***************/
     /*  Selection  */
@@ -217,15 +217,15 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
 bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 {
-    if (bSkip || !ShaderBinding)
-        return true;
+	if (bSkip || !ShaderBinding)
+		return true;
 
-    const FRenderBus* RenderBus = Context->RenderBus;
+	const FRenderBus* RenderBus = Context->RenderBus;
 
-    const TArray<FRenderCommand>& Commands = RenderBus->GetCommands(ERenderPass::Opaque);
+	const TArray<FRenderCommand>& Commands = RenderBus->GetCommands(ERenderPass::Opaque);
 
-    if (Commands.empty())
-        return true;
+	if (Commands.empty())
+		return true;
 
     // 이전 뷰포트 설정 저장
     D3D11_VIEWPORT oldVP[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
@@ -383,21 +383,21 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 
 bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadowRequest& Req, FShadowMap& OutShadowMap)
 {
-    FShadowRequestDesc Desc;
-    Desc.AllocationMode = EShadowAllocationMode::ArrayBased; // CSM
-    Desc.MapType = EShadowMapType::Depth2D;
-    Desc.Resolution = Req.Resolution;
-    Desc.CascadeCount = 1; // 일단은 한 장씩만 사용
+	FShadowRequestDesc Desc;
+	Desc.AllocationMode = EShadowAllocationMode::ArrayBased; // CSM
+	Desc.MapType = EShadowMapType::Depth2D;
+	Desc.Resolution = Req.Resolution;
+	Desc.CascadeCount = 1; // 일단은 한 장씩만 사용
 
-    if (!AcquireResource(Context, Desc, &OutShadowMap.Resource))
-        return false;
-    if (!BuildViews(Context, Req, OutShadowMap.Views))
-        return false;
-    if (!BuildSlices(Context, Req, OutShadowMap.Slices))
-        return false;
-    OutShadowMap.MapType = Desc.MapType;
+	if (!AcquireResource(Context, Desc, &OutShadowMap.Resource))
+		return false;
+	if (!BuildViews(Context, Req, OutShadowMap.Views))
+		return false;
+	if (!BuildSlices(Context, Req, OutShadowMap.Slices))
+		return false;
+	OutShadowMap.MapType = Desc.MapType;
 
-    return true;
+	return true;
 }
 
 bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowViewInfo>& OutViewInfoArray)
@@ -405,253 +405,229 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
     switch (Req.Type)
     {
     case ELightType::LightType_Directional:
-        for (uint32 i = 0; i < Req.CascadeCount; i++)
+        for (uint32 i = 0; i < Req.CascadeCount; ++i)
         {
-            FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
-            FShadowViewInfo ViewInfo;
-
+            // gather camera frustum corners in world space
             const FCameraState& Cam = Context->RenderBus->GetCameraState();
+            const FVector CamPos = Context->RenderBus->GetCameraPosition();
+            const FVector CamForward = Context->RenderBus->GetCameraForward();
+            const FVector CamRight = Context->RenderBus->GetCameraRight();
+            const FVector CamUp = Context->RenderBus->GetCameraUp();
 
-            float Near = Cam.NearZ;
-            float Far = Cam.FarZ;
-            float FovY = Cam.FOV;
-            float Aspect = Cam.AspectRatio;
+            const float Near = Cam.NearZ;
+            const float Far = Cam.FarZ;
+            const float HalfTan = tanf(Cam.FOV * 0.5f);
 
-            FVector CamPos = Context->RenderBus->GetCameraPosition();
-            FVector CamForward = Context->RenderBus->GetCameraForward();
-            FVector CamRight = Context->RenderBus->GetCameraRight();
-            FVector CamUp = Context->RenderBus->GetCameraUp();
+            const float NearH = 2.0f * Near * HalfTan;
+            const float NearW = NearH * Cam.AspectRatio;
+            const float FarH = 2.0f * Far * HalfTan;
+            const float FarW = FarH * Cam.AspectRatio;
 
-            // =========================
-            // 1. Frustum 크기 계산
-            // =========================
-            float NearH = 2.0f * Near * tanf(FovY * 0.5f);
-            float NearW = NearH * Aspect;
+            const FVector NearCenter = CamPos + CamForward * Near;
+            const FVector FarCenter = CamPos + CamForward * Far;
 
-            float FarH = 2.0f * Far * tanf(FovY * 0.5f);
-            float FarW = FarH * Aspect;
-
-            FVector NearCenter = CamPos + CamForward * Near;
-            FVector FarCenter = CamPos + CamForward * Far;
-
-            FVector FrustumCorners[8];
-
-            // Near
-            FrustumCorners[0] = NearCenter + CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f);
-            FrustumCorners[1] = NearCenter + CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f);
-            FrustumCorners[2] = NearCenter - CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f);
-            FrustumCorners[3] = NearCenter - CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f);
-
-            // Far
-            FrustumCorners[4] = FarCenter + CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f);
-            FrustumCorners[5] = FarCenter + CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f);
-            FrustumCorners[6] = FarCenter - CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f);
-            FrustumCorners[7] = FarCenter - CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f);
-
-            // =========================
-            // 2. Frustum Center
-            // =========================
-            FVector Center(0, 0, 0);
-            for (int j = 0; j < 8; j++)
-            {
-                Center += FrustumCorners[j];
-            }
-            Center /= 8.0f;
-
-            // =========================
-            // 3. Light View 생성
-            // =========================
-            FVector LightDir = Light.Direction; // normalize 되어 있어야 함
-
-            FVector Eye = Center - LightDir * 500.0f;
-            FVector Target = Center;
-
-            FVector Up = FVector(0, 0, 1);
-            if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
-            {
-                Up = FVector(1, 0, 0);
-            }
-
-            FMatrix LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
-
-            // =========================
-            // 4. Frustum → Light Space AABB
-            // =========================
-            FVector Min(FLT_MAX, FLT_MAX, FLT_MAX);
-            FVector Max(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-
-            for (int j = 0; j < 8; j++)
-            {
-                FVector P = LightView.TransformPosition(FrustumCorners[j]);
-
-                Min.X = std::min<float>(Min.X, P.X);
-                Min.Y = std::min<float>(Min.Y, P.Y);
-                Min.Z = std::min<float>(Min.Z, P.Z);
-
-                Max.X = std::max<float>(Max.X, P.X);
-                Max.Y = std::max<float>(Max.Y, P.Y);
-                Max.Z = std::max<float>(Max.Z, P.Z);
-            }
-
-            // =========================
-            // 5. Centered Ortho 맞추기 (핵심)
-            // =========================
-            FVector CenterLS = (Min + Max) * 0.5f;
-
-            // LightView를 Center 기준으로 이동
-            FMatrix CenterOffset = FMatrix::MakeTranslation(-CenterLS);
-            ViewInfo.LightView = CenterOffset * LightView;
-
-            float ViewWidth = (Max.X - Min.X);
-            float ViewHeight = (Max.Y - Min.Y);
-
-            float NearZ = 0.0f;
-            float FarZ = (Max.Z - Min.Z) + 200.0f; // 여유
-
-            // =========================
-            // 6. Projection
-            // =========================
-            ViewInfo.LightProjection = FMatrix::MakeOrthographicLH(
-                ViewWidth,
-                ViewHeight,
-                NearZ,
-                FarZ);
-
-            ViewInfo.SplitDepth = Far; // 일단 전체 (CSM 전 단계)
-
-            OutViewInfoArray.push_back(ViewInfo);
-        }
-        break;
-
-    case ELightType::LightType_Spot:
-        for (uint32 i = 0; i < Req.CascadeCount; i++)
-        {
-            FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
-            FShadowViewInfo ViewInfo;
-
-            FVector LightDir = Light.Direction; // normalize 되어 있어야 함
-
-            FVector Eye = Light.Position;
-            FVector Target = Eye + Light.Direction;
-            FVector Up = FVector(0, 0, 1);
-
-            if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
-            {
-                Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
-            }
-
-            ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
-            ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
-
-            float OuterAngleRad = acos(Light.SpotOuterCos); // 반각(half angle)
-            float FovRad = OuterAngleRad * 2.0f;            // 전체 FOV
-
-            ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
-                FovRad,
-                1.0f,        // 정사각형 섀도우 맵
-                1.0f,        // Near
-                Light.Radius // Far = 라이트 반경
-            );
-
-            OutViewInfoArray.push_back(ViewInfo);
-        }
-        break;
-
-    case ELightType::LightType_Point:
-        for (uint32 i = 0; i < 6; i++)
-        {
-            static FVector CubeDirs[6] = {
-                FVector::UpVector,
-                -FVector::UpVector,
-                FVector::ForwardVector,
-                -FVector::ForwardVector,
-                FVector::RightVector,
-                -FVector::RightVector
+            FVector FrustumCorners[8] = {
+                NearCenter + CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f),
+                NearCenter + CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f),
+                NearCenter - CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f),
+                NearCenter - CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f),
+                FarCenter + CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f),
+                FarCenter + CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f),
+                FarCenter - CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f),
+                FarCenter - CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f)
             };
 
+            // compute frustum center and radius
+            FVector FrustumCenter = FVector::ZeroVector;
+            for (int j = 0; j < 8; ++j) FrustumCenter += FrustumCorners[j];
+            FrustumCenter *= (1.0f / 8.0f);
+
+            float AABBRadius = 0.0f;
+            for (int j = 0; j < 8; ++j) AABBRadius = std::max(AABBRadius, (FrustumCorners[j] - FrustumCenter).Size());
+
+            // light basis
             FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
-            FShadowViewInfo ViewInfo;
+            const FVector LightDir = Light.Direction.GetSafeNormal();
+            FVector Up = FVector::UpVector;
+            if (std::abs(FVector::DotProduct(LightDir, Up)) > 0.99f) Up = FVector::RightVector;
 
-            FVector LightDir = CubeDirs[i];
+            // place light-eye and build view
+            const FVector Eye = FrustumCenter + LightDir * AABBRadius;
+            FMatrix LightView = FMatrix::MakeViewLookAtLH(Eye, FrustumCenter, Up);
 
-            FVector Eye = Light.Position;
-            FVector Target = Eye + LightDir;
+            // transform frustum into light space and compute AABB
+            FVector FrustumLS[8];
+            for (int j = 0; j < 8; ++j) FrustumLS[j] = LightView.TransformPosition(FrustumCorners[j]);
 
-            FVector Up = FVector(0, 0, 1);
-            if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
+            FVector Min = FrustumLS[0];
+            FVector Max = FrustumLS[0];
+            for (int j = 1; j < 8; ++j)
             {
-                Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
+                Min.X = std::min(Min.X, FrustumLS[j].X);
+                Min.Y = std::min(Min.Y, FrustumLS[j].Y);
+                Min.Z = std::min(Min.Z, FrustumLS[j].Z);
+                Max.X = std::max(Max.X, FrustumLS[j].X);
+                Max.Y = std::max(Max.Y, FrustumLS[j].Y);
+                Max.Z = std::max(Max.Z, FrustumLS[j].Z);
             }
 
-            ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
-            ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
+            // Near/Far from light-space Z extents with padding and safety fallback
+            float NearZ = Min.Z;
+            float FarZ = Max.Z;
+            const float Padding = std::max(50.0f, (FarZ - NearZ) * 0.1f);
+            NearZ -= Padding; FarZ += Padding;
+            if (FarZ - NearZ < 1.0f)
+            {
+                float center = (NearZ + FarZ) * 0.5f;
+                NearZ = center - 0.5f; FarZ = center + 0.5f;
+            }
+            const float FallbackFar = AABBRadius + 1000.0f;
+            if (FarZ < FallbackFar) FarZ = FallbackFar;
 
-            float FovRad = (90 * (3.141592 / 180)); // 전체 FOV
-
-            ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
-                FovRad,
-                1.0f,        // 정사각형 섀도우 맵
-                1.0f,        // Near
-                Light.Radius // Far = 라이트 반경
-            );
-
+            // build projection
+            FShadowViewInfo ViewInfo;
+            ViewInfo.LightView = LightView;
+            ViewInfo.LightProjection = FMatrix::MakeOrthographicLH(Max.X - Min.X, Max.Y - Min.Y, NearZ, FarZ);
+            ViewInfo.SplitDepth = Far;
             OutViewInfoArray.push_back(ViewInfo);
         }
         break;
-    default:
-        return false;
-    }
 
-    return true;
+	case ELightType::LightType_Spot:
+		for (uint32 i = 0; i < Req.CascadeCount; i++)
+		{
+			FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
+			FShadowViewInfo ViewInfo;
+
+			FVector LightDir = Light.Direction; // normalize 되어 있어야 함
+
+			FVector Eye = Light.Position;
+			FVector Target = Eye + Light.Direction;
+			FVector Up = FVector(0, 0, 1);
+
+			if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
+			{
+				Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
+			}
+
+			ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
+			ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
+
+			float OuterAngleRad = acos(Light.SpotOuterCos); // 반각(half angle)
+			float FovRad = OuterAngleRad * 2.0f;            // 전체 FOV
+
+			float NearZ = 0.1f;
+            float FarZ = std::max(Light.Radius, NearZ + 0.1f);
+
+			ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
+				FovRad,
+				1.0f,        // 정사각형 섀도우 맵
+				NearZ,        // Near
+				FarZ // Far = 라이트 반경
+			);
+
+			OutViewInfoArray.push_back(ViewInfo);
+		}
+		break;
+
+	case ELightType::LightType_Point:
+		for (uint32 i = 0; i < 6; i++)
+		{
+			static FVector CubeDirs[6] = {
+				FVector::UpVector,
+				-FVector::UpVector,
+				FVector::ForwardVector,
+				-FVector::ForwardVector,
+				FVector::RightVector,
+				-FVector::RightVector
+			};
+
+			FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
+			FShadowViewInfo ViewInfo;
+
+			FVector LightDir = CubeDirs[i];
+
+			FVector Eye = Light.Position;
+			FVector Target = Eye + LightDir;
+
+			FVector Up = FVector(0, 0, 1);
+			if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
+			{
+				Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
+			}
+
+			ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
+			ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
+
+			float FovRad = (90.0f * (3.141592f / 180.0f));          // 전체 FOV
+
+            float NearZ = 0.1f;
+            float FarZ = std::max(Light.Radius, NearZ + 0.1f);
+
+			ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
+				FovRad,
+				1.0f,        // 정사각형 섀도우 맵
+				NearZ,        // Near
+				FarZ // Far = 라이트 반경
+			);
+
+			OutViewInfoArray.push_back(ViewInfo);
+		}
+		break;
+	default:
+		return false;
+	}
+	
+	return true;
 }
 
 bool FShadowPass::BuildSlices(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowSlice>& OutShadowSlices)
 {
-    switch (Req.Type)
-    {
-    case ELightType::LightType_Directional:
-        for (uint32 i = 0; i < Req.CascadeCount; i++)
-        {
-            FShadowSlice ShadowSlice;
-            ShadowSlice.Index = i;
-            ShadowSlice.Type = EShadowSliceType::CSM;
-            ShadowSlice.UVOffset = FVector2(0, 0);
-            ShadowSlice.UVScale = FVector2(1, 1);
-            OutShadowSlices.push_back(ShadowSlice);
-        }
-        break;
+	switch (Req.Type)
+	{
+	case ELightType::LightType_Directional:
+		for (uint32 i = 0; i < Req.CascadeCount; i++)
+		{
+			FShadowSlice ShadowSlice;
+			ShadowSlice.Index = i;
+			ShadowSlice.Type = EShadowSliceType::CSM;
+			ShadowSlice.UVOffset = FVector2(0, 0);
+			ShadowSlice.UVScale = FVector2(1, 1);
+			OutShadowSlices.push_back(ShadowSlice);
+		}
+		break;
 
-    case ELightType::LightType_Spot:
-        for (uint32 i = 0; i < Req.CascadeCount; i++)
-        {
-            FShadowSlice ShadowSlice;
-            ShadowSlice.Index = i;
-            ShadowSlice.Type = EShadowSliceType::Atlas;
-            ShadowSlice.UVOffset = FVector2(0, 0);
-            ShadowSlice.UVScale = FVector2(1, 1); // 텍스쳐 전부를 쓰겠다.
-            OutShadowSlices.push_back(ShadowSlice);
-        }
-        break;
-    case ELightType::LightType_Point:
-        // Point Light 는 CSM 고려 X
-        for (uint32 i = 0; i < 6; i++)
-        {
-            FShadowSlice ShadowSlice;
-            ShadowSlice.Index = i;
-            ShadowSlice.Type = EShadowSliceType::CubeFace;
-            ShadowSlice.UVOffset = FVector2(0, 0);
-            ShadowSlice.UVScale = FVector2(1, 1);
-        }
-        break;
-    default:
-        return false;
-    }
+	case ELightType::LightType_Spot:
+		for (uint32 i = 0; i < Req.CascadeCount; i++)
+		{
+			FShadowSlice ShadowSlice;
+			ShadowSlice.Index = i;
+			ShadowSlice.Type = EShadowSliceType::CSM;
+			ShadowSlice.UVOffset = FVector2(0, 0);
+			ShadowSlice.UVScale = FVector2(1, 1);
+			OutShadowSlices.push_back(ShadowSlice);
+		}
+		break;
+	case ELightType::LightType_Point:
+		// Point Light 는 CSM 고려 X
+		for (uint32 i = 0; i < 6; i++)
+		{
+			FShadowSlice ShadowSlice;
+			ShadowSlice.Index = i;
+			ShadowSlice.Type = EShadowSliceType::CubeFace;
+			ShadowSlice.UVOffset = FVector2(0, 0);
+			ShadowSlice.UVScale = FVector2(1, 1);
+		}
+		break;
+	default:
+		return false;
+	}
 
     return true;
 }
 
 bool FShadowPass::AcquireResource(const FRenderPassContext* Context, const FShadowRequestDesc& Desc, FShadowResource** OutShadowResource)
 {
-    *OutShadowResource = Context->ShadowResourcePool->Acquire(Context->Device, Desc);
-    return true;
+	*OutShadowResource = Context->ShadowResourcePool->Acquire(Context->Device, Desc);
+	return true;
 }

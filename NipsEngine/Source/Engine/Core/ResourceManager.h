@@ -1,11 +1,14 @@
 ﻿#pragma once
 
+#include "Core/Containers/Set.h"
+#include <chrono>
+#include <filesystem>
+#include <set>
 #include "Asset/BinarySerializer.h"
 #include "Asset/FontAtlasLoader.h"
 #include "Asset/ObjLoader.h"
 #include "Asset/ParticleAtlasLoader.h"
 #include "Asset/StaticMesh.h"
-#include "Core/CoreTypes.h"
 #include "Core/Singleton.h"
 #include "Core/ResourceTypes.h"
 #include "Object/FName.h"
@@ -13,7 +16,7 @@
 #include "Render/Resource/Material.h"
 #include "Render/Resource/Texture.h"
 #include "Render/Resource/RenderResources.h"
-#include <d3d11.h>
+
 
 // 리소스를 관리하는 싱글턴.
 // Resource.ini에서 리소스 경로/그리드 정보를 읽고, GPU 리소스를 로드/캐싱합니다.
@@ -101,16 +104,17 @@ public:
 	UShader* GetShader(const FString& FilePath) const;
 	UShader* GetShaderVariant(const FShaderCompileKey& CompileKey) const;
 	bool LoadShader(const FString& FilePath, const FString& VSEntryPoint, const FString& PSEntryPoint,
-	                const D3D_SHADER_MACRO* Defines = nullptr);
+					const D3D_SHADER_MACRO* Defines = nullptr);
 	bool LoadShader(const FString& FilePath, const FString& VSEntryPoint, const FString& PSEntryPoint,
-                    const D3D11_INPUT_ELEMENT_DESC* InputElements, UINT InputElementCount, const D3D_SHADER_MACRO* Defines);
+						const D3D11_INPUT_ELEMENT_DESC* InputElements, UINT InputElementCount, const D3D_SHADER_MACRO* Defines);
 	bool LoadShader(const FShaderCompileKey& CompileKey);
 	bool LoadShader(const FShaderCompileKey& CompileKey,
-	                const D3D11_INPUT_ELEMENT_DESC* InputElements, UINT InputElementCount);
-    //ID3DBlob* CompileShaderWithDefines(const WCHAR* filename,
-    //                                   const D3D_SHADER_MACRO* defines,
-    //                                   const char* entryPoint,
-    //                                   const char* shaderModel);
+					const D3D11_INPUT_ELEMENT_DESC* InputElements, UINT InputElementCount);
+	void ProcessShaderHotReloads(const TArray<FWString>& ChangedFiles);
+	//ID3DBlob* CompileShaderWithDefines(const WCHAR* filename,
+	//                                   const D3D_SHADER_MACRO* defines,
+	//                                   const char* entryPoint,
+	//                                   const char* shaderModel);
 
 	UMaterial* GetMaterial(const FString& Path) const;
 	UMaterial* GetOrCreateMaterial(const FString& Path, const FString& ShaderName);
@@ -146,7 +150,7 @@ public:
 	ID3D11BlendState* GetOrCreateBlendState(EBlendType Type, ID3D11Device* Device = nullptr);
 	ID3D11RasterizerState* GetOrCreateRasterizerState(ERasterizerType Type, ID3D11Device* Device = nullptr);
 
-	size_t GetMaterialMemorySize() const;
+	SIZE_T GetMaterialMemorySize() const;
 	
 	//	Binary 전체 삭제
 	void DeleteAllCacheFiles();
@@ -158,10 +162,28 @@ private:
 	void PreloadStaticMeshes();
 	UStaticMesh* LoadStaticMeshWithOptions(const FString& Path, const FStaticMeshLoadOptions& LoadOptions);
 	bool LoadShaderInternal(const FShaderCompileKey& CompileKey,
-	                        const D3D11_INPUT_ELEMENT_DESC* InputElements,
-	                        UINT InputElementCount,
-	                        bool bRegisterPathAlias);
-	
+							const D3D11_INPUT_ELEMENT_DESC* InputElements,
+							UINT InputElementCount,
+							bool bRegisterPathAlias);
+	bool CompileShaderVariant(const FShaderCompileKey& NormalizedKey,
+							  const D3D11_INPUT_ELEMENT_DESC* InputElements,
+							  UINT InputElementCount,
+							  UShader* OutShader,
+							  FString* OutFailureMessage = nullptr,
+							  bool bLogFailures = true);
+	void CacheShaderVariantInputLayout(const FShaderCompileKey& NormalizedKey,
+									   const D3D11_INPUT_ELEMENT_DESC* InputElements,
+									   UINT InputElementCount);
+	bool BuildCachedInputLayout(const FShaderCompileKey& NormalizedKey, TArray<D3D11_INPUT_ELEMENT_DESC>& OutInputElements) const;
+	void InvalidateAllMaterialShaderBindings();
+	void ReloadShaders(const std::set<FWString>& DirtyFiles);
+	void CollectShaderDependencies(const FWString& ShaderFilePath,
+								   TSet<FWString>& OutDependencies,
+								   TMap<FWString, TSet<FWString>>& Cache);
+	FWString NormalizeShaderPath(const FWString& InPath) const;
+	FWString NormalizeShaderPath(const FString& InPath) const;
+	bool IsShaderSourceFile(const FWString& InPath) const;
+		
 	FTextureAssetMeta LoadOrCreateTextureMeta(const std::filesystem::path& FilePath) const;
 
 	FResourceManager() = default;
@@ -186,6 +208,25 @@ private:
 	TMap<FString, UStaticMesh*> StaticMeshes;
 	TMap<FString, UShader*> Shaders;
 	TMap<FShaderCompileKey, UShader*> ShaderVariants;
+
+	struct FShaderInputElementStorage
+	{
+		FString SemanticName;
+		UINT SemanticIndex = 0;
+		DXGI_FORMAT Format = DXGI_FORMAT_UNKNOWN;
+		UINT InputSlot = 0;
+		UINT AlignedByteOffset = 0;
+		D3D11_INPUT_CLASSIFICATION InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+		UINT InstanceDataStepRate = 0;
+	};
+
+	struct FShaderVariantInputLayout
+	{
+		TArray<FShaderInputElementStorage> Elements;
+	};
+	TMap<FShaderCompileKey, FShaderVariantInputLayout> ShaderVariantInputLayouts;
+	TMap<FWString, std::chrono::steady_clock::time_point> PendingShaderFiles;
+
 	TMap<FString, UTexture*> Textures;
 	TMap<FString, UMaterial*> Materials;
 	TMap<FString, UMaterialInstance*> MaterialInstances;
@@ -200,4 +241,7 @@ private:
 	TArray<FString> ParticleFilePaths;
 	TArray<FString> FontFilePaths;
 	TArray<FString> TextureFilePaths;
+
+	static constexpr uint32 ShaderHotReloadDebounceMs = 250;
 };
+

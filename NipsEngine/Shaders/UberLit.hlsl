@@ -370,12 +370,10 @@ float3 ApplyShadow(FUberSurfaceData Surface, float3 ColorAfterLighting)
     
     float ShadowLightDepth = ShadowMap.Sample(ShadowSampler, ShadowUV);
     
-    float ShadowFactor = (ShadowLightDepth >= CurrentDepth) ? 1.0 : 0.0;
+    float bias = 0.005;
+    float ShadowFactor = (ShadowLightDepth >= CurrentDepth - bias) ? 1.0 : 0.0;
     
     return ColorAfterLighting * ShadowFactor;
-    // return float3(ShadowLightDepth, ShadowLightDepth, ShadowLightDepth);
-    // return float3(CurrentDepth, CurrentDepth, CurrentDepth);
-    // return float3(ShadowUV, 0);
 }
 
 #if defined(MATERIAL_DOMAIN_DECAL)

@@ -4,8 +4,11 @@
 	Direct3D Device, Context, Swapchain을 관리하는 Class 입니다.
 */
 
+#include "Render/Common/ComPtr.h"
 #include "Render/Common/RenderTypes.h"
-#include "Core/CoreTypes.h"
+
+#include <d3d11.h>
+#include <dxgi1_5.h>
 
 struct ID3D11Debug;
 struct FShadowMap;
@@ -16,24 +19,24 @@ struct FShadowMap;
 struct FRenderTargetSet
 {
 	ID3D11RenderTargetView* SceneColorRTV = nullptr;
-    ID3D11ShaderResourceView* SceneColorSRV = nullptr;
-    ID3D11RenderTargetView*   SceneNormalRTV = nullptr;
-    ID3D11ShaderResourceView*     SceneNormalSRV = nullptr;
-    ID3D11RenderTargetView*     SceneLightRTV = nullptr;
-    ID3D11ShaderResourceView*     SceneLightSRV = nullptr;
-    ID3D11RenderTargetView*       SceneFogRTV = nullptr;
-    ID3D11ShaderResourceView*     SceneFogSRV = nullptr;
-    ID3D11RenderTargetView*       SceneWorldPosRTV = nullptr;
-    ID3D11ShaderResourceView*     SceneWorldPosSRV = nullptr;
-    ID3D11RenderTargetView*       SceneFXAARTV = nullptr;
-    ID3D11ShaderResourceView*     SceneFXAASRV = nullptr;
+	ID3D11ShaderResourceView* SceneColorSRV = nullptr;
+	ID3D11RenderTargetView*   SceneNormalRTV = nullptr;
+	ID3D11ShaderResourceView*     SceneNormalSRV = nullptr;
+	ID3D11RenderTargetView*     SceneLightRTV = nullptr;
+	ID3D11ShaderResourceView*     SceneLightSRV = nullptr;
+	ID3D11RenderTargetView*       SceneFogRTV = nullptr;
+	ID3D11ShaderResourceView*     SceneFogSRV = nullptr;
+	ID3D11RenderTargetView*       SceneWorldPosRTV = nullptr;
+	ID3D11ShaderResourceView*     SceneWorldPosSRV = nullptr;
+	ID3D11RenderTargetView*       SceneFXAARTV = nullptr;
+	ID3D11ShaderResourceView*     SceneFXAASRV = nullptr;
 	ID3D11RenderTargetView* SelectionMaskRTV = nullptr;
 	ID3D11ShaderResourceView* SelectionMaskSRV = nullptr;
-    ID3D11DepthStencilView*   DepthStencilView = nullptr;
-    ID3D11ShaderResourceView* SceneDepthSRV = nullptr;
+	ID3D11DepthStencilView*   DepthStencilView = nullptr;
+	ID3D11ShaderResourceView* SceneDepthSRV = nullptr;
 
 	ID3D11RenderTargetView* FinalRTV = nullptr;
-    ID3D11ShaderResourceView* FinalSRV = nullptr;
+	ID3D11ShaderResourceView* FinalSRV = nullptr;
 
 	// Shadow Map 디버깅용으로 넣어둠
 	FShadowMap* ShadowMap = nullptr;
@@ -119,6 +122,6 @@ public:
 	ID3D11DepthStencilView* GetDepthStencilView() const { return DepthStencilView.Get(); }
 	float GetViewportWidth() const { return ViewportInfo.Width; }
 	float GetViewportHeight() const { return ViewportInfo.Height; }
-    FRenderTargetSet* GetBackBufferRenderTargets() const;
+	FRenderTargetSet* GetBackBufferRenderTargets() const;
 };
 

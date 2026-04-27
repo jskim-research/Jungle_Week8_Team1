@@ -16,23 +16,23 @@ class ULightComponentBase;
  */
 struct FLightSlot
 {
-    ULightComponentBase* LightData = nullptr;
-    uint32 Generation = 0;
-    bool bAlive = false;
+	ULightComponentBase* LightData = nullptr;
+	uint32 Generation = 0;
+	bool bAlive = false;
 };
 
 struct FLightHandle
 {
-    uint32 Index = 0xFFFFFFFF;
-    // Invalidate 검증용
-    uint32 Generation = 0;
+	uint32 Index = 0xFFFFFFFF;
+	// Invalidate 검증용
+	uint32 Generation = 0;
 
-    bool IsValid() const { return Index != 0xFFFFFFFF; }
+	bool IsValid() const { return Index != 0xFFFFFFFF; }
 };
 
 class UWorld : public UObject {
 public:
-    DECLARE_CLASS(UWorld, UObject)
+	DECLARE_CLASS(UWorld, UObject)
 	UWorld();
 	~UWorld() override;
 
@@ -45,27 +45,27 @@ public:
 	void PostEditProperty(const char* PropertyName) override {}
 
 
-    // Actor lifecycle
-    template<typename T>
-    T* SpawnActor()
+	// Actor lifecycle
+	template<typename T>
+	T* SpawnActor()
 	{
-        // create and register an actor
-        T* Actor = UObjectManager::Get().CreateObject<T>();
-        Actor->SetWorld(this);
-        if (bHasBegunPlay)
-        {
-            Actor->BeginPlay();
-        }
+		// create and register an actor
+		T* Actor = UObjectManager::Get().CreateObject<T>();
+		Actor->SetWorld(this);
+		if (bHasBegunPlay)
+		{
+			Actor->BeginPlay();
+		}
 		PersistentLevel->AddActor(Actor);
-        SpatialIndex.FlushDirtyBounds();
-        return Actor;
-    }
+		SpatialIndex.FlushDirtyBounds();
+		return Actor;
+	}
 
-    void DestroyActor(AActor* Actor) 
+	void DestroyActor(AActor* Actor) 
 	{
-        if (!Actor) return;
+		if (!Actor) return;
 
-        Actor->EndPlay(EEndPlayReason::Type::Destroyed);
+		Actor->EndPlay(EEndPlayReason::Type::Destroyed);
 
 		/**
 		 *  TODO:
@@ -73,57 +73,57 @@ public:
 		 * 실제론 Actor - Component 생애주기를 잘 관리해줘야함
 		 */
 		const TArray<UActorComponent*>& Comps = Actor->GetComponents();
-        for (int32 i = static_cast<int32>(Comps.size()) - 1; i >= 0; --i)
-        {
-            if (Comps[i])
-                Comps[i]->OnUnregister();
-        }
+		for (int32 i = static_cast<int32>(Comps.size()) - 1; i >= 0; --i)
+		{
+			if (Comps[i])
+				Comps[i]->OnUnregister();
+		}
 		
 		PersistentLevel->RemoveActor(Actor);
-        Actor->SetWorld(nullptr);
-        UObjectManager::Get().DestroyObject(Actor);
-    }
+		Actor->SetWorld(nullptr);
+		UObjectManager::Get().DestroyObject(Actor);
+	}
 
 	TArray<AActor*> GetActors() const { return PersistentLevel->GetActors(); }
 
 	ULevel* GetPersistentLevel() const { return PersistentLevel; }
 
-    void BeginPlay();      // Triggers BeginPlay on all actors
-    void Tick(float DeltaTime);  // Drives the game loop every frame
-    void EndPlay(EEndPlayReason::Type EndPlayReason); // Cleanup before world is destroyed
+	void BeginPlay();      // Triggers BeginPlay on all actors
+	void Tick(float DeltaTime);  // Drives the game loop every frame
+	void EndPlay(EEndPlayReason::Type EndPlayReason); // Cleanup before world is destroyed
 
-    /** @brief Rebuild the world BVH and bounds snapshot from all current primitives. */
-    void RebuildSpatialIndex();
+	/** @brief Rebuild the world BVH and bounds snapshot from all current primitives. */
+	void RebuildSpatialIndex();
 
-    /** @brief Flush pending bounds and visibility dirties into the world BVH. */
-    void SyncSpatialIndex();
+	/** @brief Flush pending bounds and visibility dirties into the world BVH. */
+	void SyncSpatialIndex();
 
-    bool HasBegunPlay() const { return bHasBegunPlay; }
+	bool HasBegunPlay() const { return bHasBegunPlay; }
 
-    // Active Camera — EditorViewportClient 또는 PlayerController가 세팅
-    void SetActiveCamera(FViewportCamera* InCamera) { ActiveCamera = InCamera; }
+	// Active Camera — EditorViewportClient 또는 PlayerController가 세팅
+	void SetActiveCamera(FViewportCamera* InCamera) { ActiveCamera = InCamera; }
 	FViewportCamera* GetActiveCamera() const { return ActiveCamera; }
 
-    /** @brief Access the world-level primitive AABB/BVH manager. */
-    FWorldSpatialIndex& GetSpatialIndex() { return SpatialIndex; }
+	/** @brief Access the world-level primitive AABB/BVH manager. */
+	FWorldSpatialIndex& GetSpatialIndex() { return SpatialIndex; }
 
-    /** @brief Access the world-level primitive AABB/BVH manager. */
-    const FWorldSpatialIndex& GetSpatialIndex() const { return SpatialIndex; }
+	/** @brief Access the world-level primitive AABB/BVH manager. */
+	const FWorldSpatialIndex& GetSpatialIndex() const { return SpatialIndex; }
 
 	EWorldType GetWorldType() const { return WorldType; }
 	void SetWorldType(EWorldType InWorldType) { WorldType = InWorldType; }
 
 	FLightHandle RegisterLight(ULightComponentBase* Comp);
-    void UnregisterLight(ULightComponentBase* Comp);
-    const TArray<FLightSlot>& GetWorldLightSlots() const { return WorldLightSlots; }
+	void UnregisterLight(ULightComponentBase* Comp);
+	const TArray<FLightSlot>& GetWorldLightSlots() const { return WorldLightSlots; }
 
 private:
 	EWorldType WorldType = EWorldType::Editor;
 	ULevel* PersistentLevel = nullptr;
 	FViewportCamera* ActiveCamera = nullptr;
-    FWorldSpatialIndex SpatialIndex;
-    bool bHasBegunPlay = false;
+	FWorldSpatialIndex SpatialIndex;
+	bool bHasBegunPlay = false;
 
 	TArray<FLightSlot> WorldLightSlots;
-    TArray<uint32> FreeLightSlotList;  // 삭제된 Light 의 Index 만 Free 로 등록
+	TArray<uint32> FreeLightSlotList;  // 삭제된 Light 의 Index 만 Free 로 등록
 };

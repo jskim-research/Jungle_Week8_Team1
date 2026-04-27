@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <d3d11.h>
+#include <d3dcompiler.h>
 /*
 	Shader들을 관리하는 Class입니다.
 	추후에 Geometry Shader, Compute Shader 등 다양한 Shader들을 관리하는 Class로 확장할 수 있습니다.
@@ -8,7 +10,6 @@
 #include "Render/Common/ComPtr.h"
 #include "Render/Common/RenderTypes.h"
 
-#include "Core/CoreTypes.h"
 #include "Object/Object.h"
 
 class FRenderBus;
@@ -123,6 +124,9 @@ public:
 		Context->PSSetShader(ShaderData.PS, nullptr, 0);
 	}
 
+	// hot reload 시 UShader 포인터는 유지하고, 내부 DX 객체/리플렉션 상태만 교체한다.
+	void AdoptCompiledState(UShader& SourceShader);
+
 	bool ReflectShader(ID3DBlob* ShaderBlob, ID3D11Device* Device, EShaderStage Stage);
 	std::shared_ptr<FShaderBindingInstance> CreateBindingInstance(ID3D11Device* Device) const;
 	const FReflectResult& GetReflectResult(EShaderStage Stage) const { return ReflectResults[static_cast<uint32>(Stage)]; }
@@ -203,9 +207,9 @@ namespace std
 	template<>
 	struct hash<FShaderMacro>
 	{
-		size_t operator()(const FShaderMacro& Macro) const noexcept
+		SIZE_T operator()(const FShaderMacro& Macro) const noexcept
 		{
-			size_t Hash = std::hash<FString>{}(Macro.Name);
+			SIZE_T Hash = std::hash<FString>{}(Macro.Name);
 			Hash ^= std::hash<FString>{}(Macro.Value) + 0x9e3779b9u + (Hash << 6) + (Hash >> 2);
 			return Hash;
 		}
@@ -214,9 +218,9 @@ namespace std
 	template<>
 	struct hash<FShaderCompileKey>
 	{
-		size_t operator()(const FShaderCompileKey& Key) const noexcept
+		SIZE_T operator()(const FShaderCompileKey& Key) const noexcept
 		{
-			size_t Hash = std::hash<FString>{}(Key.FilePath);
+			SIZE_T Hash = std::hash<FString>{}(Key.FilePath);
 			Hash ^= std::hash<FString>{}(Key.VSEntryPoint) + 0x9e3779b9u + (Hash << 6) + (Hash >> 2);
 			Hash ^= std::hash<FString>{}(Key.PSEntryPoint) + 0x9e3779b9u + (Hash << 6) + (Hash >> 2);
 
@@ -229,3 +233,5 @@ namespace std
 		}
 	};
 }
+
+

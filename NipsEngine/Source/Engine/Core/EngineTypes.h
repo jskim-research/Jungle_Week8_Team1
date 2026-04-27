@@ -1,9 +1,8 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
-#include "Math/Color.h"
-#include "Engine/Geometry/AABB.h"
 
+#include "Core/CoreTypes.h"
+#include "Engine/Geometry/AABB.h"
 //	TODO : 나중에 지우기
 using FBoundingBox = FAABB;
 
@@ -31,3 +30,4 @@ enum EEngineShowFlags : uint32
 
 	SF_All = SF_Primitives | SF_Grid | SF_BoundingBox | SF_BillboardText | SF_Gizmo
 };
+
