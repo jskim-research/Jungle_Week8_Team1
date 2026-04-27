@@ -2,7 +2,7 @@
 #include "RenderPass.h"
 #include "Render/Common/ComPtr.h"
 
-class FTranslucentRenderPass : public FBaseRenderPass
+class FHitMapRenderPass : public FBaseRenderPass
 {
 public:
     bool Initialize() override;
@@ -13,5 +13,8 @@ private:
     bool DrawCommand(const FRenderPassContext* Context) override;
     bool End(const FRenderPassContext* Context) override;
 
-    TComPtr<ID3D11Buffer> VisibleLightConstantBuffer;
+    bool EnsureResources(ID3D11Device* Device);
+
+    TComPtr<ID3D11VertexShader> VertexShader;
+    TComPtr<ID3D11PixelShader> PixelShader;
 };

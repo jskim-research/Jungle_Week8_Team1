@@ -15,6 +15,7 @@
 #include "EditorRenderPass.h"
 #include "DepthLessRenderPass.h"
 #include "PostProcessOutlineRenderPass.h"
+#include "HitMapRenderPass.h"
 #include "ToonOutlineRenderPass.h"
 #include "DepthPrepass.h"
 
@@ -72,6 +73,9 @@ bool FRenderPipeline::Initialize()
     PostProcessOutlineRenderPass = std::make_shared<FPostProcessOutlineRenderPass>();
     PostProcessOutlineRenderPass->Initialize();
 
+    HitMapRenderPass = std::make_shared<FHitMapRenderPass>();
+    HitMapRenderPass->Initialize();
+
 	ToonOutlineRenderPass = std::make_shared<FToonOutlineRenderPass>();
     ToonOutlineRenderPass->Initialize();
 
@@ -106,6 +110,7 @@ bool FRenderPipeline::Initialize()
     RenderPasses.push_back(EditorRenderPass);
     RenderPasses.push_back(DepthLessRenderPass);
     RenderPasses.push_back(PostProcessOutlineRenderPass);
+    RenderPasses.push_back(HitMapRenderPass);
 	
 
     return true;
@@ -234,5 +239,11 @@ void FRenderPipeline::Release()
     {
         PostProcessOutlineRenderPass->Release();
         PostProcessOutlineRenderPass.reset();
+    }
+
+    if (HitMapRenderPass)
+    {
+        HitMapRenderPass->Release();
+        HitMapRenderPass.reset();
     }
 }

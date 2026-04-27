@@ -21,24 +21,20 @@ bool FDepthPrepass::Release()
 
 bool FDepthPrepass::Begin(const FRenderPassContext* Context)
 {
-	bSkipDepthDraw = false;
+    bSkipDepthDraw = false;
 
-	//clear
-    ID3D11ShaderResourceView* NullSRVs[3] = {};
-    Context->DeviceContext->PSSetShaderResources(0, ARRAY_SIZE(NullSRVs), NullSRVs);
-
-	OutSRV = Context->RenderTargets->SceneColorSRV;
+    // Output pass-through for the pipeline
+    OutSRV = Context->RenderTargets->SceneColorSRV;
     OutRTV = Context->RenderTargets->SceneColorRTV;
 
-	const TArray<FRenderCommand>& Commands = Context->RenderBus->GetCommands(ERenderPass::Opaque);
-
-	if (Commands.empty())
+    const TArray<FRenderCommand>& Commands = Context->RenderBus->GetCommands(ERenderPass::Opaque);
+    if (Commands.empty())
     {
         bSkipDepthDraw = true;
         return true;
     }
 
-	UShader* DepthPassShader = FResourceManager::Get().GetShader("Shaders/DepthPrepass.hlsl");
+    UShader* DepthPassShader = FResourceManager::Get().GetShader("Shaders/DepthPrepass.hlsl");
     if (!DepthPassShader)
     {
         bSkipDepthDraw = true;
@@ -56,12 +52,34 @@ bool FDepthPrepass::Begin(const FRenderPassContext* Context)
         return true;
     }
 
-	ID3D11DepthStencilView* DSV = Context->RenderTargets->DepthStencilView;
-    Context->DeviceContext->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-    Context->DeviceContext->OMSetRenderTargets(0, nullptr, DSV);
-    DepthPassShader->Bind(Context->DeviceContext);
+    // Apply Frame Constants (View, Projection, etc.)
+    ShaderBinding->ApplyFrameParameters(*Context->RenderBus);
 
-	Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    // Clear depth/stencil
+    ID3D11DepthStencilView* DSV = Context->RenderTargets->DepthStencilView;
+    Context->DeviceContext->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+    
+    // Bind DSV and unbind RTVs for depth-only pass
+    Context->DeviceContext->OMSetRenderTargets(0, nullptr, DSV);
+
+    // Set States explicitly
+    ID3D11DepthStencilState* DSState = FResourceManager::Get().GetOrCreateDepthStencilState(EDepthStencilType::Default);
+    Context->DeviceContext->OMSetDepthStencilState(DSState, 0);
+
+    ID3D11RasterizerState* RSState = FResourceManager::Get().GetOrCreateRasterizerState(ERasterizerType::SolidBackCull);
+    Context->DeviceContext->RSSetState(RSState);
+
+    // Set default blend state (Opaque)
+    ID3D11BlendState* BlendState = FResourceManager::Get().GetOrCreateBlendState(EBlendType::Opaque);
+    Context->DeviceContext->OMSetBlendState(BlendState, nullptr, 0xFFFFFFFF);
+
+    // Unbind SRVs to avoid hazards if they were bound in previous passes
+    ID3D11ShaderResourceView* NullSRVs[8] = {};
+    Context->DeviceContext->PSSetShaderResources(0, 8, NullSRVs);
+    Context->DeviceContext->VSSetShaderResources(0, 8, NullSRVs);
+
+    DepthPassShader->Bind(Context->DeviceContext);
+    Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     return true;
 }
@@ -73,63 +91,59 @@ bool FDepthPrepass::DrawCommand(const FRenderPassContext* Context)
         return true;
     }
 
-	const TArray<FRenderCommand>& Commands = Context->RenderBus->GetCommands(ERenderPass::Opaque);
-    
-	if (Commands.empty())
+    const TArray<FRenderCommand>& Commands = Context->RenderBus->GetCommands(ERenderPass::Opaque);
+    if (Commands.empty())
     {
         return true;
     }
 
     for (const FRenderCommand& Cmd : Commands)
     {
-        if (Cmd.Type != ERenderCommandType::Primitive)
+        // Draw both generic primitives and static meshes that are in the opaque pass
+        if (Cmd.Type != ERenderCommandType::Primitive && Cmd.Type != ERenderCommandType::StaticMesh)
         {
             continue;
         }
 
         if (Cmd.MeshBuffer == nullptr || !Cmd.MeshBuffer->IsValid())
         {
-            return false;
+            continue;
         }
+
+        // Only surface materials should participate in scene depth prepass
+        if (Cmd.Material && Cmd.Material->GetEffectiveMaterialDomain() != EMaterialDomain::Surface)
+        {
+            continue;
+        }
+
+        // Update and bind per-object constants (Model matrix etc.)
+        ShaderBinding->ApplyPerObjectParameters(Cmd.PerObjectConstants);
+        ShaderBinding->Bind(Context->DeviceContext);
 
         uint32 offset = 0;
         ID3D11Buffer* vertexBuffer = Cmd.MeshBuffer->GetVertexBuffer().GetBuffer();
-        if (vertexBuffer == nullptr)
-        {
-            return false;
-        }
-
-        uint32 vertexCount = Cmd.MeshBuffer->GetVertexBuffer().GetVertexCount();
         uint32 stride = Cmd.MeshBuffer->GetVertexBuffer().GetStride();
-        if (vertexCount == 0 || stride == 0)
-        {
-            return false;
-        }
-
+        
+        Context->DeviceContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
 
         CheckOverrideViewMode(Context);
-
-        Context->DeviceContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
 
         ID3D11Buffer* indexBuffer = Cmd.MeshBuffer->GetIndexBuffer().GetBuffer();
         if (indexBuffer != nullptr)
         {
-            uint32 indexStart = Cmd.SectionIndexStart;
-            uint32 indexCount = Cmd.SectionIndexCount;
             Context->DeviceContext->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
-            Context->DeviceContext->DrawIndexed(indexCount, indexStart, 0);
+            Context->DeviceContext->DrawIndexed(Cmd.SectionIndexCount, Cmd.SectionIndexStart, 0);
         }
         else
         {
-            Context->DeviceContext->Draw(vertexCount, 0);
+            Context->DeviceContext->Draw(Cmd.MeshBuffer->GetVertexBuffer().GetVertexCount(), 0);
         }
     }
 
-
-	return true;
+    return true;
 }
 
 bool FDepthPrepass::End(const FRenderPassContext* Context)
 {
-    return false;
+    return true;
 }

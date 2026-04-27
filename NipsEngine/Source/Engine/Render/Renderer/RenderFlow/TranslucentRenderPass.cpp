@@ -2,16 +2,19 @@
 #include "Render/Scene/RenderBus.h"
 #include "Render/Resource/RenderResources.h"
 #include "Render/Resource/Material.h"
+#include "SceneLightBinding.h"
 
 namespace
 {
-    bool DrawMeshCommandsForPass(const FRenderPassContext* Context, ERenderPass Pass)
+    bool DrawMeshCommandsForPass(const FRenderPassContext* Context, ERenderPass Pass, TComPtr<ID3D11Buffer>& VisibleLightConstantBuffer)
     {
         const TArray<FRenderCommand>& Commands = Context->RenderBus->GetCommands(Pass);
         if (Commands.empty())
         {
             return true;
         }
+
+        SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
 
         for (const FRenderCommand& Cmd : Commands)
         {
@@ -39,6 +42,8 @@ namespace
                 Cmd.Material->Bind(Context->DeviceContext, Context->RenderBus, &Cmd.PerObjectConstants);
             }
 
+            SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
+
             Context->DeviceContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
 
             ID3D11Buffer* indexBuffer = Cmd.MeshBuffer->GetIndexBuffer().GetBuffer();
@@ -64,6 +69,7 @@ bool FTranslucentRenderPass::Initialize()
 
 bool FTranslucentRenderPass::Release()
 {
+    VisibleLightConstantBuffer.Reset();
     return true;
 }
 
@@ -82,10 +88,11 @@ bool FTranslucentRenderPass::Begin(const FRenderPassContext* Context)
 
 bool FTranslucentRenderPass::DrawCommand(const FRenderPassContext* Context)
 {
-    return DrawMeshCommandsForPass(Context, ERenderPass::Translucent);
+    return DrawMeshCommandsForPass(Context, ERenderPass::Translucent, VisibleLightConstantBuffer);
 }
 
 bool FTranslucentRenderPass::End(const FRenderPassContext* Context)
 {
+    SceneLightBinding::UnbindResources(Context ? Context->DeviceContext : nullptr);
     return true;
 }

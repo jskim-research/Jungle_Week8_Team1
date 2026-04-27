@@ -6,6 +6,7 @@
 #include "UI/EditorConsoleWidget.h"
 #include <cmath>
 #include <algorithm>
+#include "Editor/Settings/EditorSettings.h"
 
 namespace
 {
@@ -149,13 +150,17 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     const FVector& CameraPos = Context->RenderBus->GetCameraPosition();
 
     // 거리 포함한 임시 구조체로 max-heap 구성 (가장 먼 것이 top)
-    using FLightWithDist = TPair<float, FLightCullingLight>;
-    TArray<FLightWithDist> Heap;
-    Heap.reserve(MaxLocalLightNum + 1);
+    using FLightWithScore = TPair<float, FLightCullingLight>;
+    TArray<FLightWithScore> PointHeap;
+    TArray<FLightWithScore> SpotHeap;
+    
+    constexpr uint32 MaxTypeLightNum = 256;
+    PointHeap.reserve(MaxTypeLightNum + 1);
+    SpotHeap.reserve(MaxTypeLightNum + 1);
 
-    auto HeapCmp = [](const FLightWithDist& A, const FLightWithDist& B)
+    auto HeapCmp = [](const FLightWithScore& A, const FLightWithScore& B)
     {
-        return A.first < B.first; // max-heap: 거리 큰 게 top
+        return A.first > B.first; // min-heap based on score: smallest score is top for removal
     };
 
     for (const FRenderLight& Light : SceneLights)
@@ -175,24 +180,43 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
         CullingLight.SpotOuterCos = Light.SpotOuterCos;
         CullingLight.Direction = Light.Direction;
 
-        float Dist = FVector::DistSquared(CameraPos, Light.Position);
+        float DistSq = FVector::DistSquared(CameraPos, Light.Position);
+        // Score = Intensity / max(1.0, DistSq) - simple importance score
+        float Score = Light.Intensity / std::max(1.0f, DistSq);
 
-        Heap.push_back({ Dist, CullingLight });
-        std::push_heap(Heap.begin(), Heap.end(), HeapCmp);
-
-        // MaxLocalLightNum 초과 시 가장 먼 것(top) 제거
-        if (Heap.size() > MaxLocalLightNum)
+        if (Light.Type == (uint32)ELightType::LightType_Point)
         {
-            std::pop_heap(Heap.begin(), Heap.end(), HeapCmp);
-            Heap.pop_back();
+            PointHeap.push_back({ Score, CullingLight });
+            std::push_heap(PointHeap.begin(), PointHeap.end(), HeapCmp);
+
+            if (PointHeap.size() > MaxTypeLightNum)
+            {
+                std::pop_heap(PointHeap.begin(), PointHeap.end(), HeapCmp);
+                PointHeap.pop_back();
+            }
+        }
+        else if (Light.Type == (uint32)ELightType::LightType_Spot)
+        {
+            SpotHeap.push_back({ Score, CullingLight });
+            std::push_heap(SpotHeap.begin(), SpotHeap.end(), HeapCmp);
+
+            if (SpotHeap.size() > MaxTypeLightNum)
+            {
+                std::pop_heap(SpotHeap.begin(), SpotHeap.end(), HeapCmp);
+                SpotHeap.pop_back();
+            }
         }
     }
 
-    CullingLights.reserve(MaxLocalLightNum + 1);
-	for (FLightWithDist& Entry : Heap)
+    CullingLights.reserve(PointHeap.size() + SpotHeap.size());
+	for (FLightWithScore& Entry : PointHeap)
 	{
         CullingLights.push_back(std::move(Entry.second));
 	}
+    for (FLightWithScore& Entry : SpotHeap)
+    {
+        CullingLights.push_back(std::move(Entry.second));
+    }
 
     const uint32 LightCount = static_cast<uint32>(CullingLights.size());
 
@@ -222,23 +246,29 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     Constants.ViewportWidth = Width;
     Constants.ViewportHeight = Height;
     Constants.IsOrthographic = Context->RenderBus->IsOrthographic() ? 1 : 0;
-    Constants.Enable25DCulling = true;
+
+    const FEditorSettings& Settings = FEditorSettings::Get();
+    Constants.Enable25DCulling = 1; // Always enable 2.5D logic if needed
+    if (Settings.bShowLightHitMap)
+    {
+        Constants.Enable25DCulling |= 2; // Bit 1 for HitMap rendering
+    }
+
 	if (Constants.IsOrthographic)
 	{
-        float A = Constants.Projection[2][2];
+        float A = Constants.Projection[0][2];
         float B = Constants.Projection[3][2];
 
-        Constants.FarZ = -B / A;
-        Constants.NearZ = B / (1.0f - A);
-
+        Constants.NearZ = -B / A;
+        Constants.FarZ = (1.0f - B) / A;
 	}
     else
     {
-        float A = Constants.Projection[2][2];
+        float A = Constants.Projection[0][2];
         float B = Constants.Projection[3][2];
 
-        Constants.FarZ = -B / A;
-        Constants.NearZ = (1.0f - B) / A;
+        Constants.NearZ = -B / A;
+        Constants.FarZ = -B / (A - 1.0f);
 	}
 
     D3D11_MAPPED_SUBRESOURCE MappedCB = {};
@@ -283,6 +313,8 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     GLightCullingOutputs.LightBufferSRV = (LightCount > 0) ? LightBufferSRV.Get() : nullptr;
     GLightCullingOutputs.TileLightCountSRV = TileLightCountSRV.Get();
     GLightCullingOutputs.TileLightIndexSRV = TileLightIndexSRV.Get();
+    GLightCullingOutputs.HitMapSRV = DebugHitMapSRV.Get();
+    GLightCullingOutputs.PerTileLightMaskSRV = PerTilePointLightIndexMaskSRV.Get();
     GLightCullingOutputs.TileCountX = TileCountX;
     GLightCullingOutputs.TileCountY = TileCountY;
     GLightCullingOutputs.TileSize = LightCullingTileSize;

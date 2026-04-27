@@ -7,6 +7,8 @@ struct FLightCullingOutputs
     ID3D11ShaderResourceView* LightBufferSRV = nullptr;
     ID3D11ShaderResourceView* TileLightCountSRV = nullptr;
     ID3D11ShaderResourceView* TileLightIndexSRV = nullptr;
+    ID3D11ShaderResourceView* HitMapSRV = nullptr;
+    ID3D11ShaderResourceView* PerTileLightMaskSRV = nullptr;
     uint32 TileCountX = 0;
     uint32 TileCountY = 0;
     uint32 TileSize = 0;

@@ -34,6 +34,12 @@ public:
 	float GridSpacing = 1.0f;
 	int32 GridHalfLineCount = 100;
 
+	// Light
+	bool bShowPointLightDebugLine = false;
+	bool bShowSpotLightDebugLine = false;
+	bool bShowDirectionalLightDebugLine = true;
+	bool bShowLightHitMap = false;
+
 	// Camera Sensitivity
 	float CameraMoveSensitivity = 1.0f;
 	float CameraRotateSensitivity = 1.0f;

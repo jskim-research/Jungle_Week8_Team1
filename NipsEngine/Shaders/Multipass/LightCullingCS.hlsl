@@ -28,7 +28,7 @@ cbuffer LightCullingConstants : register(b0)
     float ViewportWidth;
     float ViewportHeight;
     uint IsOrthographic;
-    uint Enable25DCulling;
+    uint Enable25DCulling; // Bit 0: Enable 2.5D Culling, Bit 1: Render HitMap
     float NearZ;
     float FarZ;
     float2 Padding;
@@ -99,18 +99,20 @@ void mainCS(
     // --------------------------------------------------------
     // 2. Depth Sampling & MinZ/MaxZ 수집
     // --------------------------------------------------------
-    float depthSample = 1.0;
+    float depthSample = 1.0f;
     float linearZ = FarZ;
     
+    bool bDo25D = (Enable25DCulling & 1) != 0;
     
-    if (Enable25DCulling != 0 && all(pixel < float2(ViewportWidth, ViewportHeight)))
+    // Fix: Explicit float2 comparison and unsigned cast
+    if (bDo25D && (pixel.x < (uint)ViewportWidth) && (pixel.y < (uint)ViewportHeight))
     {
         depthSample = SceneDepth[pixel];
-        if (depthSample < 1.0)
+        if (depthSample < 1.0f)
         {
             // 비선형 depth → View Space 선형 거리
-// Reverse-Z 환경에서의 올바른 View Space Linear Z 변환
-            linearZ = (NearZ * FarZ) / (NearZ + depthSample * (FarZ - NearZ));
+            // Standard Depth (Near=0, Far=1) 환경에서의 View Space Linear X 변환
+            linearZ = (NearZ * FarZ) / (FarZ - depthSample * (FarZ - NearZ));
             InterlockedMin(groupMinZ, asuint(linearZ));
             InterlockedMax(groupMaxZ, asuint(linearZ));
         }
@@ -120,15 +122,15 @@ void mainCS(
     float minZ = NearZ;
     float maxZ = FarZ;
     
-    if (Enable25DCulling != 0 && groupMaxZ > groupMinZ)
+    if (bDo25D && groupMaxZ > groupMinZ)
     {
         minZ = asfloat(groupMinZ);
         maxZ = asfloat(groupMaxZ);
     }
-    if (Enable25DCulling != 0 && depthSample < 1.0)
+    if (bDo25D && depthSample < 1.0f)
     {
         float rangeZ = maxZ - minZ;
-        if (rangeZ < 1e-3)
+        if (rangeZ < 1e-3f)
         {
             // 깊이 분포가 너무 좁으면 전체 범위로 확장 (Dithering 방지)
             minZ = NearZ;
@@ -146,16 +148,8 @@ void mainCS(
     //    각 스레드가 라이트 1개씩 로드 → 256개씩 처리
     // -------------------------------------------------------
 
-    float2 tileMin = float2(tileCoord * TileSize);
-    float2 tileMax = tileMin + float2(TileSize);
-    
-    // HLSL의 float4x4 생성자는 행(Row) 단위로 값을 채워 넣습니다.
-    float4x4 InverseProjection = float4x4(
-    1.0f / Projection._11, 0.0f, 0.0f, 0.0f,
-    0.0f, 1.0f / Projection._22, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 1.0f / Projection._43,
-    0.0f, 0.0f, 1.0f, -Projection._33 / Projection._43
-    );
+    float2 tMin = float2(tileCoord.x * TileSize, tileCoord.y * TileSize);
+    float2 tMax = tMin + float2((float)TileSize, (float)TileSize);
     
     const uint BatchSize = THREADS_PER_TILE; // 256
 
@@ -170,7 +164,7 @@ void mainCS(
         }
         else
         {
-            gs_LightPosRadius[GroupIndex] = float4(0, 0, 0, -1); // 더미 (Radius<0 → 컬링)
+            gs_LightPosRadius[GroupIndex] = float4(0.0f, 0.0f, 0.0f, -1.0f); // 더미 (Radius<0 → 컬링)
         }
         GroupMemoryBarrierWithGroupSync();
 
@@ -186,7 +180,7 @@ void mainCS(
             const uint GlobalIdx = BatchStart + LightInBatch;
 
             const float4 ViewPosition = mul(float4(WorldPos, 1.0f), View);
-            const float EyeDepth = ViewPosition.x;  //??????????????
+            const float EyeDepth = ViewPosition.x;
             
             if (EyeDepth + Radius <= 1e-4f)
             {
@@ -200,6 +194,12 @@ void mainCS(
                 InterlockedAdd(gs_VisibleLightCount, 1, Slot);
                 if (Slot < LIGHT_CULLING_MAX_LIGHTS_PER_TILE)
                     gs_VisibleLightIndices[Slot] = GlobalIdx;
+                
+                uint Bucket = GlobalIdx / 32;
+                uint Bit = GlobalIdx % 32;
+                InterlockedOr(gs_TileLightMask[Bucket], 1u << Bit);
+                
+                InterlockedAdd(hitCount, 1);
             }
             else
             {
@@ -212,25 +212,25 @@ void mainCS(
                         (-Ndc.y * 0.5f + 0.5f) * ViewportHeight);
 
                     // Orthographic 일 때 Radius 크기 조정 필요 X
-                    const float EffectiveDepth = IsOrthographic ? 1 : max(EyeDepth - Radius, 1e-4f);
+                    const float EffectiveDepth = (IsOrthographic != 0) ? 1.0f : max(EyeDepth - Radius, 1e-4f);
                     const float YScale = Projection[2][1];
                     const float ProjectedRadius = (Radius / EffectiveDepth) * YScale * (ViewportHeight * 0.5f);
                     
                     if (ProjectedRadius > 0.0f)
                     {
-                        const float2 Closest = clamp(ScreenPos, TileMin, TileMax);
+                        const float2 Closest = clamp(ScreenPos, tMin, tMax);
                         const float2 Delta = ScreenPos - Closest;
                         const bool bIntersects = dot(Delta, Delta) <= (ProjectedRadius * ProjectedRadius);
                         
                         if (bIntersects)
                         {
-                            bool bLightAffectTile;
+                            bool bLightAffectTile = true;
                         // ============================================================
                         // 2.5D Depth Masking
                         // ============================================================
                         
                         // 조명(구)의 깊이 구간이 타일 오브젝트 깊이 마스크와 겹치는지 판정        
-                            if (Enable25DCulling != 0)
+                            if (bDo25D)
                             {
                                 if (tileDepthMask == 0)
                                 {
@@ -249,7 +249,7 @@ void mainCS(
                                     else
                                     {
                                 
-                                        float rangeZ = max(1e-5, maxZ - minZ);
+                                        float rangeZ = max(1e-5f, maxZ - minZ);
                                         float normMin = saturate((s_minDepth - minZ) / rangeZ);
                                         float normMax = saturate((s_maxDepth - minZ) / rangeZ);
 
@@ -279,6 +279,8 @@ void mainCS(
                                 uint Bucket = GlobalIdx / 32;
                                 uint Bit = GlobalIdx % 32;
                                 InterlockedOr(gs_TileLightMask[Bucket], 1u << Bit);
+                                
+                                InterlockedAdd(hitCount, 1);
                             }
                         }
                     }
@@ -296,10 +298,10 @@ void mainCS(
 
     if (GroupIndex == 0)
     {
-        TileVisibleLightCount[TileIndex] = min(gs_VisibleLightCount, LIGHT_CULLING_MAX_LIGHTS_PER_TILE);
+        TileVisibleLightCount[TileIndex] = min(gs_VisibleLightCount, (uint)LIGHT_CULLING_MAX_LIGHTS_PER_TILE);
     }
 
-    const uint FinalCount = min(gs_VisibleLightCount, LIGHT_CULLING_MAX_LIGHTS_PER_TILE);
+    const uint FinalCount = min(gs_VisibleLightCount, (uint)LIGHT_CULLING_MAX_LIGHTS_PER_TILE);
     for (uint WriteIdx = GroupIndex; WriteIdx < FinalCount; WriteIdx += BatchSize)
     {
         TileVisibleLightIndices[TileStartOffset + WriteIdx] = gs_VisibleLightIndices[WriteIdx];
@@ -310,5 +312,19 @@ void mainCS(
     {
         uint MaskIndex = TileIndex * BucketsPerTile + GroupIndex;
         PerTilePointLightIndexMaskOut[MaskIndex] = gs_TileLightMask[GroupIndex];
+    }
+    
+    // HitMap Rendering (Bit 1)
+    if ((Enable25DCulling & 2) != 0)
+    {
+        float ratio = (float)hitCount / 16.0f; // 16개 이상이면 빨강
+        float3 color = lerp(float3(0.0f, 0.1f, 0.0f), float3(1.0f, 0.0f, 0.0f), saturate(ratio));
+        if (hitCount == 0) color = float3(0.0f, 0.0f, 0.0f);
+        
+        DebugHitMap[pixel] = float4(color, 0.5f);
+    }
+    else
+    {
+        DebugHitMap[pixel] = float4(0.0f, 0.0f, 0.0f, 0.0f);
     }
 }

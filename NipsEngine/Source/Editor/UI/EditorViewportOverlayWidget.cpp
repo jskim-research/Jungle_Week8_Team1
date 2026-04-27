@@ -138,6 +138,15 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
 
     ImGui::Separator();
 
+    // Light Settings
+    ImGui::Text("Light");
+    ImGui::Checkbox("Point Light Debug", &Settings.bShowPointLightDebugLine);
+    ImGui::Checkbox("Spot Light Debug", &Settings.bShowSpotLightDebugLine);
+    ImGui::Checkbox("Directional Light Debug", &Settings.bShowDirectionalLightDebugLine);
+    ImGui::Checkbox("Light HitMap", &Settings.bShowLightHitMap);
+
+    ImGui::Separator();
+
     // Grid Settings
     ImGui::Text("Grid");
     ImGui::SetNextItemWidth(ItemWidth);

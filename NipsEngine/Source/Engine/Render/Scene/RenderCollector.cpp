@@ -25,6 +25,7 @@
 #include "Math/Utils.h"
 #include "Object/ObjectIterator.h"
 #include "Runtime/Stats/ScopeCycleCounter.h"
+#include "Editor/Settings/EditorSettings.h"
 #include <algorithm>
 #include <unordered_set>
 
@@ -267,6 +268,7 @@ void FRenderCollector::ResetDecalStats()
 void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const FFrustum* ViewFrustum)
 {
     const TArray<FLightSlot>& LightSlots = World->GetWorldLightSlots();
+    const FEditorSettings& Settings = FEditorSettings::Get();
 
 	for (const FLightSlot& Slot : LightSlots)
 	{
@@ -300,12 +302,15 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 			RenderBus.AddLight(RenderLight);
 
 			// TODO: PIE에서도 화살표를 보여주고 있음.. PIE 월드를 감지할 필요가 있다.
-            LineBatcher->AddDirectionalLight(
-                LightComponent->GetWorldLocation(),
-                RenderLight.Direction * -1.0f,
-                LightComponent->GetRightVector(),
-				LightComponent->GetLightColor().ToVector4()
-			);
+            if (Settings.bShowDirectionalLightDebugLine)
+            {
+                LineBatcher->AddDirectionalLight(
+                    LightComponent->GetWorldLocation(),
+                    RenderLight.Direction * -1.0f,
+                    LightComponent->GetRightVector(),
+				    LightComponent->GetLightColor().ToVector4()
+			    );
+            }
             break;
 		}
 
@@ -317,6 +322,15 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 				continue;
 			}
 			
+            if (Settings.bShowPointLightDebugLine)
+            {
+                LineBatcher->AddPointLight(
+                    PointLight->GetWorldLocation(),
+                    PointLight->GetAttenuationRadius(),
+                    PointLight->GetRightVector(),
+                    PointLight->GetUpVector());
+            }
+
 			// View Frustum에 대한 Bounding Sphere 교차 검사
 			if (ViewFrustum)
 			{
@@ -348,6 +362,17 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 			// -z 축을 forward로 사용
 			FVector LightDirection = SpotLight->GetUpVector() * -1.0f;
 			LightDirection.Normalize();
+
+            if (Settings.bShowSpotLightDebugLine)
+            {
+                LineBatcher->AddSpotLight(
+                    SpotLight->GetWorldLocation(),
+                    LightDirection,
+                    SpotLight->GetRightVector() * -1.0f,
+                    SpotLight->GetAttenuationRadius(),
+                    SpotLight->GetInnerConeAngle(),
+                    SpotLight->GetOuterConeAngle());
+            }
 
 			// 원뿔 각도에 따라 줄어든 Bounding Sphere 교차 검사
 			if (ViewFrustum)

@@ -40,6 +40,13 @@ namespace EditorKey
 	constexpr const char* FXAAEnabled = "FXAAEnabled";
 	constexpr const char* FXAAThreshold = "FXAAThreshold"; // Backward compatibility
 
+	// Light
+	constexpr const char* Light = "Light";
+	constexpr const char* bShowPointLightDebugLine = "bShowPointLightDebugLine";
+	constexpr const char* bShowSpotLightDebugLine = "bShowSpotLightDebugLine";
+	constexpr const char* bShowDirectionalLightDebugLine = "bShowDirectionalLightDebugLine";
+	constexpr const char* bShowLightHitMap = "bShowLightHitMap";
+
 	// Grid
 	constexpr const char* Grid = "Grid";
 	constexpr const char* GridSpacing = "GridSpacing";
@@ -97,6 +104,14 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 	ViewObj[EditorKey::bBVHBoundingVolume] = ShowFlags.bBVHBoundingVolume;
 	ViewObj[EditorKey::FXAAEnabled] = bEnableFXAA;
 	Root[EditorKey::View] = ViewObj;
+
+	// Light
+	JSON LightObj = Object();
+	LightObj[EditorKey::bShowPointLightDebugLine] = bShowPointLightDebugLine;
+	LightObj[EditorKey::bShowSpotLightDebugLine] = bShowSpotLightDebugLine;
+	LightObj[EditorKey::bShowDirectionalLightDebugLine] = bShowDirectionalLightDebugLine;
+	LightObj[EditorKey::bShowLightHitMap] = bShowLightHitMap;
+	Root[EditorKey::Light] = LightObj;
 
 	// Grid
 	JSON GridObj = Object();
@@ -232,6 +247,34 @@ void FEditorSettings::LoadFromFile(const FString& Path)
 			const float LegacyThreshold = std::clamp(static_cast<float>(ViewObj[EditorKey::FXAAThreshold].ToFloat()), 0.0f, 1.0f);
 			bEnableFXAA = (LegacyThreshold > 0.0f);
 		}
+	}
+
+	// Light
+	if (Root.hasKey(EditorKey::Light))
+	{
+		JSON LightObj = Root[EditorKey::Light];
+        
+        bool bLegacyShowDebugLine = false;
+        if (LightObj.hasKey("bShowLightDebugLine"))
+            bLegacyShowDebugLine = LightObj["bShowLightDebugLine"].ToBool();
+
+		if (LightObj.hasKey(EditorKey::bShowPointLightDebugLine))
+			bShowPointLightDebugLine = LightObj[EditorKey::bShowPointLightDebugLine].ToBool();
+        else
+            bShowPointLightDebugLine = bLegacyShowDebugLine;
+
+		if (LightObj.hasKey(EditorKey::bShowSpotLightDebugLine))
+			bShowSpotLightDebugLine = LightObj[EditorKey::bShowSpotLightDebugLine].ToBool();
+        else
+            bShowSpotLightDebugLine = bLegacyShowDebugLine;
+
+		if (LightObj.hasKey(EditorKey::bShowDirectionalLightDebugLine))
+			bShowDirectionalLightDebugLine = LightObj[EditorKey::bShowDirectionalLightDebugLine].ToBool();
+        else
+            bShowDirectionalLightDebugLine = bLegacyShowDebugLine;
+
+		if (LightObj.hasKey(EditorKey::bShowLightHitMap))
+			bShowLightHitMap = LightObj[EditorKey::bShowLightHitMap].ToBool();
 	}
 
 	// Grid

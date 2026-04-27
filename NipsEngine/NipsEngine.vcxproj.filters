@@ -216,6 +216,9 @@
     <FxCompile Include="Shaders\Multipass\LightCullingCS.hlsl">
       <Filter>Shaders\Multipass</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Multipass\HitMapPass.hlsl">
+      <Filter>Shaders\Multipass</Filter>
+    </FxCompile>
     <FxCompile Include="Shaders\Multipass\SkyPass.hlsl">
       <Filter>Shaders\Multipass</Filter>
     </FxCompile>
@@ -534,6 +537,9 @@
       <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\PostProcessOutlineRenderPass.cpp">
+      <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\HitMapRenderPass.cpp">
       <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\RenderPass.cpp">
@@ -1134,6 +1140,9 @@
       <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\PostProcessOutlineRenderPass.h">
+      <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\HitMapRenderPass.h">
       <Filter>Source\Engine\Render\Renderer\RenderFlow</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\RenderPass.h">
