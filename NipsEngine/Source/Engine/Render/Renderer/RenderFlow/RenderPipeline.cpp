@@ -84,25 +84,25 @@ bool FRenderPipeline::Initialize()
 	//  */
 	RenderPasses.push_back(ShadowPass);
 
-	RenderPasses.push_back(LightCullingPass);
-	RenderPasses.push_back(SkyRenderPass);
-	RenderPasses.push_back(ToonOutlineRenderPass);
-	RenderPasses.push_back(OpaqueRenderPass);
-	RenderPasses.push_back(DecalRenderPass);
-	// SceneColor를 만든 뒤 fog/fxaa 전에 덮어쓸 수 있는 view mode 확장 지점이다.
-	RenderPasses.push_back(BufferVisualizationRenderPass);
+	//RenderPasses.push_back(LightCullingPass);
+	//RenderPasses.push_back(SkyRenderPass);
+	//RenderPasses.push_back(ToonOutlineRenderPass);
+	//RenderPasses.push_back(OpaqueRenderPass);
+	//RenderPasses.push_back(DecalRenderPass);
+	//// SceneColor를 만든 뒤 fog/fxaa 전에 덮어쓸 수 있는 view mode 확장 지점이다.
+	//RenderPasses.push_back(BufferVisualizationRenderPass);
 
-	RenderPasses.push_back(FogRenderPass);
-	RenderPasses.push_back(FXAARenderPass); 
-	RenderPasses.push_back(FontRenderPass);
-	RenderPasses.push_back(SubUVRenderPass);
-	RenderPasses.push_back(BillboardRenderPass);
-	RenderPasses.push_back(TranslucentRenderPass);
-	RenderPasses.push_back(SelectionMaskRenderPass);
-	RenderPasses.push_back(GridRenderPass);
-	RenderPasses.push_back(EditorRenderPass);
-	RenderPasses.push_back(DepthLessRenderPass);
-	RenderPasses.push_back(PostProcessOutlineRenderPass);
+	//RenderPasses.push_back(FogRenderPass);
+	//RenderPasses.push_back(FXAARenderPass); 
+	//RenderPasses.push_back(FontRenderPass);
+	//RenderPasses.push_back(SubUVRenderPass);
+	//RenderPasses.push_back(BillboardRenderPass);
+	//RenderPasses.push_back(TranslucentRenderPass);
+	//RenderPasses.push_back(SelectionMaskRenderPass);
+	//RenderPasses.push_back(GridRenderPass);
+	//RenderPasses.push_back(EditorRenderPass);
+	//RenderPasses.push_back(DepthLessRenderPass);
+	//RenderPasses.push_back(PostProcessOutlineRenderPass);
 	
 	return true;
 }

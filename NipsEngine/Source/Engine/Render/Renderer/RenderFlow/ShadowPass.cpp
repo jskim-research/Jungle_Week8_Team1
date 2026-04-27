@@ -362,46 +362,49 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 		break;
 
 	case ELightType::LightType_Point:
-		for (uint32 i = 0; i < 6; i++)
-		{
-			static FVector CubeDirs[6] = {
-				FVector::UpVector,
-				-FVector::UpVector,
-				FVector::ForwardVector,
-				-FVector::ForwardVector,
-				FVector::RightVector,
-				-FVector::RightVector
-			};
+	{
+        static FVector CubeDirs[6] = {
+            FVector::UpVector,
+            -FVector::UpVector,
+            FVector::ForwardVector,
+            -FVector::ForwardVector,
+            FVector::RightVector,
+            -FVector::RightVector
+        };
 
-			FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
-			FShadowViewInfo ViewInfo;
+        for (uint32 i = 0; i < 6; i++)
+        {
+            FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
+            FShadowViewInfo ViewInfo;
 
-			FVector LightDir = CubeDirs[i];
+            FVector LightDir = CubeDirs[i];
 
-			FVector Eye = Light.Position;
-			FVector Target = Eye + LightDir;
+            FVector Eye = Light.Position;
+            FVector Target = Eye + LightDir;
 
-			FVector Up = FVector(0, 0, 1);
-			if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
-			{
-				Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
-			}
+            FVector Up = FVector(0, 0, 1);
+            if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
+            {
+                Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
+            }
 
-			ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
-			ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
+            ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
+            ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
 
-			float FovRad = (90.0f * (3.141592f / 180.0f));          // 전체 FOV
+            float FovRad = (90.0f * (3.141592f / 180.0f)); // 전체 FOV
 
-			ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
-				FovRad,
-				1.0f,        // 정사각형 섀도우 맵
-				1.0f,        // Near
-				Light.Radius // Far = 라이트 반경
-			);
+            ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
+                FovRad,
+                1.0f,        // 정사각형 섀도우 맵
+                1.0f,        // Near
+                Light.Radius // Far = 라이트 반경
+            );
 
-			OutViewInfoArray.push_back(ViewInfo);
-		}
+            OutViewInfoArray.push_back(ViewInfo);
+        }
 		break;
+	}
+        
 	default:
 		return false;
 	}
