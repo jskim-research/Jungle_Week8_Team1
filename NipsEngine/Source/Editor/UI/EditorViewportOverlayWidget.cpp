@@ -140,7 +140,14 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
 		ImGui::Checkbox("Enable LOD", &Settings.ShowFlags.bEnableLOD);
 		ImGui::Checkbox("Decals", &Settings.ShowFlags.bDecals);
 		ImGui::Checkbox("Fog", &Settings.ShowFlags.bFog);
-		ImGui::Checkbox("Light Hitmap", &Settings.ShowFlags.bShowLightHitmapOverlay);
+	}
+
+	if (BeginSettingsSection("Light", false))
+	{
+		ImGui::Checkbox("Directional Light Debug", &Settings.ShowFlags.bDirectionalLightDebug);
+		ImGui::Checkbox("Point Light Debug", &Settings.ShowFlags.bPointLightDebug);
+		ImGui::Checkbox("Spot Light Debug", &Settings.ShowFlags.bSpotLightDebug);
+		ImGui::Checkbox("Light Hitmap Overlay", &Settings.ShowFlags.bShowLightHitmapOverlay);
 	}
 
 	// Camera Sensitivity

@@ -16,4 +16,5 @@ private:
 
 private:
     UShader* HitMapShader = nullptr;
+    bool bSkipHitMapDraw = false;
 };

@@ -74,10 +74,10 @@ FTileFrustum BuildTileFrustum(uint2 tilePixelMin, uint2 tilePixelMax)
     float3 pBR = SafeNormalize(ReconstructViewPosition(uint2(tilePixelMax.x, tilePixelMax.y), 1.0f));
 
     // Plane normals pointing INSIDE
-    frustum.LeftNormal   = SafeNormalize(cross(pBL, pTL));
-    frustum.RightNormal  = SafeNormalize(cross(pTR, pBR));
-    frustum.TopNormal    = SafeNormalize(cross(pTL, pTR));
-    frustum.BottomNormal = SafeNormalize(cross(pBR, pBL));
+    frustum.LeftNormal   = SafeNormalize(cross(pTL, pBL));
+    frustum.RightNormal  = SafeNormalize(cross(pBR, pTR));
+    frustum.TopNormal    = SafeNormalize(cross(pTR, pTL));
+    frustum.BottomNormal = SafeNormalize(cross(pBL, pBR));
     return frustum;
 }
 
@@ -87,7 +87,7 @@ uint BuildDepthSliceMask(float minZ, float maxZ, float tileMinZ, float tileMaxZ)
     float clampedMax = min(maxZ, tileMaxZ);
     if (clampedMax < clampedMin) return 0u;
     float extent = tileMaxZ - tileMinZ;
-    if (extent <= kEpsilon) return 0xFFFFFFFF;
+    if (extent <= kEpsilon) return 1u;
 
     float nMin = saturate((clampedMin - tileMinZ) / extent);
     float nMax = saturate((clampedMax - tileMinZ) / extent);
@@ -98,12 +98,99 @@ uint BuildDepthSliceMask(float minZ, float maxZ, float tileMinZ, float tileMaxZ)
     return mask;
 }
 
+bool SphereIntersectsTileFrustum(float3 centerVS, float radius, FTileFrustum frustum, float tileMinDepth, float tileMaxDepth)
+{
+    float centerDepth = GetViewDepth(centerVS);
+    if (centerDepth + radius < tileMinDepth) return false;
+    if (centerDepth - radius > tileMaxDepth) return false;
+    if (dot(frustum.LeftNormal, centerVS) < -radius) return false;
+    if (dot(frustum.RightNormal, centerVS) < -radius) return false;
+    if (dot(frustum.TopNormal, centerVS) < -radius) return false;
+    if (dot(frustum.BottomNormal, centerVS) < -radius) return false;
+    return true;
+}
+
+bool SpherePasses25DMask(float3 centerVS, float radius, float tileMinDepth, float tileMaxDepth, uint tileDepthMask)
+{
+    float centerDepth = GetViewDepth(centerVS);
+    uint lightMask = BuildDepthSliceMask(centerDepth - radius, centerDepth + radius, tileMinDepth, tileMaxDepth);
+    if (lightMask == 0u) return false;
+    if (tileDepthMask == 0u) return true;
+    return (lightMask & tileDepthMask) != 0u;
+}
+
+FSpotConeBounds BuildSpotConeBounds(FSpotLightInfo light)
+{
+    FSpotConeBounds bounds;
+
+    bounds.ApexVS = mul(float4(light.Position, 1.0f), View).xyz;
+    bounds.Height = max(light.Radius, kEpsilon);
+    bounds.AxisVS = SafeNormalize(mul(float4(light.Direction, 0.0f), View).xyz);
+
+    float cosTheta = clamp(light.OuterConeCos, 0.001f, 0.9999f);
+    float sinTheta = sqrt(saturate(1.0f - cosTheta * cosTheta));
+    bounds.BaseRadius = bounds.Height * (sinTheta / cosTheta);
+    bounds.BaseCenterVS = bounds.ApexVS + bounds.AxisVS * bounds.Height;
+
+    if (bounds.BaseRadius <= bounds.Height)
+    {
+        bounds.BroadPhaseRadius =
+            (bounds.Height * bounds.Height + bounds.BaseRadius * bounds.BaseRadius) / (2.0f * bounds.Height);
+        bounds.BroadPhaseCenterVS = bounds.ApexVS + bounds.AxisVS * bounds.BroadPhaseRadius;
+    }
+    else
+    {
+        bounds.BroadPhaseRadius = bounds.BaseRadius;
+        bounds.BroadPhaseCenterVS = bounds.BaseCenterVS;
+    }
+
+    bounds.Padding = 0.0f;
+    return bounds;
+}
+
+float ComputeConePlaneMaxDistance(FSpotConeBounds bounds, float3 planeNormal, float planeOffset)
+{
+    float apexDistance = dot(planeNormal, bounds.ApexVS) + planeOffset;
+
+    float axisDot = dot(planeNormal, bounds.AxisVS);
+    float radialProjection = sqrt(saturate(1.0f - axisDot * axisDot));
+    float baseDistance = dot(planeNormal, bounds.BaseCenterVS) + planeOffset;
+    float baseSupport = baseDistance + bounds.BaseRadius * radialProjection;
+
+    return max(apexDistance, baseSupport);
+}
+
+bool ConeIntersectsTileFrustum(FSpotConeBounds bounds, FTileFrustum frustum, float tileMinDepth, float tileMaxDepth)
+{
+    if (ComputeConePlaneMaxDistance(bounds, frustum.LeftNormal, 0.0f) < 0.0f) return false;
+    if (ComputeConePlaneMaxDistance(bounds, frustum.RightNormal, 0.0f) < 0.0f) return false;
+    if (ComputeConePlaneMaxDistance(bounds, frustum.TopNormal, 0.0f) < 0.0f) return false;
+    if (ComputeConePlaneMaxDistance(bounds, frustum.BottomNormal, 0.0f) < 0.0f) return false;
+    if (ComputeConePlaneMaxDistance(bounds, float3(1.0f, 0.0f, 0.0f), -tileMinDepth) < 0.0f) return false;
+    if (ComputeConePlaneMaxDistance(bounds, float3(-1.0f, 0.0f, 0.0f), tileMaxDepth) < 0.0f) return false;
+    return true;
+}
+
+bool ConePasses25DMask(FSpotConeBounds bounds, float tileMinDepth, float tileMaxDepth, uint tileDepthMask)
+{
+    float radialDepth = sqrt(saturate(1.0f - bounds.AxisVS.x * bounds.AxisVS.x));
+    float apexDepth = GetViewDepth(bounds.ApexVS);
+    float baseDepth = GetViewDepth(bounds.BaseCenterVS);
+    float coneMinDepth = min(apexDepth, baseDepth - bounds.BaseRadius * radialDepth);
+    float coneMaxDepth = max(apexDepth, baseDepth + bounds.BaseRadius * radialDepth);
+
+    uint lightMask = BuildDepthSliceMask(coneMinDepth, coneMaxDepth, tileMinDepth, tileMaxDepth);
+    if (lightMask == 0u) return false;
+    if (tileDepthMask == 0u) return true;
+    return (lightMask & tileDepthMask) != 0u;
+}
+
 [numthreads(FORWARD_PLUS_TILE_SIZE_X, FORWARD_PLUS_TILE_SIZE_Y, 1)]
 void TileLightCulling25DCS(uint3 GroupID : SV_GroupID, uint3 GroupThreadID : SV_GroupThreadID, uint GroupIndex : SV_GroupIndex)
 {
     uint tileIndex = GroupID.y * TileCount.x + GroupID.x;
-    uint2 tilePixelMin = GroupID.xy * 16;
-    uint2 tilePixelMax = min(tilePixelMin + 16, ScreenSize);
+    uint2 tilePixelMin = GroupID.xy * uint2(FORWARD_PLUS_TILE_SIZE_X, FORWARD_PLUS_TILE_SIZE_Y);
+    uint2 tilePixelMax = min(tilePixelMin + uint2(FORWARD_PLUS_TILE_SIZE_X, FORWARD_PLUS_TILE_SIZE_Y), ScreenSize);
 
     if (GroupIndex == 0u) {
         gMinDepthBits = asuint(kFloatMax); gMaxDepthBits = asuint(0.0f);
@@ -152,27 +239,28 @@ void TileLightCulling25DCS(uint3 GroupID : SV_GroupID, uint3 GroupThreadID : SV_
     }
     GroupMemoryBarrierWithGroupSync();
 
+    FTileFrustum sharedFrustum;
+    sharedFrustum.LeftNormal = gPlanes[0];
+    sharedFrustum.RightNormal = gPlanes[1];
+    sharedFrustum.TopNormal = gPlanes[2];
+    sharedFrustum.BottomNormal = gPlanes[3];
+
     // Culling
     for (uint i = GroupIndex; i < PointLightCount; i += FORWARD_PLUS_THREAD_COUNT) {
         FPointLightInfo l = PointLights[i];
         float3 cVS = mul(float4(l.Position, 1.0f), View).xyz;
         float r = l.Radius;
-        float dZ = GetViewDepth(cVS);
-        if (dZ + r < gTileMinDepth || dZ - r > gTileMaxDepth) continue;
-        if (dot(gPlanes[0], cVS) < -r || dot(gPlanes[1], cVS) < -r || dot(gPlanes[2], cVS) < -r || dot(gPlanes[3], cVS) < -r) continue;
-        if (bEnable25DMask) {
-            uint lMask = BuildDepthSliceMask(dZ - r, dZ + r, gTileMinDepth, gTileMaxDepth);
-            if ((lMask & gTileDepthMask) == 0u) continue;
-        }
+        if (!SphereIntersectsTileFrustum(cVS, r, sharedFrustum, gTileMinDepth, gTileMaxDepth)) continue;
+        if (bEnable25DMask && !SpherePasses25DMask(cVS, r, gTileMinDepth, gTileMaxDepth, gTileDepthMask)) continue;
         uint wIdx; InterlockedAdd(gPointLightCount, 1u, wIdx);
         if (wIdx < FORWARD_PLUS_MAX_POINT_LIGHTS_PER_TILE) gPointLightIndices[wIdx] = i;
     }
-    // Spot light culling simplified for brevity, similar to point
-    for (uint j = GroupIndex; i < SpotLightCount; j += FORWARD_PLUS_THREAD_COUNT) {
+    for (uint j = GroupIndex; j < SpotLightCount; j += FORWARD_PLUS_THREAD_COUNT) {
         FSpotLightInfo sl = SpotLights[j];
-        float3 sVS = mul(float4(sl.Position, 1.0f), View).xyz;
-        if (GetViewDepth(sVS) + sl.Radius < gTileMinDepth || GetViewDepth(sVS) - sl.Radius > gTileMaxDepth) continue;
-        if (dot(gPlanes[0], sVS) < -sl.Radius || dot(gPlanes[1], sVS) < -sl.Radius || dot(gPlanes[2], sVS) < -sl.Radius || dot(gPlanes[3], sVS) < -sl.Radius) continue;
+        FSpotConeBounds bounds = BuildSpotConeBounds(sl);
+        if (!SphereIntersectsTileFrustum(bounds.BroadPhaseCenterVS, bounds.BroadPhaseRadius, sharedFrustum, gTileMinDepth, gTileMaxDepth)) continue;
+        if (!ConeIntersectsTileFrustum(bounds, sharedFrustum, gTileMinDepth, gTileMaxDepth)) continue;
+        if (bEnable25DMask && !ConePasses25DMask(bounds, gTileMinDepth, gTileMaxDepth, gTileDepthMask)) continue;
         uint wIdx; InterlockedAdd(gSpotLightCount, 1u, wIdx);
         if (wIdx < FORWARD_PLUS_MAX_SPOT_LIGHTS_PER_TILE) gSpotLightIndices[wIdx] = j;
     }

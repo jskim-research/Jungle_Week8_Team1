@@ -62,9 +62,75 @@ namespace
         FVector Padding;
     };
 
+    struct FScoredLightIndex
+    {
+        float Score = 0.0f;
+        uint32 Index = 0;
+    };
+
+    struct FSpotBroadPhaseBounds
+    {
+        FVector Center = FVector::ZeroVector;
+        float Radius = 0.0f;
+    };
+
     uint32 CeilDivide(uint32 Numerator, uint32 Denominator)
     {
         return (Numerator + Denominator - 1u) / Denominator;
+    }
+
+    bool SortByHigherScore(const FScoredLightIndex& Lhs, const FScoredLightIndex& Rhs)
+    {
+        return Lhs.Score > Rhs.Score;
+    }
+
+    float ComputePointLightScore(const FPointLightInfo& Light, const FVector& CameraPos)
+    {
+        const float Radius = std::max(Light.Radius, 0.001f);
+        const float DistanceToCenter = FVector::Dist(CameraPos, Light.Position);
+        const float VolumeDist = std::max(0.0f, DistanceToCenter - Radius);
+        const float Influence = std::max(Light.Intensity, 0.0f) * Radius * Radius;
+        return Influence / (1.0f + VolumeDist * VolumeDist);
+    }
+
+    FSpotBroadPhaseBounds BuildSpotBroadPhaseBounds(const FSpotLightInfo& Light)
+    {
+        const float Height = std::max(Light.Radius, 0.001f);
+        const FVector Axis = Light.Direction.GetSafeNormal();
+        const float CosTheta = std::clamp(Light.OuterConeCos, 0.001f, 0.9999f);
+        const float SinTheta = std::sqrt(std::max(0.0f, 1.0f - CosTheta * CosTheta));
+        const float BaseRadius = Height * (SinTheta / CosTheta);
+        const FVector BaseCenter = Light.Position + Axis * Height;
+
+        FSpotBroadPhaseBounds Bounds;
+        if (BaseRadius <= Height)
+        {
+            Bounds.Radius = (Height * Height + BaseRadius * BaseRadius) / (2.0f * Height);
+            Bounds.Center = Light.Position + Axis * Bounds.Radius;
+        }
+        else
+        {
+            Bounds.Radius = BaseRadius;
+            Bounds.Center = BaseCenter;
+        }
+
+        return Bounds;
+    }
+
+    float ComputeSpotLightScore(const FSpotLightInfo& Light, const FVector& CameraPos)
+    {
+        const FSpotBroadPhaseBounds Bounds = BuildSpotBroadPhaseBounds(Light);
+        const float DistanceToCenter = FVector::Dist(CameraPos, Bounds.Center);
+        const float VolumeDist = std::max(0.0f, DistanceToCenter - Bounds.Radius);
+
+        const FVector LightDirection = Light.Direction.GetSafeNormal();
+        const FVector ToCamera = (CameraPos - Light.Position).GetSafeNormal();
+        const float Facing = std::max(0.0f, FVector::DotProduct(LightDirection, ToCamera));
+        const float FacingWeight = 0.25f + 0.75f * Facing * Facing;
+
+        const float InfluenceRadius = std::max(Bounds.Radius, 0.001f);
+        const float Influence = std::max(Light.Intensity, 0.0f) * InfluenceRadius * InfluenceRadius;
+        return (Influence * FacingWeight) / (1.0f + VolumeDist * VolumeDist);
     }
 
     FLightCullingOutputs GLightCullingOutputs = {};
@@ -153,25 +219,23 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
         return false;
     }
     
-    TArray<FPointLightInfo> PointLights;
-    TArray<FSpotLightInfo> SpotLights;
+    TArray<FPointLightInfo> VisiblePointLights;
+    TArray<FSpotLightInfo> VisibleSpotLights;
     const TArray<FRenderLight>& SceneLights = Context->RenderBus->GetLights();
 
     for (const FRenderLight& Light : SceneLights)
     {
         if (Light.Type == (uint32)ELightType::LightType_Point)
         {
-            if (PointLights.size() >= MaxLocalLightNum) continue;
             FPointLightInfo Info = {};
             Info.Position = Light.Position;
             Info.Radius = Light.Radius;
             Info.Color = Light.Color;
             Info.Intensity = Light.Intensity;
-            PointLights.push_back(Info);
+            VisiblePointLights.push_back(Info);
         }
         else if (Light.Type == (uint32)ELightType::LightType_Spot)
         {
-            if (SpotLights.size() >= MaxLocalLightNum) continue;
             FSpotLightInfo Info = {};
             Info.Position = Light.Position;
             Info.Radius = Light.Radius;
@@ -180,7 +244,59 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
             Info.Direction = Light.Direction;
             Info.InnerConeCos = Light.SpotInnerCos;
             Info.OuterConeCos = Light.SpotOuterCos;
-            SpotLights.push_back(Info);
+            VisibleSpotLights.push_back(Info);
+        }
+    }
+
+    const FVector CameraPosition = Context->RenderBus->GetCameraPosition();
+    TArray<FPointLightInfo> PointLights;
+    TArray<FSpotLightInfo> SpotLights;
+
+    const uint32 SelectedPointCount = std::min<uint32>(static_cast<uint32>(VisiblePointLights.size()), MaxLocalLightNum);
+    if (SelectedPointCount > 0)
+    {
+        TArray<FScoredLightIndex> PointSortScratch;
+        PointSortScratch.reserve(VisiblePointLights.size());
+
+        for (uint32 Index = 0; Index < VisiblePointLights.size(); ++Index)
+        {
+            PointSortScratch.push_back({ ComputePointLightScore(VisiblePointLights[Index], CameraPosition), Index });
+        }
+
+        std::partial_sort(
+            PointSortScratch.begin(),
+            PointSortScratch.begin() + SelectedPointCount,
+            PointSortScratch.end(),
+            SortByHigherScore);
+
+        PointLights.reserve(SelectedPointCount);
+        for (uint32 Index = 0; Index < SelectedPointCount; ++Index)
+        {
+            PointLights.push_back(VisiblePointLights[PointSortScratch[Index].Index]);
+        }
+    }
+
+    const uint32 SelectedSpotCount = std::min<uint32>(static_cast<uint32>(VisibleSpotLights.size()), MaxLocalLightNum);
+    if (SelectedSpotCount > 0)
+    {
+        TArray<FScoredLightIndex> SpotSortScratch;
+        SpotSortScratch.reserve(VisibleSpotLights.size());
+
+        for (uint32 Index = 0; Index < VisibleSpotLights.size(); ++Index)
+        {
+            SpotSortScratch.push_back({ ComputeSpotLightScore(VisibleSpotLights[Index], CameraPosition), Index });
+        }
+
+        std::partial_sort(
+            SpotSortScratch.begin(),
+            SpotSortScratch.begin() + SelectedSpotCount,
+            SpotSortScratch.end(),
+            SortByHigherScore);
+
+        SpotLights.reserve(SelectedSpotCount);
+        for (uint32 Index = 0; Index < SelectedSpotCount; ++Index)
+        {
+            SpotLights.push_back(VisibleSpotLights[SpotSortScratch[Index].Index]);
         }
     }
 
@@ -252,6 +368,7 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     }
 
     ID3D11DeviceContext* DeviceContext = Context->DeviceContext;
+    DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
     DeviceContext->CSSetShader(ComputeShader.Get(), nullptr, 0);
 
     ID3D11Buffer* CBuffers[] = { FrameConstantBuffer.Get() };

@@ -30,14 +30,20 @@ bool FHitMapRenderPass::Begin(const FRenderPassContext* Context)
         return false;
     }
 
+    bSkipHitMapDraw = false;
+    OutSRV = PrevPassSRV ? PrevPassSRV : Context->RenderTargets->SceneColorSRV;
+    OutRTV = PrevPassRTV ? PrevPassRTV : Context->RenderTargets->SceneColorRTV;
+
     if (!Context->RenderBus->GetShowFlags().bShowLightHitmapOverlay)
     {
-        return false;
+        bSkipHitMapDraw = true;
+        return true;
     }
 
     if (!EnsureShader(Context->Device))
     {
-        return false;
+        bSkipHitMapDraw = true;
+        return true;
     }
 
     // We draw onto the scene color
@@ -54,13 +60,16 @@ bool FHitMapRenderPass::Begin(const FRenderPassContext* Context)
     Context->DeviceContext->IASetInputLayout(nullptr);
     Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    OutSRV = PrevPassSRV;
-    OutRTV = PrevPassRTV;
     return true;
 }
 
 bool FHitMapRenderPass::DrawCommand(const FRenderPassContext* Context)
 {
+    if (bSkipHitMapDraw)
+    {
+        return true;
+    }
+
     const FLightCullingOutputs& CullingOutputs = FLightCullingPass::GetOutputs();
     if (CullingOutputs.TileCountX == 0 || CullingOutputs.TileCountY == 0)
     {
@@ -115,6 +124,11 @@ bool FHitMapRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 bool FHitMapRenderPass::End(const FRenderPassContext* Context)
 {
+    if (bSkipHitMapDraw)
+    {
+        return true;
+    }
+
     ID3D11ShaderResourceView* NullSRVs[14] = {};
     Context->DeviceContext->PSSetShaderResources(0, 14, NullSRVs);
     return true;
