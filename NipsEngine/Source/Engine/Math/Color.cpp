@@ -1,5 +1,6 @@
-﻿#include "Utils.h"
-#include "Core/CoreMinimal.h"
+﻿#include "Color.h"
+
+#include "Utils.h"
 
 static float ClampColor(float Value) { return MathUtil::Clamp(Value, 0.0f, 1.0f); }
 

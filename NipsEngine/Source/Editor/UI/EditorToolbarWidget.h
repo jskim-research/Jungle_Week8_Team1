@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Core/Containers/String.h"
 #include "Editor/UI/EditorWidget.h"
 
 class FEditorViewportOverlayWidget;
@@ -40,3 +41,4 @@ private:
 	bool* bShowMaterialEditor = nullptr;
 	bool* bShowStatProfiler = nullptr;
 };
+

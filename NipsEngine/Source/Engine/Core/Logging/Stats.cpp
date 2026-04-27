@@ -1,7 +1,5 @@
 ﻿#include "Core/Logging/Stats.h"
 
-#include <algorithm>
-
 FStatManager::FStatManager()
 {
 	QueryPerformanceFrequency(&Frequency);

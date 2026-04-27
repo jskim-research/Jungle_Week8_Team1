@@ -1,13 +1,8 @@
 ﻿#include "Quat.h"
 
-#include "Utils.h"
-#include "Rotator.h"
-
-#include <algorithm>
-#include <cassert>
-#include <cmath>
-
 #include "Matrix.h"
+#include "Rotator.h"
+#include "Utils.h"
 #include "Vector.h"
 
 namespace
@@ -113,7 +108,7 @@ FQuat::FQuat(FXMVector InVector) noexcept
 	, Z(0.0f)
 	, W(1.0f)
 {
-	DirectX::XMFLOAT4 Temp;
+	Float4 Temp;
 	DirectX::XMStoreFloat4(&Temp, InVector);
 
 	X = Temp.x;
@@ -133,9 +128,9 @@ FQuat::FQuat(const FMatrix& InMatrix) noexcept
 	, Z(0.0f)
 	, W(1.0f)
 {
-	DirectX::XMVECTOR OutScale;
-	DirectX::XMVECTOR OutRotation;
-	DirectX::XMVECTOR OutTranslation;
+	XMVector OutScale;
+	XMVector OutRotation;
+	XMVector OutTranslation;
 
 	if (DirectX::XMMatrixDecompose(&OutScale, &OutRotation, &OutTranslation, InMatrix.ToXMMatrix()))
 	{

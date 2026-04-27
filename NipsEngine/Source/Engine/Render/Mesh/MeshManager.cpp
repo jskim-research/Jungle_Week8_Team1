@@ -2,10 +2,6 @@
 
 #include "Math/Utils.h"
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
-
 FMeshData FEditorMeshLibrary::TranslationGizmoMeshData;
 FMeshData FEditorMeshLibrary::RotationGizmoMeshData;
 FMeshData FEditorMeshLibrary::ScaleGizmoMeshData;
@@ -30,7 +26,7 @@ void FEditorMeshLibrary::Initialize()
 		CreateRotationGizmo();
 	}
 
-    bIsInitialized = true;
+	bIsInitialized = true;
 }
 
 void FEditorMeshLibrary::CreateRotationGizmo()
@@ -43,8 +39,8 @@ void FEditorMeshLibrary::CreateRotationGizmo()
 
 	const float Radius = 1.0f;
 	const float Thickness = 0.03f;
-	const int Segments = 64;
-	const int TubeSegments = 8;
+	const int32 Segments = 64;
+	const int32 TubeSegments = 8;
 
 	FColor Colors[3] = {
 		FColor(1.0f, 0.0f, 0.0f, 1.0f), // X-Axis (Red)
@@ -53,17 +49,17 @@ void FEditorMeshLibrary::CreateRotationGizmo()
 	};
 
 	// 각 축(X, Y, Z)에 대해 고리 생성
-	for (int axis = 0; axis < 3; ++axis)
+	for (int32 axis = 0; axis < 3; ++axis)
 	{
 		uint32 StartVertexIdx = static_cast<uint32>(vertices.size());
 
-		for (int i = 0; i <= Segments; ++i)
+		for (int32 i = 0; i <= Segments; ++i)
 		{
 			float longitude = static_cast<float>(i) / Segments * 2.0f * MathUtil::PI;
 			float sinLong = sin(longitude);
 			float cosLong = cos(longitude);
 
-			for (int j = 0; j < TubeSegments; ++j)
+			for (int32 j = 0; j < TubeSegments; ++j)
 			{
 				float latitude = static_cast<float>(j) / TubeSegments * 2.0f * MathUtil::PI;
 				float sinLat = sin(latitude);
@@ -85,9 +81,9 @@ void FEditorMeshLibrary::CreateRotationGizmo()
 		}
 
 		// 인덱스 생성 (Side Quads)
-		for (int i = 0; i < Segments; ++i)
+		for (int32 i = 0; i < Segments; ++i)
 		{
-			for (int j = 0; j < TubeSegments; ++j)
+			for (int32 j = 0; j < TubeSegments; ++j)
 			{
 				uint32 nextI = i + 1;
 				uint32 nextJ = (j + 1) % TubeSegments;
@@ -124,7 +120,7 @@ void FEditorMeshLibrary::CreateScaleGizmo()
 
 	FVector dirs[3] = { FVector(1,0,0), FVector(0,1,0), FVector(0,0,1) };
 
-	auto AddBox = [&](const FVector& Center, const FVector& Extent, const FColor& Color, int SubID) {
+	auto AddBox = [&](const FVector& Center, const FVector& Extent, const FColor& Color, int32 SubID) {
 		uint32 StartIdx = static_cast<uint32>(vertices.size());
 		FVector p[8] = {
 			Center + FVector(-Extent.X, -Extent.Y, -Extent.Z), Center + FVector(Extent.X, -Extent.Y, -Extent.Z),
@@ -133,7 +129,7 @@ void FEditorMeshLibrary::CreateScaleGizmo()
 			Center + FVector(Extent.X, Extent.Y, Extent.Z),    Center + FVector(-Extent.X, Extent.Y, Extent.Z)
 		};
 
-		for (int j = 0; j < 8; ++j)
+		for (int32 j = 0; j < 8; ++j)
 		{
 			vertices.push_back({ p[j], Color, SubID });
 		}
@@ -146,7 +142,7 @@ void FEditorMeshLibrary::CreateScaleGizmo()
 		for (uint32 Idx : BoxIndices) indices.push_back(StartIdx + Idx);
 		};
 
-	for (int i = 0; i < 3; ++i) {
+	for (int32 i = 0; i < 3; ++i) {
 		FVector StemExtent = (i == 0) ? FVector(LineLength * 0.5f, StemThickness, StemThickness) :
 			(i == 1) ? FVector(StemThickness, LineLength * 0.5f, StemThickness) :
 			FVector(StemThickness, StemThickness, LineLength * 0.5f);

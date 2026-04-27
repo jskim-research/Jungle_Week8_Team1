@@ -1,6 +1,10 @@
-#pragma once
+﻿#pragma once
 
-#include "Core/CoreMinimal.h"
+#include "Core/Containers/Array.h"
+#include "Core/CoreTypes.h"
+#include "Math/Color.h"
+#include "Math/Vector.h"
+#include "Math/Vector2.h"
 
 /*
 	Vertex 구조체들을 정의하는 Header입니다.
@@ -11,7 +15,7 @@ struct FVertex
 {
 	FVector Position;
 	FColor Color;
-	int SubID;
+	int32 SubID;
 };
 
 struct FNormalVertex
@@ -41,3 +45,4 @@ struct FMeshData
 	TArray<FVertex> Vertices;
 	TArray<uint32> Indices;
 };
+

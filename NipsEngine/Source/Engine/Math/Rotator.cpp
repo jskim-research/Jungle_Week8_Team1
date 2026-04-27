@@ -1,11 +1,8 @@
 ﻿#include "Rotator.h"
 
-#include "Utils.h"
 #include "Matrix.h"
 #include "Quat.h"
-
-#include <cassert>
-#include <cmath>
+#include "Utils.h"
 
 const FRotator FRotator::ZeroRotator(0.0f, 0.0f, 0.0f);
 

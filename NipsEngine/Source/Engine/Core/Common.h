@@ -1,5 +1,4 @@
 ﻿#pragma once
-#include "CoreMinimal.h"
 
 namespace common {
 	namespace constants {

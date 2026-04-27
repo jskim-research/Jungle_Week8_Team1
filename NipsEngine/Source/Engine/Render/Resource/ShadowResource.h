@@ -1,6 +1,8 @@
 ﻿#pragma once
-#include "Core/Common.h"
-#include <d3d11.h>
+#include "Core/Containers/Array.h"
+#include "Core/CoreTypes.h"
+struct ID3D11DepthStencilView;
+struct ID3D11ShaderResourceView;
 
 /*
 Atlas
@@ -17,7 +19,8 @@ DSV 6개 face view
 */
 struct FShadowResource
 {
-    ID3D11ShaderResourceView* SRV;
-    std::vector<ID3D11DepthStencilView*> DSVs;
-    uint32 Resolution;
+	ID3D11ShaderResourceView* SRV;
+	TArray<ID3D11DepthStencilView*> DSVs;
+	uint32 Resolution;
 };
+

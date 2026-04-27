@@ -295,7 +295,7 @@ FArchive& FJsonReader::operator<<(FMatrix& Value)
 			auto& MatArr = Current[CurrentIdx++];
 			if (MatArr.length() >= 16)
 			{
-				for (int i = 0; i < 16; ++i)
+				for (int32 i = 0; i < 16; ++i)
 				{
 					Value.M[i / 4][i % 4] = static_cast<float>(MatArr[i].ToFloat());
 				}
@@ -307,7 +307,7 @@ FArchive& FJsonReader::operator<<(FMatrix& Value)
 		auto& MatArr = Current[CurrentKey.c_str()];
 		if (MatArr.length() >= 16)
 		{
-			for (int i = 0; i < 16; ++i)
+			for (int32 i = 0; i < 16; ++i)
 			{
 				Value.M[i / 4][i % 4] = static_cast<float>(MatArr[i].ToFloat());
 			}

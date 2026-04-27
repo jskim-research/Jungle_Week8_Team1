@@ -1,9 +1,8 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
+#include "Math/Vector.h"
 #include "Core/Paths.h"
 #include "Core/Singleton.h"
-#include "Math/Vector.h"
 #include "Render/Common/ViewTypes.h"
 
 class FEditorSettings : public TSingleton<FEditorSettings>
@@ -55,3 +54,4 @@ public:
 
 	static FString GetDefaultSettingsPath() { return FPaths::ToUtf8(FPaths::SettingsFilePath()); }
 };
+

@@ -13,6 +13,8 @@
 #include "ImGui/imgui.h"
 #include "Viewport/ViewportCamera.h"
 
+#include <shellapi.h>
+
 DEFINE_CLASS(UObjViewerEngine, UEngine)
 REGISTER_FACTORY(UObjViewerEngine)
 
@@ -46,7 +48,7 @@ void UObjViewerEngine::Init(FWindowsWindow* InWindow)
 	LPWSTR* Argv = CommandLineToArgvW(GetCommandLineW(), &Argc);
 	if (Argv && Argc > 1)
 	{
-		std::wstring WideFilePath = Argv[1];
+		FWString WideFilePath = Argv[1];
 		FString FilePath = FPaths::ToUtf8(WideFilePath);
 
 		// 경로에 .obj가 포함되어 있는지 간단히 검사
@@ -104,11 +106,11 @@ void UObjViewerEngine::BeginPlay()
 	if (!World)
 		return;
 
-    // 카메라 세팅은 ViewportClient에게 온전히 위임
-    if (FViewportCamera* MainCamera = ViewportClient.GetCamera())
-    {
-        World->SetActiveCamera(MainCamera);
-    }
+	// 카메라 세팅은 ViewportClient에게 온전히 위임
+	if (FViewportCamera* MainCamera = ViewportClient.GetCamera())
+	{
+		World->SetActiveCamera(MainCamera);
+	}
 
 	ViewportClient.ResetCamera();
 
@@ -136,5 +138,5 @@ void UObjViewerEngine::OnWindowResized(uint32 Width, uint32 Height)
 {
 	// TODO-VIEWER: Slate 구조 개편 후 다시 작성하기
 	UEngine::OnWindowResized(Width, Height);
-    ViewportClient.SetViewportRect(0, 0, Window->GetWidth(), Window->GetHeight());
+	ViewportClient.SetViewportRect(0, 0, Window->GetWidth(), Window->GetHeight());
 }

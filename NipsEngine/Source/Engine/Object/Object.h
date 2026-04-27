@@ -1,25 +1,29 @@
 ﻿#pragma once
 
-#include "EngineStatics.h"
-#include "Object/FName.h"
-#include "Core/Singleton.h"
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
+#include "Core/Containers/String.h"
+#include <string>
+#include <type_traits>
 #include "Core/PropertyTypes.h"
+#include "Core/Singleton.h"
+#include "Object/FName.h"
 #include "Serialization/Archive.h"
 
 #define DECLARE_CLASS(ClassName, ParentClass)                          \
-    static const FTypeInfo s_TypeInfo;                                 \
-    const FTypeInfo* GetTypeInfo() const override {                    \
-        return &s_TypeInfo;                                            \
-    }                                                                  
+	static const FTypeInfo s_TypeInfo;                                 \
+	const FTypeInfo* GetTypeInfo() const override {                    \
+		return &s_TypeInfo;                                            \
+	}                                                                  
 
 #define DEFINE_CLASS(ClassName, ParentClass)                           \
-    const FTypeInfo ClassName::s_TypeInfo = {                          \
-        #ClassName,                                                    \
-        &ParentClass::s_TypeInfo,                                      \
-        sizeof(ClassName)                                              \
-    };
+	const FTypeInfo ClassName::s_TypeInfo = {                          \
+		#ClassName,                                                    \
+		&ParentClass::s_TypeInfo,                                      \
+		sizeof(ClassName)                                              \
+	};
 
-enum EClassFlags : uint32_t
+enum EClassFlags : uint32
 {
 	CF_None = 0,
 	CF_Actor = 1 << 0,
@@ -31,8 +35,8 @@ struct FTypeInfo
 {
 	const char* name;
 	const FTypeInfo* Parent;
-	size_t size;
-	uint32_t ClassFlags = CF_None;
+	SIZE_T size;
+	uint32 ClassFlags = CF_None;
 
 	bool IsA(const FTypeInfo* Other) const {
 		for (const FTypeInfo* T = this; T; T = T->Parent) {
@@ -176,3 +180,4 @@ public:
 		return GUObjectArray[Index];
 	}
 };
+

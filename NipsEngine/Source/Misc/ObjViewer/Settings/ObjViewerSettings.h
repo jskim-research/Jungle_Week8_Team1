@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
 #include "Core/Paths.h"
 #include "Core/Singleton.h"
 #include "Math/Vector.h"

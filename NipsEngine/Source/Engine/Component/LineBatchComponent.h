@@ -1,4 +1,7 @@
 ﻿#pragma once
+#include "Core/Containers/Array.h"
+#include "Engine/Geometry/AABB.h"
+#include "Engine/Geometry/OBB.h"
 #include "Component/PrimitiveComponent.h"
 
 struct FLineVertex

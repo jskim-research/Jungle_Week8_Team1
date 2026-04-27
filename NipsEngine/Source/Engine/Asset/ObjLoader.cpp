@@ -1,13 +1,9 @@
 ﻿#include "ObjLoader.h"
-#include "FileUtils.h"
-#include "Asset/StaticMeshTypes.h"
-#include "Math/Utils.h"
-#include "UI/EditorConsoleWidget.h"
+#include "Asset/FileUtils.h"
 #include "Core/PlatformTime.h"
 #include "Core/ResourceManager.h"
-
-#include <algorithm>
-#include <cfloat>
+#include "Core/StringUtils.h"
+#include "UI/EditorConsoleWidget.h"
 
 namespace
 {
@@ -34,7 +30,7 @@ namespace
 		TArray<FVector> AccumulatedTangents(StaticMesh->Vertices.size(), FVector::ZeroVector);
 		TArray<FVector> AccumulatedBitangents(StaticMesh->Vertices.size(), FVector::ZeroVector);
 
-		for (size_t TriangleIndex = 0; TriangleIndex + 2 < StaticMesh->Indices.size(); TriangleIndex += 3)
+		for (SIZE_T TriangleIndex = 0; TriangleIndex + 2 < StaticMesh->Indices.size(); TriangleIndex += 3)
 		{
 			const uint32 Index0 = StaticMesh->Indices[TriangleIndex + 0];
 			const uint32 Index1 = StaticMesh->Indices[TriangleIndex + 1];
@@ -80,7 +76,7 @@ namespace
 			AccumulatedBitangents[Index2] += TriangleBitangent;
 		}
 
-		for (size_t VertexIndex = 0; VertexIndex < StaticMesh->Vertices.size(); ++VertexIndex)
+		for (SIZE_T VertexIndex = 0; VertexIndex < StaticMesh->Vertices.size(); ++VertexIndex)
 		{
 			FNormalVertex& Vertex = StaticMesh->Vertices[VertexIndex];
 			FVector Normal = Vertex.Normal.GetSafeNormal();
@@ -470,10 +466,10 @@ bool FObjLoader::ParseFaceVertexToken(const FString& Token, FObjRawIndex& OutInd
 	TArray<FString> Parts;
 	Parts.reserve(3);
 
-	size_t Start = 0;
+	SIZE_T Start = 0;
 	while (true)
 	{
-		size_t SlashPos = Token.find('/', Start);
+		SIZE_T SlashPos = Token.find('/', Start);
 		if (SlashPos == FString::npos)
 		{
 			Parts.push_back(Token.substr(Start));

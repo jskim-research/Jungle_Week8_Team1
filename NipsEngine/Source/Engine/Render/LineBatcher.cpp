@@ -1,12 +1,14 @@
-﻿#include <d3d11.h>
-#include "LineBatcher.h"
+﻿#include "LineBatcher.h"
+
 #include "Core/EngineTypes.h"
 #include "Core/ResourceManager.h"
 #include "Math/Utils.h"
 #include "Render/Scene/RenderBus.h"
 
+#include <d3d11.h>
 #include <algorithm>
 #include <cmath>
+
 
 namespace
 {
@@ -604,3 +606,4 @@ void FLineBatcher::AddSingleCone(const FVector& Position, const FVector& Forward
 	AddArc(Position, Forward, Up,    ConeAngle, Radius, TipIdx, Color);
 	AddArc(Position, Forward, Right, ConeAngle, Radius, TipIdx, Color);
 }
+

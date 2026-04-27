@@ -1,8 +1,6 @@
 ﻿#pragma once
-#pragma once
-
-#include "Core/CoreTypes.h"
 #include "Math/Vector.h"
+
 #include <functional>
 
 // 두 FVector 정점으로 구성된 간선(Edge)을 표현하는 자료형
@@ -86,15 +84,15 @@ namespace std
 	template <>
 	struct hash<FEdge>
 	{
-		size_t operator()(const FEdge& Edge) const noexcept
+		SIZE_T operator()(const FEdge& Edge) const noexcept
 		{
 			// 비방향 간선이므로 Canonical 형태로 정규화 후 해싱
 			FEdge C = Edge.Canonical();
-			auto Combine = [](size_t Seed, size_t Value) -> size_t
+			auto Combine = [](SIZE_T Seed, SIZE_T Value) -> SIZE_T
 			{
 				return Seed ^ (Value * 2654435761u + 0x9e3779b9u + (Seed << 6) + (Seed >> 2));
 			};
-			size_t H = std::hash<FVector>{}(C.A);
+			SIZE_T H = std::hash<FVector>{}(C.A);
 			H = Combine(H, std::hash<FVector>{}(C.B));
 			return H;
 		}
@@ -106,70 +104,70 @@ namespace std
 struct FIndexEdge
 {
 public:
-    uint32 A;
-    uint32 B;
+	uint32 A;
+	uint32 B;
 
-    //======================================//
-    //                constructor           //
-    //======================================//
+	//======================================//
+	//                constructor           //
+	//======================================//
 public:
-    constexpr FIndexEdge() noexcept : A(0), B(0) {}
+	constexpr FIndexEdge() noexcept : A(0), B(0) {}
 
-    constexpr FIndexEdge(uint32 InA, uint32 InB) noexcept
-        : A(InA), B(InB)
-    {
-    }
+	constexpr FIndexEdge(uint32 InA, uint32 InB) noexcept
+		: A(InA), B(InB)
+	{
+	}
 
-    FIndexEdge(const FIndexEdge&) noexcept = default;
-    FIndexEdge(FIndexEdge&&) noexcept = default;
+	FIndexEdge(const FIndexEdge&) noexcept = default;
+	FIndexEdge(FIndexEdge&&) noexcept = default;
 
-    //======================================//
-    //                operators             //
-    //======================================//
+	//======================================//
+	//                operators             //
+	//======================================//
 public:
-    FIndexEdge& operator=(const FIndexEdge&) noexcept = default;
-    FIndexEdge& operator=(FIndexEdge&&) noexcept = default;
+	FIndexEdge& operator=(const FIndexEdge&) noexcept = default;
+	FIndexEdge& operator=(FIndexEdge&&) noexcept = default;
 
-    // 비방향 간선: {A,B} == {B,A}
-    bool operator==(const FIndexEdge& Other) const noexcept
-    {
-        return (A == Other.A && B == Other.B)
-            || (A == Other.B && B == Other.A);
-    }
+	// 비방향 간선: {A,B} == {B,A}
+	bool operator==(const FIndexEdge& Other) const noexcept
+	{
+		return (A == Other.A && B == Other.B)
+			|| (A == Other.B && B == Other.A);
+	}
 
-    bool operator!=(const FIndexEdge& Other) const noexcept
-    {
-        return !(*this == Other);
-    }
+	bool operator!=(const FIndexEdge& Other) const noexcept
+	{
+		return !(*this == Other);
+	}
 
-    //======================================//
-    //                 method               //
-    //======================================//
+	//======================================//
+	//                 method               //
+	//======================================//
 public:
-    // 두 인덱스 중 더 작은 쪽이 A가 되도록 정규화된 복사본을 반환함
-    FIndexEdge Canonical() const noexcept
-    {
-        return A < B ? FIndexEdge(A, B) : FIndexEdge(B, A);
-    }
+	// 두 인덱스 중 더 작은 쪽이 A가 되도록 정규화된 복사본을 반환함
+	FIndexEdge Canonical() const noexcept
+	{
+		return A < B ? FIndexEdge(A, B) : FIndexEdge(B, A);
+	}
 };
 
 namespace std
 {
-    template <>
-    struct hash<FIndexEdge>
-    {
-        size_t operator()(const FIndexEdge& Edge) const noexcept
-        {
-            // 비방향 간선이므로 Canonical 형태로 정규화 후 해싱
-            FIndexEdge C = Edge.Canonical();
-            auto Combine = [](size_t Seed, size_t Value) -> size_t
-            {
-                return Seed ^ (Value * 2654435761u + 0x9e3779b9u + (Seed << 6) + (Seed >> 2));
-            };
-            
-            size_t H = std::hash<uint32>{}(C.A);
-            H = Combine(H, std::hash<uint32>{}(C.B));
-            return H;
-        }
-    };
+	template <>
+	struct hash<FIndexEdge>
+	{
+		SIZE_T operator()(const FIndexEdge& Edge) const noexcept
+		{
+			// 비방향 간선이므로 Canonical 형태로 정규화 후 해싱
+			FIndexEdge C = Edge.Canonical();
+			auto Combine = [](SIZE_T Seed, SIZE_T Value) -> SIZE_T
+			{
+				return Seed ^ (Value * 2654435761u + 0x9e3779b9u + (Seed << 6) + (Seed >> 2));
+			};
+			
+			SIZE_T H = std::hash<uint32>{}(C.A);
+			H = Combine(H, std::hash<uint32>{}(C.B));
+			return H;
+		}
+	};
 }

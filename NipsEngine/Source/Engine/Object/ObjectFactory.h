@@ -26,11 +26,11 @@ public:
 		Registry[TypeName] = Spawner;
 	}
 
-	UObject* Create(const std::string& TypeName) {
+	UObject* Create(const FString& TypeName) {
 		auto Spawner = Registry.find(TypeName);	// Do NOT use array accessor [] here. it will insert a new key if not found.
 		return (Spawner != Registry.end()) ? Spawner->second() : nullptr;
 	}
 
 private:
-	TMap<std::string, std::function<UObject*()>> Registry;
+	TMap<FString, std::function<UObject*()>> Registry;
 };

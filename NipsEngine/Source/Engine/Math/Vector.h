@@ -1,8 +1,8 @@
 ﻿#pragma once
-#include <cmath>
-#include <cassert>
-
 #include "Core/CoreTypes.h"
+#include <cassert>
+#include <cmath>
+#include <functional>
 
 struct FVector
 {
@@ -77,10 +77,10 @@ public:
 	{
 	}
 
-	explicit FVector(DirectX::FXMVECTOR InVector) noexcept
+	explicit FVector(FXMVector InVector) noexcept
 		: X(0.f), Y(0.f), Z(0.f)
 	{
-		DirectX::XMFLOAT3 Temp;
+		Float3 Temp;
 		DirectX::XMStoreFloat3(&Temp, InVector);
 		X = Temp.x;
 		Y = Temp.y;
@@ -97,13 +97,13 @@ public:
 	FVector& operator=(const FVector&) noexcept = default;
 	FVector& operator=(FVector&&) noexcept = default;
 
-	float& operator[](int32_t Index) noexcept
+	float& operator[](int32 Index) noexcept
 	{
 		assert(Index >= 0 && Index < 3);
 		return XYZ[Index];
 	}
 
-	const float& operator[](int32_t Index) const noexcept
+	const float& operator[](int32 Index) const noexcept
 	{
 		assert(Index >= 0 && Index < 3);
 		return XYZ[Index];
@@ -190,7 +190,7 @@ public:
 	// 현재 벡터를 DirectX::XMFLOAT3 형식으로 변환함
 	Float3 ToXMFLOAT3() const noexcept
 	{
-		return DirectX::XMFLOAT3(X, Y, Z);
+		return Float3(X, Y, Z);
 	}
 
 	// 현재 벡터를 DirectX::XMVECTOR 형식으로 변환함
@@ -364,7 +364,7 @@ public:
 
 	// Linear interpolation from A to B at time t
 	static FVector Lerp(const FVector& A, const FVector& B, float t)
-    {
+	{
 		FVector Delta = B - A;
 		return A + Delta * t;
 	}
@@ -375,12 +375,13 @@ namespace std
 	template <>
 	struct hash<FVector>
 	{
-		size_t operator()(const FVector& V) const noexcept
+		SIZE_T operator()(const FVector& V) const noexcept
 		{
-			size_t H = std::hash<float>{}(V.X);
+			SIZE_T H = std::hash<float>{}(V.X);
 			H ^= std::hash<float>{}(V.Y) * 2654435761u + 0x9e3779b9u + (H << 6) + (H >> 2);
 			H ^= std::hash<float>{}(V.Z) * 2654435761u + 0x9e3779b9u + (H << 6) + (H >> 2);
 			return H;
 		}
 	};
 }
+

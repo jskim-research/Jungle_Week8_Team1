@@ -38,7 +38,7 @@ public:
 	UTextRenderComponent();
 	~UTextRenderComponent() override = default;
 
-    virtual void PostDuplicate(UObject* Original) override;
+	virtual void PostDuplicate(UObject* Original) override;
 
 	virtual void Serialize(FArchive& Ar) override;
 

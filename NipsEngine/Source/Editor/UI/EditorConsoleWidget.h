@@ -1,9 +1,10 @@
 ﻿#pragma once
-#include "Core/CoreMinimal.h"
-#include <cstdarg>
-#include <functional>
-#include <sstream>
 
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
+#include "Core/Containers/String.h"
+#include "Core/CoreTypes.h"
+#include <functional>
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"
 #include "ImGui/imgui_impl_win32.h"
@@ -56,4 +57,5 @@ private:
 };
 
 #define UE_LOG(Format, ...) \
-    FEditorConsoleWidget::AddLog(Format, ##__VA_ARGS__)
+	FEditorConsoleWidget::AddLog(Format, ##__VA_ARGS__)
+
