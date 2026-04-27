@@ -212,8 +212,6 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
         for (uint32 i = 0; i < Req.CascadeCount; i++)
         {
             FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
-            FShadowViewInfo ViewInfo;
-
             const FCameraState& Cam = Context->RenderBus->GetCameraState();
 
             float Near = Cam.NearZ;
@@ -271,6 +269,9 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
                 float Dist = (FrustumCorners[i] - Center).Size();
                 Radius = std::max(Radius, Dist);
             }
+
+            // Directional Light 의 경우 Light.Direction = Directional Light 의 반대 방향 벡터이다.
+            // 반대로 Spot/Point Light 는 그대로 forward 벡터임
             FVector LightDir = Light.Direction; // normalize 되어 있어야 함
 
             FVector Eye = Center + LightDir * Radius;
@@ -310,25 +311,15 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
             float ViewWidth = (Max.X - Min.X);
             float ViewHeight = (Max.Y - Min.Y);
 
-            float ShadowDistance = 1000.0f; // 적당히 조절
-            float NearZ = Min.Z - 100.0f;
-            float FarZ = std::min<float>(Max.Z + 100.0f, ShadowDistance);
+            float NearZ = Min.Z;
+            float FarZ = Max.Z;
 
-            float ShadowMapSize = (float)Req.Resolution;
-
-            // texel 크기
-            float TexelSizeX = ViewWidth / ShadowMapSize;
-            float TexelSizeY = ViewHeight / ShadowMapSize;
-
-            // center를 texel grid에 스냅
             FVector CenterLS = (Min + Max) * 0.5f;
-
-            CenterLS.X = floor(CenterLS.X / TexelSizeX) * TexelSizeX;
-            CenterLS.Y = floor(CenterLS.Y / TexelSizeY) * TexelSizeY;
 
             // LightView를 Center 기준으로 이동
             FMatrix CenterOffset = FMatrix::MakeTranslation(-CenterLS);
-            ViewInfo.LightView = CenterOffset * LightView;
+            FShadowViewInfo ViewInfo;
+            ViewInfo.LightView = LightView * CenterOffset;
 
             // =========================
             // 6. Projection
