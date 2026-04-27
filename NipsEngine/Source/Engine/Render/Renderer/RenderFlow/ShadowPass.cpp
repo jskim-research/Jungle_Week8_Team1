@@ -265,9 +265,15 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
             // =========================
             // 3. Light View 생성
             // =========================
+            float Radius = 0.0f;
+            for (int i = 0; i < 8; i++)
+            {
+                float Dist = (FrustumCorners[i] - Center).Size();
+                Radius = std::max(Radius, Dist);
+            }
             FVector LightDir = Light.Direction; // normalize 되어 있어야 함
 
-            FVector Eye = Center - LightDir * 500.0f;
+            FVector Eye = Center + LightDir * Radius;
             FVector Target = Center;
 
             FVector Up = FVector(0, 0, 1);
@@ -300,17 +306,29 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
             // =========================
             // 5. Centered Ortho 맞추기 (핵심)
             // =========================
-            FVector CenterLS = (Min + Max) * 0.5f;
-
-            // LightView를 Center 기준으로 이동
-            FMatrix CenterOffset = FMatrix::MakeTranslation(-CenterLS);
-            ViewInfo.LightView = CenterOffset * LightView;
 
             float ViewWidth = (Max.X - Min.X);
             float ViewHeight = (Max.Y - Min.Y);
 
-            float NearZ = 0.0f;
-            float FarZ = (Max.Z - Min.Z) + 200.0f; // 여유
+            float ShadowDistance = 1000.0f; // 적당히 조절
+            float NearZ = Min.Z - 100.0f;
+            float FarZ = std::min<float>(Max.Z + 100.0f, ShadowDistance);
+
+            float ShadowMapSize = (float)Req.Resolution;
+
+            // texel 크기
+            float TexelSizeX = ViewWidth / ShadowMapSize;
+            float TexelSizeY = ViewHeight / ShadowMapSize;
+
+            // center를 texel grid에 스냅
+            FVector CenterLS = (Min + Max) * 0.5f;
+
+            CenterLS.X = floor(CenterLS.X / TexelSizeX) * TexelSizeX;
+            CenterLS.Y = floor(CenterLS.Y / TexelSizeY) * TexelSizeY;
+
+            // LightView를 Center 기준으로 이동
+            FMatrix CenterOffset = FMatrix::MakeTranslation(-CenterLS);
+            ViewInfo.LightView = CenterOffset * LightView;
 
             // =========================
             // 6. Projection
