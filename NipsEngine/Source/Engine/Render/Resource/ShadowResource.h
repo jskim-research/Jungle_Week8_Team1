@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include "Core/Containers/Array.h"
+#include "Core/CoreTypes.h"
 struct ID3D11DepthStencilView;
 struct ID3D11ShaderResourceView;
 
@@ -21,3 +23,4 @@ struct FShadowResource
 	TArray<ID3D11DepthStencilView*> DSVs;
 	uint32 Resolution;
 };
+

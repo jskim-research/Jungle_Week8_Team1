@@ -1,5 +1,9 @@
 ﻿#pragma once
 
+#include "Core/Containers/Set.h"
+#include <chrono>
+#include <filesystem>
+#include <set>
 #include "Asset/BinarySerializer.h"
 #include "Asset/FontAtlasLoader.h"
 #include "Asset/ObjLoader.h"
@@ -240,3 +244,4 @@ private:
 
 	static constexpr uint32 ShaderHotReloadDebounceMs = 250;
 };
+

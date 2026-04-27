@@ -1,4 +1,10 @@
 ﻿#pragma once
+#include "Core/Containers/Array.h"
+#include "Core/CoreTypes.h"
+#include "Engine/Geometry/AABB.h"
+#include "Engine/Geometry/Frustum.h"
+#include "Engine/Geometry/OBB.h"
+#include "Engine/Geometry/Ray.h"
 /**
  * @file BVH.h
  * @brief Bounding Volume Hierarchy (BVH) structure and query interface.
@@ -446,3 +452,4 @@ class FBVH
 	/** @brief Validate BVH topology consistency with debug-only assertions. */
 	void ValidateBVH() const;
 };
+

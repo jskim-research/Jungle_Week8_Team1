@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include "Core/Containers/Array.h"
+#include <memory>
 #include "RenderPassContext.h"
 
 struct ID3D11RenderTargetView;
@@ -59,3 +61,4 @@ private:
 
 	TArray<std::shared_ptr<FBaseRenderPass>> RenderPasses;
 };
+

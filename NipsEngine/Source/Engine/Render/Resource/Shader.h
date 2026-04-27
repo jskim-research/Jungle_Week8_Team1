@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <d3d11.h>
+#include <d3dcompiler.h>
 /*
 	Shader들을 관리하는 Class입니다.
 	추후에 Geometry Shader, Compute Shader 등 다양한 Shader들을 관리하는 Class로 확장할 수 있습니다.
@@ -231,3 +233,5 @@ namespace std
 		}
 	};
 }
+
+

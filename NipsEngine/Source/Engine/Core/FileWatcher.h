@@ -1,6 +1,11 @@
 ﻿#pragma once
 
 
+#include "Core/Containers/Array.h"
+#include "Core/Containers/String.h"
+#include "Core/CoreTypes.h"
+#include <Windows.h>
+#include <deque>
 #include <atomic>
 #include <mutex>
 #include <thread>
@@ -29,3 +34,4 @@ private:
 	std::mutex ChangedFilesMutex;
 	std::deque<FWString> ChangedFiles;
 };
+

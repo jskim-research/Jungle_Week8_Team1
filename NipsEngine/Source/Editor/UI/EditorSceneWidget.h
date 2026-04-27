@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
+#include "Core/Containers/String.h"
+#include "Core/CoreTypes.h"
 #include "Editor/UI/EditorWidget.h"
 
 class FEditorSceneWidget : public FEditorWidget
@@ -27,3 +30,4 @@ private:
 	float SceneSaveNotificationTimer = 0.f;
 	float SceneLoadNotificationTimer = 0.f;
 };
+

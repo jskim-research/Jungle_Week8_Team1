@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
+#include "Core/Containers/String.h"
 class FFileUtils
 {
 public:
@@ -10,3 +12,4 @@ public:
 	// 하위 폴더를 검색하여 타겟 파일의 전체(또는 상대) 경로를 찾는 함수
 	static bool FindFileRecursively(const FString& SearchRootPath, const FString& TargetFileName, FString& OutFoundPath);
 };
+

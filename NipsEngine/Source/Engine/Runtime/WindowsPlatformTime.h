@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/CoreTypes.h"
 #include <windows.h>
 
 class FWindowsPlatformTime
@@ -16,3 +17,4 @@ public:
 
 	static uint64 Cycles64();
 };
+

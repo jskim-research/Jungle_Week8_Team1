@@ -1,5 +1,9 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
+#include "Math/Rotator.h"
+#include "Math/Vector.h"
 #include "Core/Paths.h"
 #include "GameFramework/WorldContext.h"
 
@@ -79,3 +83,4 @@ private:
 
 	static FString GetCurrentTimeStamp();
 };
+

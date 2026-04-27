@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/Containers/Set.h"
 #include "RenderBus.h"
 #include "Render/Resource/MeshBufferManager.h"
 #include "Spatial/WorldSpatialIndex.h"
@@ -70,3 +71,4 @@ private:
 	void CollectBVHInternalNodeAABBs(UPrimitiveComponent* PrimitiveComponent, const FShowFlags& ShowFlags, FRenderBus& RenderBus,
 	                                 TSet<int32>& SeenNodeIndices);
 };
+

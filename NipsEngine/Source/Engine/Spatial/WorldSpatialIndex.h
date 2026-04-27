@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
+#include "Core/CoreTypes.h"
 #include "Engine/Geometry/AABB.h"
 #include "Spatial/BVH.h"
 
@@ -189,3 +192,4 @@ class FWorldSpatialIndex
 	int32                             ActiveBVHObjectCount{0};
 	FMaintenancePolicy                MaintenancePolicy;
 };
+

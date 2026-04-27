@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include "Core/Containers/Array.h"
+#include "Core/Containers/String.h"
 #include "ObjViewerWidget.h"
 
 class FObjViewerMenuBarWidget : public FObjViewerWidget
@@ -16,3 +18,4 @@ private:
 	TArray<FString> SceneFiles;
 	char SceneName[128] = "Default";
 };
+

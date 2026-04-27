@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+#include "Core/CoreTypes.h"
+#include "Math/Vector.h"
+#include <cfloat>
 class UPrimitiveComponent;
 
 struct FHitResult 
@@ -31,3 +34,4 @@ struct FHitResult
 		return bHit && (HitComponent != nullptr);
 	}
 };
+

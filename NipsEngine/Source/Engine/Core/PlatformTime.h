@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Core/CoreTypes.h"
 struct FPlatformTime
 {
 	static double Seconds();

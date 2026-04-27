@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Core/CoreTypes.h"
 #include "Editor/UI/EditorWidget.h"
 
 struct ImVec2;
@@ -32,3 +33,4 @@ private:
 	float RenderNameTableWindow(int32 ViewportIndex, const FEditorViewportState& VS, const ImVec2& Pos);
 	float RenderLightCullWindow(int32 ViewportIndex, const FEditorViewportState& VS, const ImVec2& Pos);
 };
+

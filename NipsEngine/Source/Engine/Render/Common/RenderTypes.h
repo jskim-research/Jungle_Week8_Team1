@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Core/CoreTypes.h"
 //	Primtive Type Enum
 enum class EPrimitiveType
 {
@@ -49,3 +50,4 @@ enum class ELightType
 	LightType_AmbientLight = 3,
 	Max
 };
+

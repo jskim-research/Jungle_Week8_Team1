@@ -1,6 +1,11 @@
 ﻿#pragma once
 
 
+#include "Core/CoreTypes.h"
+#include "Core/Containers/Array.h"
+#include "Core/Containers/String.h"
+#include <cctype>
+#include <sstream>
 namespace StringUtils
 {
 	//	문자열의 양쪽 공백 제거
@@ -42,3 +47,5 @@ namespace StringUtils
 	}
 	
 }
+
+

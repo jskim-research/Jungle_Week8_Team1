@@ -1,5 +1,13 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
+#include "Core/Containers/Set.h"
+#include "Core/CoreTypes.h"
+#include "Engine/Geometry/Edge.h"
+#include "Math/Matrix.h"
+#include "Math/Vector.h"
+#include <cfloat>
 struct FStaticMesh;
 class UStaticMesh;
 
@@ -71,3 +79,4 @@ private:
 	TArray<FTopoUVBounds> TopoUVBounds;
 	TArray<TArray<uint32>> VertexToTriangleMap;
 };
+

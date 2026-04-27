@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <d3d11.h>
 #include "Core/Logging/Stats.h"
 #include "Core/Singleton.h"
 
@@ -89,3 +90,4 @@ private:
 #else
 #define GPU_SCOPE_STAT(Name) ((void)0)
 #endif
+

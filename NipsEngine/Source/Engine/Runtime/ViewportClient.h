@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/CoreTypes.h"
 #include "Engine/Runtime/WindowsWindow.h"
 
 struct FSceneView;
@@ -50,3 +51,4 @@ protected:
 	float           WindowWidth  = 1920.f;
 	float           WindowHeight = 1080.f;
 };
+

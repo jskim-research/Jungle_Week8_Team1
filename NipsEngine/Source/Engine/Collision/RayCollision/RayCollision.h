@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
+#include "Engine/Geometry/Ray.h"
+#include "Math/Matrix.h"
 #include "Core/CollisionTypes.h"
 
 class UPrimitiveComponent;
@@ -23,3 +26,4 @@ struct FRayCollision
 	// 컴포넌트 단위 레이캐스트 (AABB 필터링 + LineTraceComponent)
 	static bool RaycastComponent(UPrimitiveComponent* Component, const FRay& Ray, FHitResult& OutHitResult);
 };
+

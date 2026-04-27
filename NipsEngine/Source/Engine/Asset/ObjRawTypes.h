@@ -2,6 +2,12 @@
 
 
 
+#include "Core/Containers/Array.h"
+#include "Core/Containers/String.h"
+#include "Core/CoreTypes.h"
+#include "Math/Vector.h"
+#include "Math/Vector2.h"
+#include <functional>
 /*
  *	StaticMeshCookedData가 되기 이전인 Raw Data에 대한 정보
 */
@@ -77,3 +83,4 @@ namespace std
 		}
 	};
 }
+

@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/Containers/String.h"
 class IAssetLoader
 {
 public:
@@ -9,3 +10,4 @@ public:
 
 	virtual FString GetLoaderName() const = 0;
 };
+

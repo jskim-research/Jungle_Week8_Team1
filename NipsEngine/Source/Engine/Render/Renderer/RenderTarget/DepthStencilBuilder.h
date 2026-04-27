@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/CoreTypes.h"
 #include "DepthStencilResource.h"
 
 struct ID3D11Device;
@@ -21,3 +22,4 @@ public:
 	FDepthStencilBuilder& AsCubemap();
 	FDepthStencilResource Build(ID3D11Device* Device);
 };
+

@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/CoreTypes.h"
 class EngineStatics
 {
 private:
@@ -42,3 +43,4 @@ public:
 		return NextUUID++;
 	}
 };
+

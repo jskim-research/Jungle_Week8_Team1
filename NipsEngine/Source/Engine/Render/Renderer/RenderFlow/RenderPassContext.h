@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/CoreTypes.h"
 struct ID3D11Device;
 struct ID3D11DeviceContext;
 struct ID3D11ShaderResourceView;
@@ -27,3 +28,4 @@ struct FRenderPassContext
 	FShadowResourcePool* ShadowResourcePool = nullptr;
 
 };
+

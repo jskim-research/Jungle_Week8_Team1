@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Pair.h"
 #include "PrimitiveComponent.h"
 
 class UMaterialInterface;
@@ -31,3 +33,4 @@ protected:
 	TArray<UMaterialInterface*> Materials;
 	TPair<float, float> ScrollUV = { };
 };
+

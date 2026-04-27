@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/CoreTypes.h"
 #include "Render/Common/ComPtr.h"
 
 #include <d3d11.h>
@@ -14,3 +15,4 @@ struct FRenderTarget
 	uint32 Height = 0;
 	DXGI_FORMAT Format = DXGI_FORMAT_UNKNOWN;
 };
+

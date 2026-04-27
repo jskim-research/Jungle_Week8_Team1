@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
 #include "Engine/Geometry/AABB.h"
 #include "Math/Matrix.h"
 #include "Math/Quat.h"
@@ -130,3 +131,4 @@ inline bool FOBB::Intersects(const FAABB& AABB) const
 
 	return true;
 }
+

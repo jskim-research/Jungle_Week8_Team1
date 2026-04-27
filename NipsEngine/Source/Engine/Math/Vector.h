@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/CoreTypes.h"
 #include <cassert>
 #include <cmath>
 #include <functional>
@@ -383,3 +384,4 @@ namespace std
 		}
 	};
 }
+

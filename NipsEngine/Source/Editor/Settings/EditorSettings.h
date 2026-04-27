@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Math/Vector.h"
 #include "Core/Paths.h"
 #include "Core/Singleton.h"
 #include "Render/Common/ViewTypes.h"
@@ -53,3 +54,4 @@ public:
 
 	static FString GetDefaultSettingsPath() { return FPaths::ToUtf8(FPaths::SettingsFilePath()); }
 };
+

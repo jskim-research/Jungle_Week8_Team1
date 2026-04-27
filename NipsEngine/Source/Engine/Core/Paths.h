@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 
+#include "Core/Containers/String.h"
 // 엔진 전역 경로를 관리합니다.
 // 모든 경로는 실행 파일 기준 상대 경로이며, 한글 경로를 위해 wstring 기반입니다.
 class FPaths
@@ -40,3 +41,4 @@ public:
 
 	static FString Normalize(const FString& Path);
 };
+

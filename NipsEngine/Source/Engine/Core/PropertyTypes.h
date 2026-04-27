@@ -1,6 +1,10 @@
 ﻿#pragma once
 
 
+#include "Core/CoreTypes.h"
+#include "Math/Color.h"
+#include "Math/Vector.h"
+#include "Math/Vector4.h"
 // 에디터에서 자동 위젯 매핑에 사용되는 프로퍼티 타입
 enum class EPropertyType : uint8
 {
@@ -56,3 +60,4 @@ inline SIZE_T GetPropertySize(EPropertyType Type)
 	default: return 0;
 	}
 }
+

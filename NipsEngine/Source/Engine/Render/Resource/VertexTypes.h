@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
+#include "Core/CoreTypes.h"
 #include "Math/Color.h"
 #include "Math/Vector.h"
 #include "Math/Vector2.h"
@@ -43,3 +45,4 @@ struct FMeshData
 	TArray<FVertex> Vertices;
 	TArray<uint32> Indices;
 };
+

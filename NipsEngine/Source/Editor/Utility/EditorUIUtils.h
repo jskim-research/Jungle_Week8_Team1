@@ -1,4 +1,7 @@
 ﻿#pragma once
+#include "Core/Containers/Array.h"
+#include "Core/Containers/String.h"
+#include "Core/CoreTypes.h"
 #include "Runtime/ViewportRect.h"
 #include "Render/Common/ViewTypes.h"
 
@@ -45,3 +48,4 @@ struct FEditorViewportState
 	// NameTable 오버레이 스크롤 오프셋 (휠로 조작)
 	int32 NameTableScrollLine = 0;
 };
+

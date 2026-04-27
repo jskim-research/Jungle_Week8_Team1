@@ -1,5 +1,12 @@
 ﻿#pragma once
 
+#include "Core/CoreTypes.h"
+#include "Engine/Geometry/Frustum.h"
+#include "Engine/Geometry/Ray.h"
+#include "Math/Matrix.h"
+#include "Math/Quat.h"
+#include "Math/Rotator.h"
+#include "Math/Vector.h"
 enum class EViewportProjectionType
 {
 	Perspective,
@@ -119,3 +126,4 @@ struct FCameraSnapshot
 	float   NearPlane = 0.1f;
 	float   FarPlane  = 2000.0f;
 };
+

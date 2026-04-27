@@ -1,5 +1,10 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
+#include "Core/Containers/String.h"
+#include <string>
+#include <type_traits>
 #include "Core/PropertyTypes.h"
 #include "Core/Singleton.h"
 #include "Object/FName.h"
@@ -175,3 +180,4 @@ public:
 		return GUObjectArray[Index];
 	}
 };
+

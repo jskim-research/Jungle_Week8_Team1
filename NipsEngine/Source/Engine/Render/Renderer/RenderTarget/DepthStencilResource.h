@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/Containers/Array.h"
 #include "Render/Common/ComPtr.h"
 
 struct ID3D11DepthStencilView;
@@ -19,3 +20,4 @@ struct FDepthStencilResource
 	TComPtr<ID3D11ShaderResourceView> SRV;
 	EDepthStencilResourceType DST;
 };
+

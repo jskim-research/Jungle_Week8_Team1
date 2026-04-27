@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Core/Containers/Map.h"
 #include "Render/Common/RenderTypes.h"
 
 #include "Render/Resource/Buffer.h"
@@ -34,3 +35,4 @@ public:
 	FMeshBuffer& GetMeshBuffer(EPrimitiveType InPrimitiveType);
 	FMeshBuffer* GetStaticMeshBuffer(const UStaticMesh* StaticMeshAsset, int32 LODLevel = 0);
 };
+

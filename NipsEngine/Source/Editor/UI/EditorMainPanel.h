@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Core/CoreTypes.h"
 #include "ImGui/imgui.h"
 #include "Editor/UI/EditorConsoleWidget.h"
 #include "Editor/UI/EditorControlWidget.h"
@@ -58,3 +59,4 @@ private:
 	bool bShowStatProfiler = true;
 	bool bShowPlayStream = true;
 };
+

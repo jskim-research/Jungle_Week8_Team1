@@ -466,3 +466,5 @@ NipsEngine/Asset/Scene/**
 
 # 발제용 Scene
 !NipsEngine/Asset/Scene/Scene_*
+
+AGENTS.md

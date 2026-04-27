@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Core/CoreTypes.h"
 struct FViewportRect
 {
 	int32 X = 0;
@@ -36,3 +37,4 @@ struct FViewportRect
 		OutV = static_cast<float>(V) / static_cast<float>(Height);
 	}
 };
+

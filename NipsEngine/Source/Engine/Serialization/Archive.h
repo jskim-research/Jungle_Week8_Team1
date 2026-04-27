@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Core/Containers/Array.h"
 #include "Core/EngineTypes.h"
 #include "Math/Color.h"
 #include "Math/Matrix.h"
@@ -68,3 +69,4 @@ FArchive& operator<<(FArchive& Ar, TArray<T>& Array)
 	Ar.EndArray();
 	return Ar;
 }
+

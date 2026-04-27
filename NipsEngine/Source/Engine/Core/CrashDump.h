@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Core/CoreTypes.h"
 struct _EXCEPTION_POINTERS;
 using EXCEPTION_POINTERS = _EXCEPTION_POINTERS;
 
@@ -8,3 +9,4 @@ using EXCEPTION_POINTERS = _EXCEPTION_POINTERS;
 long __stdcall WriteCrashDump(EXCEPTION_POINTERS* ExceptionInfo);
 void WriteCrashLog(EXCEPTION_POINTERS* ExceptionInfo);
 int32 ReportCrash(EXCEPTION_POINTERS* ExceptionInfo);
+

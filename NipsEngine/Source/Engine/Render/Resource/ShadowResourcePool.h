@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include "Core/CoreTypes.h"
+struct ID3D11Device;
 #include "ShadowResource.h"
 #include "Render/Common/ShadowTypes.h"
 #include "Render/Renderer/RenderTarget/DepthStencilResource.h"
@@ -39,3 +41,4 @@ private:
 	// 자원 해제 안되도록 테스트용도
 	FDepthStencilResource DSR;
 };
+
