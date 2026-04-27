@@ -224,58 +224,12 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
             FVector CamRight = Context->RenderBus->GetCameraRight();
             FVector CamUp = Context->RenderBus->GetCameraUp();
 
-            // =========================
-            // 1. Frustum 크기 계산
-            // =========================
-            float NearH = 2.0f * Near * tanf(FovY * 0.5f);
-            float NearW = NearH * Aspect;
-
-            float FarH = 2.0f * Far * tanf(FovY * 0.5f);
-            float FarW = FarH * Aspect;
-
-            FVector NearCenter = CamPos + CamForward * Near;
-            FVector FarCenter = CamPos + CamForward * Far;
-
-            FVector FrustumCorners[8];
-
-            // Near
-            FrustumCorners[0] = NearCenter + CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f);
-            FrustumCorners[1] = NearCenter + CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f);
-            FrustumCorners[2] = NearCenter - CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f);
-            FrustumCorners[3] = NearCenter - CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f);
-
-            // Far
-            FrustumCorners[4] = FarCenter + CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f);
-            FrustumCorners[5] = FarCenter + CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f);
-            FrustumCorners[6] = FarCenter - CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f);
-            FrustumCorners[7] = FarCenter - CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f);
-
-            // =========================
-            // 2. Frustum Center
-            // =========================
-            FVector Center(0, 0, 0);
-            for (int j = 0; j < 8; j++)
-            {
-                Center += FrustumCorners[j];
-            }
-            Center /= 8.0f;
-
-            // =========================
-            // 3. Light View 생성
-            // =========================
-            float Radius = 0.0f;
-            for (int i = 0; i < 8; i++)
-            {
-                float Dist = (FrustumCorners[i] - Center).Size();
-                Radius = std::max(Radius, Dist);
-            }
-
             // Directional Light 의 경우 Light.Direction = Directional Light 의 반대 방향 벡터이다.
             // 반대로 Spot/Point Light 는 그대로 forward 벡터임
             FVector LightDir = Light.Direction; // normalize 되어 있어야 함
 
-            FVector Eye = Center + LightDir * Radius;
-            FVector Target = Center;
+            FVector Eye = LightDir * 500;
+            FVector Target = FVector(0, 0, 0);
 
             FVector Up = FVector(0, 0, 1);
             if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
@@ -285,50 +239,19 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 
             FMatrix LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
 
-            // =========================
-            // 4. Frustum → Light Space AABB
-            // =========================
-            FVector Min(FLT_MAX, FLT_MAX, FLT_MAX);
-            FVector Max(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-
-            for (int j = 0; j < 8; j++)
-            {
-                FVector P = LightView.TransformPosition(FrustumCorners[j]);
-
-                Min.X = std::min<float>(Min.X, P.X);
-                Min.Y = std::min<float>(Min.Y, P.Y);
-                Min.Z = std::min<float>(Min.Z, P.Z);
-
-                Max.X = std::max<float>(Max.X, P.X);
-                Max.Y = std::max<float>(Max.Y, P.Y);
-                Max.Z = std::max<float>(Max.Z, P.Z);
-            }
-
-            // =========================
-            // 5. Centered Ortho 맞추기 (핵심)
-            // =========================
-
-            float ViewWidth = (Max.X - Min.X);
-            float ViewHeight = (Max.Y - Min.Y);
-
-            float NearZ = Min.Z;
-            float FarZ = Max.Z;
-
-            FVector CenterLS = (Min + Max) * 0.5f;
-
-            // LightView를 Center 기준으로 이동
-            FMatrix CenterOffset = FMatrix::MakeTranslation(-CenterLS);
+            // FMatrix CenterOffset = FMatrix::MakeTranslation(-CenterLS);
             FShadowViewInfo ViewInfo;
-            ViewInfo.LightView = LightView * CenterOffset;
+            // ViewInfo.LightView = LightView * CenterOffset;
+            ViewInfo.LightView = LightView;
 
             // =========================
             // 6. Projection
             // =========================
             ViewInfo.LightProjection = FMatrix::MakeOrthographicLH(
-                ViewWidth,
-                ViewHeight,
-                NearZ,
-                FarZ);
+                500,
+                500,
+                0,
+                1000);
 
             ViewInfo.SplitDepth = Far; // 일단 전체 (CSM 전 단계)
 
