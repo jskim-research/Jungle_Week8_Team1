@@ -231,6 +231,10 @@ bool FGridRenderPass::Begin(const FRenderPassContext* Context)
     ID3D11RasterizerState* RasterizerState =
         FResourceManager::Get().GetOrCreateRasterizerState(ERasterizerType::SolidNoCull);
 
+    Context->DeviceContext->OMGetDepthStencilState(&PrevDepthStencilState, &PrevStencilRef);
+    Context->DeviceContext->OMGetBlendState(&PrevBlendState, PrevBlendFactor, &PrevSampleMask);
+    Context->DeviceContext->RSGetState(&PrevRasterizerState);
+
     Context->DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
     Context->DeviceContext->OMSetBlendState(BlendState, nullptr, 0xFFFFFFFF);
     Context->DeviceContext->RSSetState(RasterizerState);
@@ -315,5 +319,15 @@ bool FGridRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 bool FGridRenderPass::End(const FRenderPassContext* Context)
 {
+    Context->DeviceContext->OMSetDepthStencilState(PrevDepthStencilState, PrevStencilRef);
+    Context->DeviceContext->OMSetBlendState(PrevBlendState, PrevBlendFactor, PrevSampleMask);
+    Context->DeviceContext->RSSetState(PrevRasterizerState);
+
+    if (PrevDepthStencilState)
+        PrevDepthStencilState->Release();
+    if (PrevBlendState)
+        PrevBlendState->Release();
+    if (PrevRasterizerState)
+        PrevRasterizerState->Release();
     return true;
 }

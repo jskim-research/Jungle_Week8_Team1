@@ -18,4 +18,13 @@ private:
 private:
     std::shared_ptr<FShaderBindingInstance> GridShaderBinding;
     std::shared_ptr<FShaderBindingInstance> AxisShaderBinding;
+
+    ID3D11DepthStencilState* PrevDepthStencilState = nullptr;
+    UINT PrevStencilRef = 0;
+
+    ID3D11BlendState* PrevBlendState = nullptr;
+    FLOAT PrevBlendFactor[4];
+    UINT PrevSampleMask = 0;
+
+    ID3D11RasterizerState* PrevRasterizerState = nullptr;
 };
