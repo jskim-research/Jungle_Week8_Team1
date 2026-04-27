@@ -130,7 +130,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
     {
         if (ShadowIndexCounter >= MAX_SHADOW_LIGHTS)
             break;
-        if (ShadowRequest.Type == ELightType::LightType_Spot)
+
+        if (ShadowRequest.Type == ELightType::LightType_Spot || ShadowRequest.Type == ELightType::LightType_Directional)
         {
             // 1. 공간 할당 가능?
             FAtlasAllocationResult AllocResult;
