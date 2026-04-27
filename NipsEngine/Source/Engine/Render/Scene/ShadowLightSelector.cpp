@@ -13,7 +13,7 @@ std::vector<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArra
 	FShadowRequest Req;
     Req.LightId = 0;
     Req.Type = (ELightType)SceneLights[0].Type;
-    Req.Resolution = 1024;
+    Req.Resolution = 2048;
     Req.ProjectionMode = EShadowProjectionMode::Default;
     Req.CascadeCount = 1;
     Req.bUseVSM = false;
