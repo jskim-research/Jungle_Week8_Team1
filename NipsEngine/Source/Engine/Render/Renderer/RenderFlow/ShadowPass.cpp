@@ -102,7 +102,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
     };
 
     // 원본 라이트 개수만큼 매핑 테이블 할당
-    std::vector<FLightShadowMappingInfo> ShadowLookupTable(Context->RenderBus->GetLights().size());
+    TArray<FLightShadowMappingInfo> ShadowLookupTable(Context->RenderBus->GetLights().size());
 
     AtlasAllocator.Reset();
 
@@ -210,19 +210,24 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 
         if (GShadowMaps[i].MapType == EShadowMapType::Depth2D) // 아틀라스 진행
         {
+            Context->DeviceContext->ClearDepthStencilView(GShadowMaps[i].Resource->DSVs[i], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+            Context->DeviceContext->OMSetRenderTargets(0, nullptr, GShadowMaps[i].Resource->DSVs[i]);
+
             for (uint32 j = 0; j < GShadowMaps[i].Slices.size(); j++)
             {
+
+				ShaderBinding->SetMatrix4("View", GShadowMaps[i].Views[j].LightView);
+                ShaderBinding->SetMatrix4("Projection", GShadowMaps[i].Views[j].LightProjection);
+
                 D3D11_VIEWPORT ShadowViewport = {};
-                ShadowViewport.TopLeftX = GShadowMaps[i].Slices[j].UVOffset.X;
-                ShadowViewport.TopLeftY = GShadowMaps[i].Slices[j].UVOffset.Y;
+                ShadowViewport.TopLeftX = GShadowMaps[i].Slices[j].UVOffset.X * ATLAS_SIZE;
+                ShadowViewport.TopLeftY = GShadowMaps[i].Slices[j].UVOffset.Y * ATLAS_SIZE;
                 ShadowViewport.Width = (float)GShadowMaps[i].Slices[j].UVScale.X * ATLAS_SIZE;
                 ShadowViewport.Height = (float)GShadowMaps[i].Slices[j].UVScale.Y * ATLAS_SIZE;
                 ShadowViewport.MinDepth = 0.0f;
                 ShadowViewport.MaxDepth = 1.0f;
                 Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
 
-                Context->DeviceContext->ClearDepthStencilView(GShadowMaps[i].Resource->DSVs[0], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-                Context->DeviceContext->OMSetRenderTargets(0, nullptr, GShadowMaps[i].Resource->DSVs[0]);
                 for (const FRenderCommand& Cmd : Commands)
                 {
                     if (Cmd.Type == ERenderCommandType::PostProcessOutline)

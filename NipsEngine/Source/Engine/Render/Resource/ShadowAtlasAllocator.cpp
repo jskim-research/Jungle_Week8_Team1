@@ -79,7 +79,7 @@ FBuddyNode* FShadowAtlasAllocator::AllocateRecursive(int inResolution, FBuddyNod
         for (int i = 0; i < 4; i++)
         {
             FBuddyNode* Node = AllocateRecursive(inResolution, CurrentNode->Children[i]);
-            if (!Node)
+            if (Node)
                 return Node;
         }
         return nullptr;
