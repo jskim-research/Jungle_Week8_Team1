@@ -1,19 +1,16 @@
 ﻿#include "Editor/UI/EditorMaterialWidget.h"
 
+#include "Asset/StaticMesh.h"
+#include "Component/DecalComponent.h"
+#include "Component/PrimitiveComponent.h"
+#include "Component/StaticMeshComponent.h"
+#include "Core/ResourceManager.h"
 #include "Editor/EditorEngine.h"
 #include "Editor/Selection/SelectionManager.h"
-
-#include "Component/PrimitiveComponent.h"
-#include "Component/DecalComponent.h"
-#include "Component/StaticMeshComponent.h"
-#include "Asset/StaticMesh.h"
 #include "GameFramework/AActor.h"
-#include "Core/ResourceManager.h"
 #include "Object/ObjectIterator.h"
-#include <algorithm>
-#include <filesystem>
 
-#include "ImGui/imgui.h"
+#include <ImGui/imgui.h>
 
 namespace
 {

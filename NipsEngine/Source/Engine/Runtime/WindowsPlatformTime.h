@@ -1,5 +1,4 @@
 ﻿#pragma once
-#include "Core/CoreMinimal.h"
 #include <windows.h>
 
 class FWindowsPlatformTime

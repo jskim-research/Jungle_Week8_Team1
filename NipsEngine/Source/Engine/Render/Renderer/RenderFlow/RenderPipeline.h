@@ -1,6 +1,8 @@
 ﻿#pragma once
-#include "Core/CoreMinimal.h"
 #include "RenderPassContext.h"
+
+struct ID3D11RenderTargetView;
+struct ID3D11ShaderResourceView;
 
 class FShadowPass;
 class FToonOutlineRenderPass;

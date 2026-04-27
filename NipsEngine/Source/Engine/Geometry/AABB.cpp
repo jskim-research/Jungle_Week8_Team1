@@ -1,10 +1,7 @@
 ﻿#include "AABB.h"
 
-#include "Engine/Math/Matrix.h"
 #include "Engine/Geometry/Ray.h"
-
-#include <algorithm>
-#include <cfloat>
+#include "Engine/Math/Matrix.h"
 
 FAABB::FAABB() { Reset(); }
 
@@ -80,7 +77,7 @@ bool FAABB::IntersectRay(const FRay& Ray, float& OutT) const
 	float TMin = 0.0f;
 	float TMax = FLT_MAX;
 
-	for (int Axis = 0; Axis < 3; Axis++)
+	for (int32 Axis = 0; Axis < 3; Axis++)
 	{
 		const float Origin = (&Ray.Origin.X)[Axis];
 		const float Direction = (&Ray.Direction.X)[Axis];
@@ -127,7 +124,7 @@ bool FAABB::IntersectRay(const FRay& Ray, float& OutTMin, float& OutTMax) const
 	OutTMin = std::min(t1, t2);
 	OutTMax = std::max(t1, t2);
 
-	for (int i = 1; i < 3; ++i)
+	for (int32 i = 1; i < 3; ++i)
 	{ // Y, Z 축 반복
 		t1 = (Min[i] - Ray.Origin[i]) / Ray.Direction[i];
 		t2 = (Max[i] - Ray.Origin[i]) / Ray.Direction[i];

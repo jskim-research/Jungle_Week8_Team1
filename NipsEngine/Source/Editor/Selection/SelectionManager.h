@@ -1,6 +1,4 @@
-#pragma once
-
-#include "Core/CoreMinimal.h"
+﻿#pragma once
 
 class AActor;
 class UGizmoComponent;

@@ -1,6 +1,9 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
+#include "Math/Vector.h"
+
+#include <cassert>
+#include <functional>
 
 struct FVector2
 {
@@ -59,13 +62,13 @@ public:
 	FVector2& operator=(const FVector2&) noexcept = default;
 	FVector2& operator=(FVector2&&) noexcept = default;
 
-	float& operator[](int32_t Index) noexcept
+	float& operator[](int32 Index) noexcept
 	{
 		assert(Index >= 0 && Index < 2);
 		return XY[Index];
 	}
 
-	const float& operator[](int32_t Index) const noexcept
+	const float& operator[](int32 Index) const noexcept
 	{
 		assert(Index >= 0 && Index < 2);
 		return XY[Index];
@@ -255,10 +258,10 @@ namespace std
 	template <>
 	struct hash<FVector2>
 	{
-		size_t operator()(const FVector2& V) const noexcept
+		SIZE_T operator()(const FVector2& V) const noexcept
 		{
-			size_t HashX = std::hash<float>{}(V.X);
-			size_t HashY = std::hash<float>{}(V.Y);
+			SIZE_T HashX = std::hash<float>{}(V.X);
+			SIZE_T HashY = std::hash<float>{}(V.Y);
 			return HashX ^ (HashY * 2654435761u + 0x9e3779b9u + (HashX << 6) + (HashX >> 2));
 		}
 	};

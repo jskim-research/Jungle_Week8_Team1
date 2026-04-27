@@ -1,10 +1,7 @@
 ﻿#include "StaticMeshComponent.h"
 
-#include <algorithm>
-#include <cfloat>
-#include <cstring>
-
 #include "Core/ResourceManager.h"
+
 
 DEFINE_CLASS(UStaticMeshComponent, UMeshComponent)
 REGISTER_FACTORY(UStaticMeshComponent)

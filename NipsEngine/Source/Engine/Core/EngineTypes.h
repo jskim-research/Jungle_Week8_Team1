@@ -1,8 +1,5 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
-#include "Math/Color.h"
-#include "Engine/Geometry/AABB.h"
 
 //	TODO : 나중에 지우기
 using FBoundingBox = FAABB;

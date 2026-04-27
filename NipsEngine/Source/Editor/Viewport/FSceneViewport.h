@@ -72,6 +72,7 @@ public:
 		return RenderTargetSet->ShadowMap->Resource->SRV;
 	}
 
+
 	void SetRenderTargetSet(FRenderTargetSet* InRenderTargetSet) { RenderTargetSet = InRenderTargetSet; }
 	FRenderTargetSet* GetRenderTargetSet() const { return RenderTargetSet; }
 

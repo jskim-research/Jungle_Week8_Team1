@@ -1,7 +1,7 @@
 ﻿#pragma once
 
-#include "StaticMesh.h"
-#include "Geometry/Edge.h"
+struct FStaticMesh;
+class UStaticMesh;
 
 struct FTopoUVBounds 
 {

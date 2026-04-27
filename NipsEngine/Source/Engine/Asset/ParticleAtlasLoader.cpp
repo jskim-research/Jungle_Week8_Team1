@@ -6,8 +6,6 @@
 #include "DDSTextureLoader.h"
 #include "WICTextureLoader.h"
 
-#include <filesystem>
-
 bool FParticleAtlasLoader::Load(const FName& ParticleName, const FString& Path, uint32 Columns, uint32 Rows,
 	ID3D11Device* Device, FParticleResource& OutResource) const
 {

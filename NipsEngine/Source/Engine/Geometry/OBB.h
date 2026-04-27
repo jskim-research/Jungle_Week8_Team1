@@ -1,9 +1,10 @@
 ﻿#pragma once
 
-#include "Core/Containers/Array.h"
+#include "Engine/Geometry/AABB.h"
 #include "Math/Matrix.h"
-#include "Math/Vector.h"
 #include "Math/Quat.h"
+#include "Math/Utils.h"
+#include "Math/Vector.h"
 
 struct FOBB
 {
@@ -84,7 +85,7 @@ inline bool FOBB::Intersects(const FAABB& AABB) const
 	FVector T = Center - AABB.GetCenter();
 
 	// AABB axes
-	for (int i = 0; i < 3; ++i)
+	for (int32 i = 0; i < 3; ++i)
 	{
 		float rA = AABBExtents[i];
 		float rB = OBBExtents.X * MathUtil::Abs(OBBAxes[0][i]) +
@@ -94,7 +95,7 @@ inline bool FOBB::Intersects(const FAABB& AABB) const
 	}
 
 	// OBB axes
-	for (int i = 0; i < 3; ++i)
+	for (int32 i = 0; i < 3; ++i)
 	{
 		float rA = AABBExtents.X * MathUtil::Abs(OBBAxes[i].X) +
 			AABBExtents.Y * MathUtil::Abs(OBBAxes[i].Y) +
@@ -104,9 +105,9 @@ inline bool FOBB::Intersects(const FAABB& AABB) const
 	}
 
 	// AABB cross OBB axes
-	for (int i = 0; i < 3; ++i)
+	for (int32 i = 0; i < 3; ++i)
 	{
-		for (int j = 0; j < 3; ++j)
+		for (int32 j = 0; j < 3; ++j)
 		{
 			FVector L;
 			if (i == 0) L = FVector(0, -OBBAxes[j].Z, OBBAxes[j].Y);

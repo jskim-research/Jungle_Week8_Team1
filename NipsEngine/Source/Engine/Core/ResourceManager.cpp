@@ -1,26 +1,18 @@
 ﻿#include "Core/ResourceManager.h"
 
-#include "Core/Paths.h"
-#include "SimpleJSON/json.hpp"
-
-#include <algorithm>
-#include <cctype>
-#include <chrono>
-#include <cwctype>
-#include <filesystem>
-#include <fstream>
-#include <ranges>
-#include <set>
-#include "Asset/FileUtils.h"
-#include "DDSTextureLoader.h"
-#include "WICTextureLoader.h"
-#include "UI/EditorConsoleWidget.h"
-#include "Settings/EditorSettings.h"
 #include "Asset/BinarySerializer.h"
-#include "Asset/StaticMeshTypes.h"
+#include "Asset/FileUtils.h"
 #include "Asset/StaticMeshSimplifier.h"
-#include "Render/Scene/RenderCommand.h"
+#include "Asset/StaticMeshTypes.h"
+#include "Core/Paths.h"
 #include "Render/Resource/ObjMtlLoader.h"
+#include "Render/Scene/RenderCommand.h"
+#include "Settings/EditorSettings.h"
+#include "UI/EditorConsoleWidget.h"
+
+#include "DDSTextureLoader.h"
+#include "SimpleJSON/json.hpp"
+#include "WICTextureLoader.h"
 
 namespace
 {
@@ -99,7 +91,7 @@ namespace
 		}
 
 		MacroData.Macros.reserve(Macros.size() + 1);
-		for (size_t Index = 0; Index < Macros.size(); ++Index)
+		for (SIZE_T Index = 0; Index < Macros.size(); ++Index)
 		{
 			MacroData.Macros.push_back(
 			{
@@ -114,13 +106,13 @@ namespace
 
 	FString TrimCopy(const FString& Value)
 	{
-		size_t Start = 0;
+		SIZE_T Start = 0;
 		while (Start < Value.size() && std::isspace(static_cast<unsigned char>(Value[Start])) != 0)
 		{
 			++Start;
 		}
 
-		size_t End = Value.size();
+		SIZE_T End = Value.size();
 		while (End > Start && std::isspace(static_cast<unsigned char>(Value[End - 1])) != 0)
 		{
 			--End;
@@ -749,8 +741,8 @@ void FResourceManager::InitializeDefaultResources(ID3D11Device* Device)
 	Desc.Usage = D3D11_USAGE_IMMUTABLE;
 	Desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
-	constexpr uint32_t WhitePixel = 0xFFFFFFFF;
-	constexpr uint32_t FlatNormalPixel = 0xFFFF8080;
+	constexpr uint32 WhitePixel = 0xFFFFFFFF;
+	constexpr uint32 FlatNormalPixel = 0xFFFF8080;
 	D3D11_SUBRESOURCE_DATA WhiteInitData = { &WhitePixel, 4, 0 };
 	D3D11_SUBRESOURCE_DATA NormalInitData = { &FlatNormalPixel, 4, 0 };
 
@@ -1265,7 +1257,7 @@ void FResourceManager::ReloadShaders(const std::set<FWString>& DirtyFiles)
 
 	TMap<FWString, TArray<FAffectedShaderVariant>> AffectedShadersBySource;
 	TMap<FWString, TSet<FWString>> DependencyCache;
-	size_t AffectedShaderCount = 0;
+	SIZE_T AffectedShaderCount = 0;
 
 	for (const auto& [CompileKey, Shader] : ShaderVariants)
 	{
@@ -1307,8 +1299,8 @@ void FResourceManager::ReloadShaders(const std::set<FWString>& DirtyFiles)
 
 	struct FReloadSourceStats
 	{
-		size_t SuccessCount = 0;
-		size_t FailureCount = 0;
+		SIZE_T SuccessCount = 0;
+		SIZE_T FailureCount = 0;
 	};
 
 	TMap<FWString, FReloadSourceStats> ReloadStatsBySource;
@@ -1361,7 +1353,7 @@ void FResourceManager::ReloadShaders(const std::set<FWString>& DirtyFiles)
 			continue;
 		}
 
-		for (size_t ShaderIndex = 0; ShaderIndex < Variants.size(); ++ShaderIndex)
+		for (SIZE_T ShaderIndex = 0; ShaderIndex < Variants.size(); ++ShaderIndex)
 		{
 			Variants[ShaderIndex].Shader->AdoptCompiledState(*PendingCompiledShaders[ShaderIndex]);
 			UObjectManager::Get().DestroyObject(PendingCompiledShaders[ShaderIndex]);
@@ -1376,8 +1368,8 @@ void FResourceManager::ReloadShaders(const std::set<FWString>& DirtyFiles)
 		InvalidateAllMaterialShaderBindings();
 	}
 
-	size_t ReloadedSourceCount = 0;
-	size_t FailedSourceCount = 0;
+	SIZE_T ReloadedSourceCount = 0;
+	SIZE_T FailedSourceCount = 0;
 	for (const auto& [SourcePath, Stats] : ReloadStatsBySource)
 	{
 		if (Stats.SuccessCount > 0 && Stats.FailureCount == 0)
@@ -1456,8 +1448,8 @@ void FResourceManager::CollectShaderDependencies(const FWString& ShaderFilePath,
 					continue;
 				}
 
-				const size_t FirstQuote = TrimmedLine.find('"');
-				const size_t LastQuote = TrimmedLine.find_last_of('"');
+				const SIZE_T FirstQuote = TrimmedLine.find('"');
+				const SIZE_T LastQuote = TrimmedLine.find_last_of('"');
 				if (FirstQuote == FString::npos || LastQuote == FString::npos || FirstQuote == LastQuote)
 				{
 					continue;
@@ -1498,7 +1490,7 @@ FWString FResourceManager::NormalizeShaderPath(const FString& InPath) const
 
 bool FResourceManager::IsShaderSourceFile(const FWString& InPath) const
 {
-	const size_t DotIndex = InPath.find_last_of(L'.');
+	const SIZE_T DotIndex = InPath.find_last_of(L'.');
 	if (DotIndex == FWString::npos)
 	{
 		return false;
@@ -1741,10 +1733,10 @@ bool FResourceManager::SerializeMaterial(const FString& MatFilePath, const UMate
 			Param["Type"] = "Bool";
 			Param["Value"] = std::get<bool>(ParamValue.Value);
 		}
-		else if (std::holds_alternative<int>(ParamValue.Value))
+		else if (std::holds_alternative<int32>(ParamValue.Value))
 		{
 			Param["Type"] = "Int";
-			Param["Value"] = std::get<int>(ParamValue.Value);
+			Param["Value"] = std::get<int32>(ParamValue.Value);
 		}
 		else if (std::holds_alternative<uint32>(ParamValue.Value))
 		{
@@ -1791,10 +1783,10 @@ bool FResourceManager::SerializeMaterial(const FString& MatFilePath, const UMate
 			const FMatrix& Mat = std::get<FMatrix>(ParamValue.Value);
 			Param["Type"] = "Matrix4";
 			JSON MatArray = JSON::Make(JSON::Class::Array);
-			for (int Row = 0; Row < 4; ++Row)
+			for (int32 Row = 0; Row < 4; ++Row)
 			{
 				JSON RowArray = JSON::Make(JSON::Class::Array);
-				for (int Col = 0; Col < 4; ++Col)
+				for (int32 Col = 0; Col < 4; ++Col)
 				{
 					RowArray.append(Mat.M[Row][Col]);
 				}
@@ -1848,10 +1840,10 @@ bool FResourceManager::SerializeMaterialInstance(const FString& MatInstFilePath,
 			Param["Type"] = "Bool";
 			Param["Value"] = std::get<bool>(ParamValue.Value);
 		}
-		else if (std::holds_alternative<int>(ParamValue.Value))
+		else if (std::holds_alternative<int32>(ParamValue.Value))
 		{
 			Param["Type"] = "Int";
-			Param["Value"] = std::get<int>(ParamValue.Value);
+			Param["Value"] = std::get<int32>(ParamValue.Value);
 		}
 		else if (std::holds_alternative<uint32>(ParamValue.Value))
 		{
@@ -1895,10 +1887,10 @@ bool FResourceManager::SerializeMaterialInstance(const FString& MatInstFilePath,
 			const FMatrix& Mat = std::get<FMatrix>(ParamValue.Value);
 			Param["Type"] = "Matrix4";
 			JSON MatArray = JSON::Make(JSON::Class::Array);
-			for (int Row = 0; Row < 4; ++Row)
+			for (int32 Row = 0; Row < 4; ++Row)
 			{
 				JSON RowArray = JSON::Make(JSON::Class::Array);
-				for (int Col = 0; Col < 4; ++Col)
+				for (int32 Col = 0; Col < 4; ++Col)
 				{
 					RowArray.append(Mat.M[Row][Col]);
 				}
@@ -1980,7 +1972,7 @@ bool FResourceManager::DeserializeMaterial(const FString& MatFilePath)
 			}
 			else if (Type == "Int")
 			{
-				int Value = Param["Value"].ToInt();
+				int32 Value = Param["Value"].ToInt();
 				MatInstance->SetParam(ParamName, FMaterialParamValue(Value));
 			}
 			else if (Type == "UInt")
@@ -2020,9 +2012,9 @@ bool FResourceManager::DeserializeMaterial(const FString& MatFilePath)
 			else if (Type == "Matrix4")
 			{
 				FMatrix Value;
-				for (int Row = 0; Row < 4; ++Row)
+				for (int32 Row = 0; Row < 4; ++Row)
 				{
-					for (int Col = 0; Col < 4; ++Col)
+					for (int32 Col = 0; Col < 4; ++Col)
 					{
 						Value.M[Row][Col] = static_cast<float>(Param["Value"][Row][Col].ToFloat());
 					}
@@ -2081,7 +2073,7 @@ bool FResourceManager::DeserializeMaterial(const FString& MatFilePath)
 		}
 		else if (Type == "Int")
 		{
-			int Value = Param["Value"].ToInt();
+			int32 Value = Param["Value"].ToInt();
 			Material->SetParam(ParamName, FMaterialParamValue(Value));
 		}
 		else if (Type == "UInt")
@@ -2121,9 +2113,9 @@ bool FResourceManager::DeserializeMaterial(const FString& MatFilePath)
 		else if (Type == "Matrix4")
 		{
 			FMatrix Value;
-			for (int Row = 0; Row < 4; ++Row)
+			for (int32 Row = 0; Row < 4; ++Row)
 			{
-				for (int Col = 0; Col < 4; ++Col)
+				for (int32 Col = 0; Col < 4; ++Col)
 				{
 					Value.M[Row][Col] = static_cast<float>(Param["Value"][Row][Col].ToFloat());
 				}
@@ -2621,9 +2613,9 @@ ID3D11RasterizerState* FResourceManager::GetOrCreateRasterizerState(ERasterizerT
 }
 
 // TODO: 변경된 구조에 맞춰서 수정하기
-size_t FResourceManager::GetMaterialMemorySize() const
+SIZE_T FResourceManager::GetMaterialMemorySize() const
 {
-	size_t TotalSize = 0;
+	SIZE_T TotalSize = 0;
 
 	TotalSize += Materials.size() * sizeof(UMaterial);
 

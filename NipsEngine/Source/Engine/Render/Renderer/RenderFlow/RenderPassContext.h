@@ -1,6 +1,7 @@
 ﻿#pragma once
-#include <d3d11.h>
-#include "Core/CoreMinimal.h"
+struct ID3D11Device;
+struct ID3D11DeviceContext;
+struct ID3D11ShaderResourceView;
 
 struct FRenderTargetSet;
 struct FRenderResources;

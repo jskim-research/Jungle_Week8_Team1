@@ -1,8 +1,4 @@
 ﻿#pragma once
-#pragma once
-
-#include "Core/CoreMinimal.h"
-
 class IAssetLoader
 {
 public:

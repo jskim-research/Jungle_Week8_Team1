@@ -1,12 +1,12 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
+#include "Core/EngineTypes.h"
+#include "Geometry/OBB.h"
+#include "Math/Vector.h"
+#include "Math/Vector4.h"
 #include "Render/Common/ComPtr.h"
-
 #include "Render/Common/ViewTypes.h"
 #include "Render/Resource/Material.h"
-
-#include "Geometry/OBB.h"
 
 struct ID3D11Device;
 struct ID3D11DeviceContext;

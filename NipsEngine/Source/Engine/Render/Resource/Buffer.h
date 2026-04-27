@@ -8,7 +8,6 @@
 
 #include "Render/Common/ComPtr.h"
 
-#include "Core/CoreMinimal.h"
 #include "Render/Resource/VertexTypes.h"
 
 #include <d3d11.h>

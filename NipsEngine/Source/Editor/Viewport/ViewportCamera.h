@@ -1,9 +1,5 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
-#include "Engine/Geometry/Ray.h"
-#include "Engine/Geometry/Frustum.h"
-
 enum class EViewportProjectionType
 {
 	Perspective,

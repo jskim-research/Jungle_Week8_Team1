@@ -1,6 +1,4 @@
 ﻿#pragma once
-#include <Core/CoreTypes.h>
-#include "Core/CoreMinimal.h"
 #include "Engine/Runtime/WindowsWindow.h"
 
 struct FSceneView;

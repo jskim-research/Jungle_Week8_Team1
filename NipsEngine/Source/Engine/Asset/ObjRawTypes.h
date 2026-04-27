@@ -1,9 +1,6 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
-#include "Math/Vector.h"
 
-#include <functional>
 
 /*
  *	StaticMeshCookedData가 되기 이전인 Raw Data에 대한 정보
@@ -61,11 +58,11 @@ namespace std
 	template<>
 	struct hash<FObjRawIndex>
 	{
-		size_t operator()(const FObjRawIndex& Key) const noexcept
+		SIZE_T operator()(const FObjRawIndex& Key) const noexcept
 		{
-			size_t h1 = std::hash<int32>()(Key.PositionIndex);
-			size_t h2 = std::hash<int32>()(Key.UVIndex);
-			size_t h3 = std::hash<int32>()(Key.NormalIndex);
+			SIZE_T h1 = std::hash<int32>()(Key.PositionIndex);
+			SIZE_T h2 = std::hash<int32>()(Key.UVIndex);
+			SIZE_T h3 = std::hash<int32>()(Key.NormalIndex);
 
 			return h1 ^ (h2 << 1) ^ (h3 << 2);
 		}
@@ -74,7 +71,7 @@ namespace std
 	template<>
 	struct hash<FObjVertexKey>
 	{
-		size_t operator()(const FObjVertexKey& Key) const noexcept
+		SIZE_T operator()(const FObjVertexKey& Key) const noexcept
 		{
 			return std::hash<FObjRawIndex>()(Key.ObjRawIndex);
 		}

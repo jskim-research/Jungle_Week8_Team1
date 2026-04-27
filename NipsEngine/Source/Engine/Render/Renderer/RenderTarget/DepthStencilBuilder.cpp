@@ -59,7 +59,7 @@ FDepthStencilResource FDepthStencilBuilder::Build(ID3D11Device* Device)
 
 		DSR.DSVs.resize(6);
 		DSR.DST = EDepthStencilResourceType::Cubemap;
-		for (int i = 0; i < 6; i++)
+		for (int32 i = 0; i < 6; i++)
 		{
 			DsvDesc.Texture2DArray.FirstArraySlice = i;
 			Device->CreateDepthStencilView(DSR.Texture.Get(), &DsvDesc, &DSR.DSVs[i]);

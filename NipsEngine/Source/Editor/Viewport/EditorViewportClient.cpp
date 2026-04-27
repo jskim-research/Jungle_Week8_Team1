@@ -1,24 +1,21 @@
 ﻿#include "Editor/Viewport/EditorViewportClient.h"
 
-#include "Editor/UI/EditorConsoleWidget.h"
-#include "Editor/Settings/EditorSettings.h"
-#include "Engine/Input/InputSystem.h"
-#include "Engine/Slate/SlateApplication.h"
-#include "EditorEngine.h"
-
-#include "GameFramework/World.h"
 #include "Component/GizmoComponent.h"
 #include "Component/PrimitiveComponent.h"
-#include "Object/Object.h"
-#include "Object/ActorIterator.h"
-#include "Editor/Selection/SelectionManager.h"
-#include "Runtime/SceneView.h"
-#include "Utility/EditorUIUtils.h"
-#include "Math/Vector4.h"
-#include "Slate/SWidget.h"
-#include <algorithm>
-#include "GameFramework/PrimitiveActors.h"
 #include "Component/StaticMeshComponent.h"
+#include "Editor/Selection/SelectionManager.h"
+#include "Editor/Settings/EditorSettings.h"
+#include "Editor/UI/EditorConsoleWidget.h"
+#include "EditorEngine.h"
+#include "Engine/Input/InputSystem.h"
+#include "Engine/Slate/SlateApplication.h"
+#include "GameFramework/PrimitiveActors.h"
+#include "GameFramework/World.h"
+#include "Object/ActorIterator.h"
+#include "Object/Object.h"
+#include "Runtime/SceneView.h"
+#include "Slate/SWidget.h"
+#include "Utility/EditorUIUtils.h"
 
 void FEditorViewportClient::Initialize(FWindowsWindow* InWindow, UEditorEngine* InEditor)
 {

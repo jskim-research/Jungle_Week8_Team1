@@ -1,11 +1,8 @@
 ﻿#pragma once
 
-#include "CoreTypes.h"      // int32, uint8, …
-#include "Math/Vector.h"    // FVector  (for sizeof in GetPropertySize)
-#include "Math/Vector4.h"   // FVector4 (for sizeof in GetPropertySize)
 
 // 에디터에서 자동 위젯 매핑에 사용되는 프로퍼티 타입
-enum class EPropertyType : uint8_t
+enum class EPropertyType : uint8
 {
 	Bool,
 	Int,
@@ -41,7 +38,7 @@ struct FPropertyDescriptor
 /** 각 프로퍼티의 Size 값을 반환합니다. 0을 반환하는 경우 특수 케이스입니다.
  * 이런 경우에는 CopyPropertiesFrom 함수 내에서 알아서 잘 처리해줄 수 있어야 합니다. 
  **/
-inline size_t GetPropertySize(EPropertyType Type)
+inline SIZE_T GetPropertySize(EPropertyType Type)
 {
 	switch (Type)
 	{

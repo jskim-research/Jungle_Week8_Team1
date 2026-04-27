@@ -1,13 +1,8 @@
 ﻿#include "Quat.h"
 
-#include "Utils.h"
-#include "Rotator.h"
-
-#include <algorithm>
-#include <cassert>
-#include <cmath>
-
 #include "Matrix.h"
+#include "Rotator.h"
+#include "Utils.h"
 #include "Vector.h"
 
 namespace

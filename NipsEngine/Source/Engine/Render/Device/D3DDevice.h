@@ -4,8 +4,11 @@
 	Direct3D Device, Context, Swapchain을 관리하는 Class 입니다.
 */
 
+#include "Render/Common/ComPtr.h"
 #include "Render/Common/RenderTypes.h"
-#include "Core/CoreTypes.h"
+
+#include <d3d11.h>
+#include <dxgi1_5.h>
 
 struct ID3D11Debug;
 struct FShadowMap;

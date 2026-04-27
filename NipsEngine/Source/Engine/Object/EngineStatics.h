@@ -1,6 +1,4 @@
 ﻿#pragma once
-#include "Core/CoreMinimal.h"
-
 class EngineStatics
 {
 private:
@@ -24,7 +22,7 @@ public:
 	}
 
 	// Reset UUID generation to a specific value
-	static void ResetUUIDGeneration(int Value) { NextUUID = Value; }
+	static void ResetUUIDGeneration(int32 Value) { NextUUID = Value; }
 
 	// Peek at the next UUID without consuming it
 	static uint32 GetNextUUID() { return NextUUID; }

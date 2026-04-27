@@ -1,7 +1,9 @@
 ﻿#pragma once
-#include <d3d11.h>
 #include "Render/Common/ComPtr.h"
-#include "Core/Common.h"
+
+struct ID3D11DepthStencilView;
+struct ID3D11ShaderResourceView;
+struct ID3D11Texture2D;
 
 enum class EDepthStencilResourceType
 {

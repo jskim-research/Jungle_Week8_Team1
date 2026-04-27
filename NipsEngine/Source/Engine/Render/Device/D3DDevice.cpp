@@ -1,9 +1,13 @@
 ﻿#include "D3DDevice.h"
 
-#include <d3d11sdklayers.h>
-#include "Render/Renderer/RenderTarget/RenderTargetFactory.h"
 #include "Render/Renderer/RenderTarget/DepthStencilFactory.h"
+#include "Render/Renderer/RenderTarget/RenderTargetFactory.h"
 
+#include <d3d11sdklayers.h>
+
+#pragma comment(lib, "d3d11")
+#pragma comment(lib, "dxgi")
+#pragma comment(lib, "dxguid.lib")
 
 void FD3DDevice::Create(HWND InHWindow)
 {

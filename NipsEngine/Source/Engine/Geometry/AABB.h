@@ -1,6 +1,4 @@
 ﻿#pragma once
-#pragma once
-
 #include "Engine/Math/Vector.h"
 
 struct FRay;

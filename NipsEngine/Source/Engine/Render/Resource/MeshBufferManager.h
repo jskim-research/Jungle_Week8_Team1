@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
 #include "Render/Common/RenderTypes.h"
 
 #include "Render/Resource/Buffer.h"

@@ -13,7 +13,7 @@ FShadowResource* FShadowResourcePool::Acquire(ID3D11Device* Device, const FShado
 	{
 		DSR = FDepthStencilFactory::CreateDepthStencilViewCubemap(Device, Desc.Resolution, Desc.Resolution);
 		ShadowResource->SRV = DSR.SRV.Get();
-		for (int i = 0; i < 6; i++)
+		for (int32 i = 0; i < 6; i++)
 			ShadowResource->DSVs.push_back(DSR.DSVs[i].Get());
 	}
 	else

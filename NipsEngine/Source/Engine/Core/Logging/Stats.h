@@ -1,10 +1,7 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
 #include "Core/Singleton.h"
 
-#include <Windows.h>
-#include <cfloat>
 
 // --- 빌드 설정 ---
 #ifndef STATS

@@ -1,7 +1,6 @@
 ﻿
 
 #pragma once
-#include "Core/CoreTypes.h"
 #include "SlateUtils.h"
 class SWidget
 {

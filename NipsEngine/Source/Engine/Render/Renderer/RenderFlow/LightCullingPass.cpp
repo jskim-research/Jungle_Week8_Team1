@@ -2,10 +2,11 @@
 #include "Core/Paths.h"
 #include "Render/Scene/RenderBus.h"
 #include "Render/Scene/RenderCommand.h"
-#include <cstring>
 #include "UI/EditorConsoleWidget.h"
-#include <cmath>
+
 #include <algorithm>
+#include <cmath>
+#include <cstring>
 
 namespace
 {

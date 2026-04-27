@@ -1,6 +1,8 @@
 ﻿#pragma once
-#include "Render/Common/RenderTypes.h"
-#include "Core/CoreTypes.h"
+#include "Render/Common/ComPtr.h"
+
+#include <d3d11.h>
+#include <dxgi1_5.h>
 
 struct FRenderTarget
 {

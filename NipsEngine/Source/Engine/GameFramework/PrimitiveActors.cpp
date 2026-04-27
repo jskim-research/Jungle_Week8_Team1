@@ -1,19 +1,19 @@
 ﻿#include "GameFramework/PrimitiveActors.h"
 
+#include "Component/BillboardComponent.h"
 #include "Component/DecalComponent.h"
-#include "Component/StaticMeshComponent.h"
-#include "Component/TextRenderComponent.h"
 #include "Component/HeightFogComponent.h"
-#include "Component/SkyAtmosphereComponent.h"
-#include "Component/Movement/RotatingMovementComponent.h"
-#include "Component/Light/DirectionalLightComponent.h"
 #include "Component/Light/AmbientLightComponent.h"
+#include "Component/Light/DirectionalLightComponent.h"
 #include "Component/Light/PointLightComponent.h"
 #include "Component/Light/SpotLightComponent.h"
-#include "Component/HeightFogComponent.h"
-#include "Component/BillboardComponent.h"
+#include "Component/Movement/RotatingMovementComponent.h"
+#include "Component/SkyAtmosphereComponent.h"
+#include "Component/StaticMeshComponent.h"
 #include "Component/SubUVComponent.h"
+#include "Component/TextRenderComponent.h"
 #include "Core/ResourceManager.h"
+
 #include <format>
 
 DEFINE_CLASS(ASceneActor, AActor)

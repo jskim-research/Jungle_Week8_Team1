@@ -1,8 +1,4 @@
 ﻿#pragma once
-#include "Core/CoreMinimal.h"
-#include <cstdarg>
-#include <functional>
-#include <sstream>
 
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"

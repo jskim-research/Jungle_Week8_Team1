@@ -1,8 +1,7 @@
 ﻿#include "StaticMeshSimplifier.h"
-#include "StaticMesh.h"
-#include <algorithm>
 
 #include "Editor/UI/EditorConsoleWidget.h"
+#include "StaticMesh.h"
 
 FStaticMeshSimplifier::FStaticMeshSimplifier(UStaticMesh* InTargetMesh)
 	: TargetMesh(InTargetMesh)
@@ -590,7 +589,7 @@ void FStaticMeshSimplifier::UpdateTriangles(uint32 TopoIa, uint32 TopoIb, TArray
 void FStaticMeshSimplifier::BuildFinalIndices(const TArray<uint32>& TopologicalIndices, int32 CurrentTriangles)
 {
 	TArray<uint32> NewIndices;
-	NewIndices.reserve(static_cast<size_t>(CurrentTriangles) * 3);
+	NewIndices.reserve(static_cast<SIZE_T>(CurrentTriangles) * 3);
 
 	const int32 NumOriginalTriangles = static_cast<int32>(MeshData->Indices.size()) / 3;
 	for (int32 tidx = 0; tidx < NumOriginalTriangles; tidx++)

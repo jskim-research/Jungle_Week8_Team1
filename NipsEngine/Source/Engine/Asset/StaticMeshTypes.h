@@ -1,9 +1,9 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
-#include "Engine/Geometry/AABB.h"
 #include "Render/Resource/VertexTypes.h"
-#include "Render/Resource/Material.h"
+
+struct ID3D11Buffer;
+class UMaterialInterface;
 
 struct FStaticMeshSection
 {

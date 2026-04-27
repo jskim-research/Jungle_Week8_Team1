@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "Engine/Core/CoreTypes.h"
 #include "Engine/Geometry/Plane.h"
 #include "Engine/Geometry/AABB.h"
 #include "Engine/Math/Matrix.h"

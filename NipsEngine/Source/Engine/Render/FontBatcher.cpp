@@ -1,6 +1,4 @@
-﻿#include <d3d11.h>
-#include "FontBatcher.h"
-#include "Core/CoreTypes.h"
+﻿#include "FontBatcher.h"
 #include "Core/ResourceManager.h"
 #include "Render/Resource/RenderResources.h"
 #include "Render/Scene/RenderBus.h"
@@ -89,7 +87,7 @@ void FFontBatcher::AddText(const FString& Text,
 	// 1. 실제 유니코드 문자 개수 세기
 	const uint8* Ptr = reinterpret_cast<const uint8*>(Text.c_str());
 	const uint8* const End = Ptr + Text.size();
-	size_t ActualCharCount = 0;
+	SIZE_T ActualCharCount = 0;
 	{
 		const uint8* CountPtr = Ptr;
 		while (CountPtr < End)
@@ -112,7 +110,7 @@ void FFontBatcher::AddText(const FString& Text,
 	float CharCursorX = 0.0f;
 	const uint32 Base = static_cast<uint32>(Vertices.size());
 	const uint32 IdxBase = static_cast<uint32>(Indices.size());
-	const size_t CharCount = Text.size();
+	const SIZE_T CharCount = Text.size();
 
 	// resize + 포인터 직접 쓰기로 push_back 오버헤드 제거
 	Vertices.resize(Base + ActualCharCount * 4);
@@ -128,7 +126,7 @@ void FFontBatcher::AddText(const FString& Text,
 	uint32 CharIdx = 0;
 
 	CharCursorX = -(ActualCharCount * CharW * 0.5f);
-	for (size_t i = 0; i < CharCount && Ptr < End; ++i)
+	for (SIZE_T i = 0; i < CharCount && Ptr < End; ++i)
 	{
 		uint32 CP = 0;
 		if      (Ptr[0] < 0x80)                             { CP = Ptr[0];                                                                       Ptr += 1; }

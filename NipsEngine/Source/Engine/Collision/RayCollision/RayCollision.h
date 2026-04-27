@@ -1,10 +1,6 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
-#include "Core/Containers/Array.h"
 #include "Core/CollisionTypes.h"
-#include "Geometry/Ray.h"
-#include "Math/Matrix.h"
 
 class UPrimitiveComponent;
 

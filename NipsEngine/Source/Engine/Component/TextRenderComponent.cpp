@@ -1,10 +1,8 @@
 ﻿#include "TextRenderComponent.h"
 
-#include <cmath>
-#include <cstring>
+#include "Core/ResourceManager.h"
 #include "Editor/Viewport/ViewportCamera.h"
 #include "GameFramework/AActor.h"
-#include "Core/ResourceManager.h"
 #include "Object/ObjectFactory.h"
 
 DEFINE_CLASS(UTextRenderComponent, UPrimitiveComponent)

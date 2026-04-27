@@ -1,7 +1,7 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
 #include "Math/Vector.h"
+
 #include <functional>
 
 // 두 FVector 정점으로 구성된 간선(Edge)을 표현하는 자료형
@@ -85,15 +85,15 @@ namespace std
 	template <>
 	struct hash<FEdge>
 	{
-		size_t operator()(const FEdge& Edge) const noexcept
+		SIZE_T operator()(const FEdge& Edge) const noexcept
 		{
 			// 비방향 간선이므로 Canonical 형태로 정규화 후 해싱
 			FEdge C = Edge.Canonical();
-			auto Combine = [](size_t Seed, size_t Value) -> size_t
+			auto Combine = [](SIZE_T Seed, SIZE_T Value) -> SIZE_T
 			{
 				return Seed ^ (Value * 2654435761u + 0x9e3779b9u + (Seed << 6) + (Seed >> 2));
 			};
-			size_t H = std::hash<FVector>{}(C.A);
+			SIZE_T H = std::hash<FVector>{}(C.A);
 			H = Combine(H, std::hash<FVector>{}(C.B));
 			return H;
 		}
@@ -157,16 +157,16 @@ namespace std
 	template <>
 	struct hash<FIndexEdge>
 	{
-		size_t operator()(const FIndexEdge& Edge) const noexcept
+		SIZE_T operator()(const FIndexEdge& Edge) const noexcept
 		{
 			// 비방향 간선이므로 Canonical 형태로 정규화 후 해싱
 			FIndexEdge C = Edge.Canonical();
-			auto Combine = [](size_t Seed, size_t Value) -> size_t
+			auto Combine = [](SIZE_T Seed, SIZE_T Value) -> SIZE_T
 			{
 				return Seed ^ (Value * 2654435761u + 0x9e3779b9u + (Seed << 6) + (Seed >> 2));
 			};
 			
-			size_t H = std::hash<uint32>{}(C.A);
+			SIZE_T H = std::hash<uint32>{}(C.A);
 			H = Combine(H, std::hash<uint32>{}(C.B));
 			return H;
 		}

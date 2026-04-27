@@ -1,17 +1,18 @@
 ﻿#include "Renderer.h"
 
-#include <iostream>
-#include <algorithm>
+#include "Core/Logging/GPUProfiler.h"
+#include "Core/Logging/Stats.h"
 #include "Core/Paths.h"
 #include "Core/ResourceManager.h"
-#include "Render/Common/RenderTypes.h"
-#include "Render/Mesh/MeshManager.h"
-#include "Core/Logging/Stats.h"
-#include "Core/Logging/GPUProfiler.h"
 #include "Editor/UI/EditorConsoleWidget.h"
 #include "Editor/Viewport/FSceneViewport.h"
-#include "Render/Renderer/RenderTarget/RenderTargetFactory.h"
+#include "Render/Common/RenderTypes.h"
+#include "Render/Mesh/MeshManager.h"
 #include "Render/Renderer/RenderTarget/DepthStencilFactory.h"
+#include "Render/Renderer/RenderTarget/RenderTargetFactory.h"
+
+#include <algorithm>
+#include <iostream>
 
 void FRenderer::Create(HWND hWindow)
 {

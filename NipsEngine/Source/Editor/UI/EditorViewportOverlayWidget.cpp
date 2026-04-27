@@ -8,6 +8,7 @@
 
 #include "Engine/Slate/SlateApplication.h"
 #include "Engine/Object/ObjectIterator.h"
+#include "Engine/Object/EngineStatics.h"
 #include "Engine/Asset/StaticMesh.h"
 #include "Engine/Asset/StaticMeshTypes.h"
 #include "Engine/Component/GizmoComponent.h"
@@ -23,10 +24,6 @@
 #include "Input/InputSystem.h"
 
 #include "ImGui/imgui.h"
-#include <cstdio>
-#include <initializer_list>
-#include <utility>
-#include <algorithm>
 
 // ──────────── 공통 UI 상수 ────────────
 namespace

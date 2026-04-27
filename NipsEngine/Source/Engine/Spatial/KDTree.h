@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "Engine/Core/CoreMinimal.h"
 #include "Engine/Geometry/AABB.h"
 #include "Engine/Geometry/Ray.h"
 #include "Render/Resource/VertexTypes.h"

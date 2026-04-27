@@ -1,8 +1,6 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
-
-#include <fstream>
+#include <iosfwd>
 
 struct FStaticMesh;
 

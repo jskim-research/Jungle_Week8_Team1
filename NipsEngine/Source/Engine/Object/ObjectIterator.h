@@ -38,5 +38,5 @@ private:
 		}
 	}
 
-	size_t CurrentIndex;
+	SIZE_T CurrentIndex;
 };

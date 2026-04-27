@@ -1,13 +1,10 @@
 ﻿#include "SubUVComponent.h"
 
-#include <cmath>
-#include <cstring>
-#include "Editor/Viewport/ViewportCamera.h"
+#include "Component/CameraComponent.h"
 #include "Core/ResourceManager.h"
+#include "Editor/Viewport/ViewportCamera.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/World.h"
-#include "Component/CameraComponent.h"
-#include "Math/Utils.h"
 
 DEFINE_CLASS(USubUVComponent, UPrimitiveComponent)
 REGISTER_FACTORY(USubUVComponent)

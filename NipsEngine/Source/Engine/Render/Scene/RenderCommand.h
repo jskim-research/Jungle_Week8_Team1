@@ -6,17 +6,15 @@
 	RenderCommand는 Renderer에서 Draw Call을 1회 수행하기 위해 필요한 정보를 담고 있습니다.
 */
 
+#include "Core/ResourceTypes.h"
+#include "Math/Matrix.h"
+#include "Math/Vector.h"
+#include "Math/Vector2.h"
+#include "Math/Vector4.h"
 #include "Render/Common/RenderTypes.h"
 #include "Render/Common/ViewTypes.h"
 #include "Render/Resource/Buffer.h"
 #include "Render/Resource/Material.h"
-#include "Render/Device/D3DDevice.h"
-#include "Core/CoreMinimal.h"
-#include "Core/ResourceTypes.h"
-
-#include "Math/Matrix.h"
-#include "Math/Vector.h"
-
 
 struct ID3D11ShaderResourceView;
 

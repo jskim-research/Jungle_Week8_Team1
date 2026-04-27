@@ -8,7 +8,6 @@
 #include "Render/Common/ComPtr.h"
 #include "Render/Common/RenderTypes.h"
 
-#include "Core/CoreTypes.h"
 #include "Object/Object.h"
 
 class FRenderBus;
@@ -206,9 +205,9 @@ namespace std
 	template<>
 	struct hash<FShaderMacro>
 	{
-		size_t operator()(const FShaderMacro& Macro) const noexcept
+		SIZE_T operator()(const FShaderMacro& Macro) const noexcept
 		{
-			size_t Hash = std::hash<FString>{}(Macro.Name);
+			SIZE_T Hash = std::hash<FString>{}(Macro.Name);
 			Hash ^= std::hash<FString>{}(Macro.Value) + 0x9e3779b9u + (Hash << 6) + (Hash >> 2);
 			return Hash;
 		}
@@ -217,9 +216,9 @@ namespace std
 	template<>
 	struct hash<FShaderCompileKey>
 	{
-		size_t operator()(const FShaderCompileKey& Key) const noexcept
+		SIZE_T operator()(const FShaderCompileKey& Key) const noexcept
 		{
-			size_t Hash = std::hash<FString>{}(Key.FilePath);
+			SIZE_T Hash = std::hash<FString>{}(Key.FilePath);
 			Hash ^= std::hash<FString>{}(Key.VSEntryPoint) + 0x9e3779b9u + (Hash << 6) + (Hash >> 2);
 			Hash ^= std::hash<FString>{}(Key.PSEntryPoint) + 0x9e3779b9u + (Hash << 6) + (Hash >> 2);
 

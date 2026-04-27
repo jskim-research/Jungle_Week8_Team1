@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
-
 // 에디터 UI와 렌더러가 공유하는 view mode 정의다.
 // 새 view mode를 추가할 때는 enum만 늘리지 말고 아래 helper 규칙도 함께 확장해야 한다.
 

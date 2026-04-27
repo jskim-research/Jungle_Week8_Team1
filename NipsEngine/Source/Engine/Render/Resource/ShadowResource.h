@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "Core/Common.h"
-#include <d3d11.h>
+struct ID3D11DepthStencilView;
+struct ID3D11ShaderResourceView;
 
 /*
 Atlas

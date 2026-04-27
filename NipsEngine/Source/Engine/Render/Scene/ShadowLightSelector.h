@@ -1,5 +1,4 @@
 ﻿#pragma once
-#include "Core/Common.h"
 #include "Component/Light/LightComponent.h"
 #include "Render/Common/ShadowTypes.h"
 #include "Render/Scene/RenderCommand.h"
@@ -12,7 +11,7 @@ struct FShadowRequest
 	uint32 LightId;      // 어떤 라이트인지
 	ELightType Type; // Directional / Point / Spot
 
-	int Resolution; // Shadow Map 해상도
+	int32 Resolution; // Shadow Map 해상도
 	uint32 CascadeCount;
 
 	bool bUseVSM; // VSM 사용할지 여부

@@ -1,6 +1,4 @@
 ﻿#pragma once
-#include "Core/CoreTypes.h"
-
 struct FViewportRect
 {
 	int32 X = 0;

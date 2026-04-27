@@ -1,10 +1,7 @@
 ﻿#include "Object.h"
 #include "EngineStatics.h"
-#include "Object/FName.h"
-#include "Object/ObjectFactory.h"
 #include "Math/Vector.h"
-
-#include <cstring>
+#include "Object/ObjectFactory.h"
 
 TArray<UObject*> GUObjectArray;
 
@@ -80,7 +77,7 @@ void UObject::CopyPropertiesFrom(UObject* Src)
 		case EPropertyType::Vec4:
 		case EPropertyType::Color:
 		{
-			const size_t Size = GetPropertySize(SrcProp.Type);
+			const SIZE_T Size = GetPropertySize(SrcProp.Type);
 			if (Size > 0)
 			{
 				memcpy(DstProp->ValuePtr, SrcProp.ValuePtr, Size);

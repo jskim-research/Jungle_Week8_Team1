@@ -1,8 +1,11 @@
 ﻿#pragma once
 
 #include "Core/EngineTypes.h"
-#include "Core/Containers/String.h"
-#include "Core/Containers/Array.h"
+#include "Math/Color.h"
+#include "Math/Matrix.h"
+#include "Math/Vector.h"
+#include "Math/Vector2.h"
+#include "Math/Vector4.h"
 #include "Object/FName.h"
 
 struct FArchive

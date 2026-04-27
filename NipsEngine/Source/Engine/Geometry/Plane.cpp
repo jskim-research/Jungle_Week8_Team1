@@ -1,7 +1,5 @@
 ﻿#include "Plane.h"
 
-#include <cmath>
-
 FPlane::FPlane()
 	: Normal(0.0f, 0.0f, 0.0f)
 	, AbsNormal(0.0f, 0.0f, 0.0f)

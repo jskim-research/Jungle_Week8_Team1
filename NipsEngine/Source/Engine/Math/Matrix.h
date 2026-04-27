@@ -3,9 +3,9 @@
 #include "Vector.h"
 #include "Vector4.h"
 
-struct Vector4;
+#include <cassert>
 
-enum class EAxis : uint8_t
+enum class EAxis : uint8
 {
 	X,
 	Y,
@@ -140,9 +140,9 @@ struct FMatrix
 			T3.x, T3.y, T3.z, T3.w);
 
 		// FMatrix Result;
-		// for (int32_t Row = 0; Row < 4; ++Row)
+		// for (int32 Row = 0; Row < 4; ++Row)
 		// {
-		//     for (int32_t Col = 0; Col < 4; ++Col)
+		//     for (int32 Col = 0; Col < 4; ++Col)
 		//     {
 		//         Result.M[Row][Col] = M[Row][Col] + Other.M[Row][Col];
 		//     }
@@ -178,9 +178,9 @@ struct FMatrix
 			T3.x, T3.y, T3.z, T3.w);
 
 		// FMatrix Result;
-		// for (int32_t Row = 0; Row < 4; ++Row)
+		// for (int32 Row = 0; Row < 4; ++Row)
 		// {
-		//     for (int32_t Col = 0; Col < 4; ++Col)
+		//     for (int32 Col = 0; Col < 4; ++Col)
 		//     {
 		//         Result.M[Row][Col] = M[Row][Col] - Other.M[Row][Col];
 		//     }
@@ -209,9 +209,9 @@ struct FMatrix
 			T3.x, T3.y, T3.z, T3.w);
 
 		// FMatrix Result;
-		// for (int32_t Row = 0; Row < 4; ++Row)
+		// for (int32 Row = 0; Row < 4; ++Row)
 		// {
-		//     for (int32_t Col = 0; Col < 4; ++Col)
+		//     for (int32 Col = 0; Col < 4; ++Col)
 		//     {
 		//         Result.M[Row][Col] = M[Row][Col] * Scalar;
 		//     }
@@ -242,9 +242,9 @@ struct FMatrix
 			T3.x, T3.y, T3.z, T3.w);
 
 		// FMatrix Result;
-		// for (int32_t Row = 0; Row < 4; ++Row)
+		// for (int32 Row = 0; Row < 4; ++Row)
 		// {
-		//     for (int32_t Col = 0; Col < 4; ++Col)
+		//     for (int32 Col = 0; Col < 4; ++Col)
 		//     {
 		//         Result.M[Row][Col] = M[Row][Col] / Scalar;
 		//     }
@@ -293,9 +293,9 @@ struct FMatrix
 		M[3][2] = T3.z;
 		M[3][3] = T3.w;
 
-		// for (int32_t Row = 0; Row < 4; ++Row)
+		// for (int32 Row = 0; Row < 4; ++Row)
 		// {
-		//     for (int32_t Col = 0; Col < 4; ++Col)
+		//     for (int32 Col = 0; Col < 4; ++Col)
 		//     {
 		//         M[Row][Col] += Other.M[Row][Col];
 		//     }
@@ -344,9 +344,9 @@ struct FMatrix
 		M[3][2] = T3.z;
 		M[3][3] = T3.w;
 
-		// for (int32_t Row = 0; Row < 4; ++Row)
+		// for (int32 Row = 0; Row < 4; ++Row)
 		// {
-		//     for (int32_t Col = 0; Col < 4; ++Col)
+		//     for (int32 Col = 0; Col < 4; ++Col)
 		//     {
 		//         M[Row][Col] -= Other.M[Row][Col];
 		//     }
@@ -388,9 +388,9 @@ struct FMatrix
 		M[3][2] = T3.z;
 		M[3][3] = T3.w;
 
-		// for (int32_t Row = 0; Row < 4; ++Row)
+		// for (int32 Row = 0; Row < 4; ++Row)
 		// {
-		//     for (int32_t Col = 0; Col < 4; ++Col)
+		//     for (int32 Col = 0; Col < 4; ++Col)
 		//     {
 		//         M[Row][Col] *= Scalar;
 		//     }
@@ -434,9 +434,9 @@ struct FMatrix
 		M[3][2] = T3.z;
 		M[3][3] = T3.w;
 
-		// for (int32_t Row = 0; Row < 4; ++Row)
+		// for (int32 Row = 0; Row < 4; ++Row)
 		// {
-		//     for (int32_t Col = 0; Col < 4; ++Col)
+		//     for (int32 Col = 0; Col < 4; ++Col)
 		//     {
 		//         M[Row][Col] /= Scalar;
 		//     }
@@ -470,7 +470,7 @@ struct FMatrix
 	bool Equals(const FMatrix& Other, float Tolerance = 1.e-6f) const noexcept
 	{
 		const XMVector ToleranceVector = DirectX::XMVectorReplicate(Tolerance);
-		for (int32_t Row = 0; Row < 4; ++Row)
+		for (int32 Row = 0; Row < 4; ++Row)
 		{
 			const XMVector ThisRow =
 				DirectX::XMVectorSet(M[Row][0], M[Row][1], M[Row][2], M[Row][3]);

@@ -5,7 +5,6 @@
 #include "Asset/ObjLoader.h"
 #include "Asset/ParticleAtlasLoader.h"
 #include "Asset/StaticMesh.h"
-#include "Core/CoreTypes.h"
 #include "Core/Singleton.h"
 #include "Core/ResourceTypes.h"
 #include "Object/FName.h"
@@ -13,8 +12,7 @@
 #include "Render/Resource/Material.h"
 #include "Render/Resource/Texture.h"
 #include "Render/Resource/RenderResources.h"
-#include <d3d11.h>
-#include <chrono>
+
 
 // 리소스를 관리하는 싱글턴.
 // Resource.ini에서 리소스 경로/그리드 정보를 읽고, GPU 리소스를 로드/캐싱합니다.
@@ -148,7 +146,7 @@ public:
 	ID3D11BlendState* GetOrCreateBlendState(EBlendType Type, ID3D11Device* Device = nullptr);
 	ID3D11RasterizerState* GetOrCreateRasterizerState(ERasterizerType Type, ID3D11Device* Device = nullptr);
 
-	size_t GetMaterialMemorySize() const;
+	SIZE_T GetMaterialMemorySize() const;
 	
 	//	Binary 전체 삭제
 	void DeleteAllCacheFiles();

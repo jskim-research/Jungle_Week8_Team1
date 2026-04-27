@@ -1,7 +1,5 @@
 ﻿#include "Editor/UI/EditorConsoleWidget.h"
 
-#include <algorithm>
-
 #include "Editor/EditorEngine.h"
 #include "Editor/Viewport/ViewportLayout.h"
 #include "Engine/Object/FName.h"

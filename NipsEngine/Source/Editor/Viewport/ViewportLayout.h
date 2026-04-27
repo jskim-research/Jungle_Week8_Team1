@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#include "Core/CoreTypes.h"
-#include "Core/Containers/StaticArray.h"
 #include "Utility/EditorUIUtils.h"
 #include "FSceneViewport.h"
 #include "EditorViewportClient.h"

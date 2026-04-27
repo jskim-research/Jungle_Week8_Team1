@@ -1,21 +1,17 @@
 ﻿#include "Editor/UI/EditorPropertyWidget.h"
 
-#include "Editor/EditorEngine.h"
-#include "ImGui/imgui.h"
-#include "GameFramework/PrimitiveActors.h"
-#include "Core/PropertyTypes.h"
-#include "Math/Color.h"
-#include "Core/ResourceManager.h"
-#include "Object/FName.h"
-#include <functional>
-
-#include "Editor/Utility/EditorComponentFactory.h"
-
-#include "Component/StaticMeshComponent.h"
 #include "Component/GizmoComponent.h"
-#include "Component/Movement/InterpToMovementComponent.h"
 #include "Component/Light/LightComponent.h"
+#include "Component/Movement/InterpToMovementComponent.h"
+#include "Component/StaticMeshComponent.h"
+#include "Core/PropertyTypes.h"
+#include "Core/ResourceManager.h"
+#include "Editor/EditorEngine.h"
+#include "Editor/Utility/EditorComponentFactory.h"
 #include "Editor/Utility/EditorUIUtils.h"
+#include "GameFramework/PrimitiveActors.h"
+
+#include <ImGui/imgui.h>
 
 #define SEPARATOR(); ImGui::Spacing(); ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing(); ImGui::Spacing();
 

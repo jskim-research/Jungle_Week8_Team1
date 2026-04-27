@@ -1,16 +1,14 @@
 ﻿#include "Editor/UI/EditorSceneWidget.h"
 
+#include "Component/GizmoComponent.h"
+#include "Core/Paths.h"
+#include "Core/ResourceManager.h"
 #include "Editor/EditorEngine.h"
 #include "Engine/Core/Common.h"
 #include "GameFramework/WorldContext.h"
-
-#include "ImGui/imgui.h"
-#include "Component/GizmoComponent.h"
 #include "Serialization/SceneSaveManager.h"
 
-#include <filesystem>
-
-#include "Core/ResourceManager.h"
+#include "ImGui/imgui.h"
 
 #define SEPARATOR(); ImGui::Spacing(); ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing(); ImGui::Spacing();
 

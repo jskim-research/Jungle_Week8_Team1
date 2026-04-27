@@ -1,7 +1,4 @@
 ﻿#include "FName.h"
-#include <algorithm>
-#include <cctype>
-
 // ============================================================
 // FNamePool
 // ============================================================
@@ -88,7 +85,7 @@ bool FName::operator!=(const FName& Other) const
 	return ComparisonIndex != Other.ComparisonIndex;
 }
 
-size_t FName::Hash::operator()(const FName& Name) const
+SIZE_T FName::Hash::operator()(const FName& Name) const
 {
 	return std::hash<uint32>()(Name.ComparisonIndex);
 }

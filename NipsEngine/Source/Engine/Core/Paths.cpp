@@ -1,5 +1,4 @@
 ﻿#include "Engine/Core/Paths.h"
-#include <filesystem>
 
 FWString FPaths::RootDir()
 {
@@ -78,7 +77,7 @@ void FPaths::CreateDir(const FWString& Path)
 FWString FPaths::ToWide(const FString& Utf8Str)
 {
 	if (Utf8Str.empty()) return {};
-	int32_t Size = MultiByteToWideChar(CP_UTF8, 0, Utf8Str.c_str(), -1, nullptr, 0);
+	int32 Size = MultiByteToWideChar(CP_UTF8, 0, Utf8Str.c_str(), -1, nullptr, 0);
 	FWString Result(Size - 1, L'\0');
 	MultiByteToWideChar(CP_UTF8, 0, Utf8Str.c_str(), -1, &Result[0], Size);
 	return Result;
@@ -87,9 +86,9 @@ FWString FPaths::ToWide(const FString& Utf8Str)
 FString FPaths::ToUtf8(const FWString& WideStr)
 {
 	if (WideStr.empty()) return {};
-	int32_t Size = WideCharToMultiByte(CP_UTF8, 0, WideStr.c_str(), static_cast<int>(WideStr.length()), nullptr, 0, nullptr, nullptr);
+	int32 Size = WideCharToMultiByte(CP_UTF8, 0, WideStr.c_str(), static_cast<int32>(WideStr.length()), nullptr, 0, nullptr, nullptr);
 	FString Result(Size, '\0');
-	WideCharToMultiByte(CP_UTF8, 0, WideStr.c_str(), static_cast<int>(WideStr.length()), Result.data(), Size, nullptr, nullptr);
+	WideCharToMultiByte(CP_UTF8, 0, WideStr.c_str(), static_cast<int32>(WideStr.length()), Result.data(), Size, nullptr, nullptr);
 	return Result;
 }
 

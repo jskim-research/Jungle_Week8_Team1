@@ -25,6 +25,7 @@
 // Core math types and utilities.
 // Vector, matrix, rotation, transform, color, etc.
 //=============================================================================
+#include "Math/Utils.h"
 #include "Math/Color.h"
 #include "Math/Utils.h"
 #include "Math/Matrix.h"

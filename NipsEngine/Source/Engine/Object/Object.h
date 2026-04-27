@@ -1,9 +1,8 @@
 ﻿#pragma once
 
-#include "EngineStatics.h"
-#include "Object/FName.h"
-#include "Core/Singleton.h"
 #include "Core/PropertyTypes.h"
+#include "Core/Singleton.h"
+#include "Object/FName.h"
 #include "Serialization/Archive.h"
 
 #define DECLARE_CLASS(ClassName, ParentClass)                          \
@@ -19,7 +18,7 @@
 		sizeof(ClassName)                                              \
 	};
 
-enum EClassFlags : uint32_t
+enum EClassFlags : uint32
 {
 	CF_None = 0,
 	CF_Actor = 1 << 0,
@@ -31,8 +30,8 @@ struct FTypeInfo
 {
 	const char* name;
 	const FTypeInfo* Parent;
-	size_t size;
-	uint32_t ClassFlags = CF_None;
+	SIZE_T size;
+	uint32 ClassFlags = CF_None;
 
 	bool IsA(const FTypeInfo* Other) const {
 		for (const FTypeInfo* T = this; T; T = T->Parent) {

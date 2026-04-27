@@ -2,11 +2,6 @@
 #include "Engine/Core/Paths.h"
 
 #include <DbgHelp.h>
-#include <filesystem>
-#include <fstream>
-#include <iomanip>
-#include <ctime>
-#include <cstdio>
 
 #pragma comment(lib, "DbgHelp.lib")
 
@@ -93,7 +88,7 @@ void WriteCrashLog(EXCEPTION_POINTERS* ExceptionInfo)
 		<< ExceptionInfo->ExceptionRecord->ExceptionCode << std::dec << "\n";
 	LogFile << "Call Stack:\n";
 
-	const int MaxFrames = 62;
+	const int32 MaxFrames = 62;
 	void* Stack[MaxFrames];
 	WORD Frames = CaptureStackBackTrace(0, MaxFrames, Stack, nullptr);
 
@@ -135,7 +130,7 @@ void WriteCrashLog(EXCEPTION_POINTERS* ExceptionInfo)
 	SymCleanup(Process);
 }
 
-int ReportCrash(EXCEPTION_POINTERS* ExceptionInfo)
+int32 ReportCrash(EXCEPTION_POINTERS* ExceptionInfo)
 {
 	WriteCrashDump(ExceptionInfo);
 	WriteCrashLog(ExceptionInfo);

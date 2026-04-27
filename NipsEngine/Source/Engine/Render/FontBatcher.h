@@ -1,7 +1,8 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
 #include "Core/ResourceTypes.h"
+#include "Math/Matrix.h"
+#include "Math/Vector2.h"
 #include "Render/Common/ComPtr.h"
 #include "Render/Resource/Material.h"
 #include "Render/Resource/VertexTypes.h"

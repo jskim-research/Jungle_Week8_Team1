@@ -1,8 +1,6 @@
 ﻿#pragma once
 
-#include "Core/CoreMinimal.h"
 #include "Engine/GameFramework/AActor.h"
-#include <functional>
 
 class UActorComponent;
 

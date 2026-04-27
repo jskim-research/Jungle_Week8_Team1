@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include "Math/Matrix.h"
+#include "Math/Vector2.h"
 #include "Render/Resource/ShadowResource.h"
 
 enum class EShadowProjectionMode

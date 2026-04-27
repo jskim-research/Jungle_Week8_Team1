@@ -2,8 +2,6 @@
 
 #include "Editor/UI/EditorConsoleWidget.h"
 
-#include <filesystem>
-
 FFileWatcher::~FFileWatcher()
 {
 	Stop();

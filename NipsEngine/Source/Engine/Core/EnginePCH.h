@@ -11,7 +11,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include "Core/CoreTypes.h"
+#include "Core/CoreMinimal.h"
 
 #include <algorithm>
 #include <array>

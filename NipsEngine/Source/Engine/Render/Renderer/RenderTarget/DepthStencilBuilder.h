@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "DepthStencilResource.h"
-#include "Core/CoreMinimal.h"
+
+struct ID3D11Device;
 
 class FDepthStencilBuilder
 {

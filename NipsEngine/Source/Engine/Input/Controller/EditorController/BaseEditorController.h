@@ -1,6 +1,4 @@
 ﻿#pragma once
-#include "Core/CoreTypes.h"
-#include "Geometry/Ray.h"
 
 class FEditorViewportClient;
 class FEditorSettings;

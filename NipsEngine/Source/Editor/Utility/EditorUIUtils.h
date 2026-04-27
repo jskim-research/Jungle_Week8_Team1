@@ -1,5 +1,4 @@
 ﻿#pragma once
-#include "Core/CoreMinimal.h"
 #include "Runtime/ViewportRect.h"
 #include "Render/Common/ViewTypes.h"
 

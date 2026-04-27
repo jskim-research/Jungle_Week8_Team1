@@ -256,7 +256,7 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 			// 2. Frustum Center
 			// =========================
 			FVector Center(0, 0, 0);
-			for (int j = 0; j < 8; j++)
+			for (int32 j = 0; j < 8; j++)
 			{
 				Center += FrustumCorners[j];
 			}
@@ -284,7 +284,7 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 			FVector Min(FLT_MAX, FLT_MAX, FLT_MAX);
 			FVector Max(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
-			for (int j = 0; j < 8; j++)
+			for (int32 j = 0; j < 8; j++)
 			{
 				FVector P = LightView.TransformPosition(FrustumCorners[j]);
 

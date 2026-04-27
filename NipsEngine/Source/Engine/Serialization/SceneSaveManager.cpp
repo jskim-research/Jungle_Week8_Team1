@@ -1,27 +1,24 @@
 ﻿#include "SceneSaveManager.h"
 
-#include <iostream>
-#include <fstream>
-#include <chrono>
-#include <functional>
-
-#include "SimpleJSON/json.hpp"
-#include "GameFramework/World.h"
-#include "GameFramework/PrimitiveActors.h"
-#include "Component/SceneComponent.h"
 #include "Component/ActorComponent.h"
+#include "Component/SceneComponent.h"
 #include "Component/TextRenderComponent.h"
-#include "Object/Object.h"
-#include "Object/ActorIterator.h"
-#include "Object/ObjectFactory.h"
 #include "Core/PropertyTypes.h"
-#include "Object/FName.h"
+#include "Core/ResourceManager.h"
+#include "GameFramework/PrimitiveActors.h"
+#include "GameFramework/World.h"
 #include "Math/Matrix.h"
 #include "Math/Vector.h"
+#include "Object/ActorIterator.h"
+#include "Object/EngineStatics.h"
+#include "Object/FName.h"
+#include "Object/Object.h"
+#include "Object/ObjectFactory.h"
 #include "Render/Resource/Material.h"
-#include "Core/ResourceManager.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonWriter.h"
+
+#include "SimpleJSON/json.hpp"
 
 namespace SceneKeys
 {
@@ -91,7 +88,7 @@ void FSceneSaveManager::SaveSceneAsJSON(const FString& InSceneName, FWorldContex
 	Root[SceneKeys::WorldType] = WorldTypeToString(WorldContext.WorldType);
 	Root[SceneKeys::PerspectiveCamera] = SerializeCameraState(CameraState);
 	Root[SceneKeys::Primitives] = SerializeWorldToPrimitives(WorldContext.World, WorldContext);
-	Root[SceneKeys::NextUUID] = static_cast<int>(EngineStatics::GetNextUUID());
+	Root[SceneKeys::NextUUID] = static_cast<int32>(EngineStatics::GetNextUUID());
 
 	std::ofstream File(FileDestination);
 	if (File.is_open()) {
@@ -136,7 +133,7 @@ void FSceneSaveManager::CollectComponentsFlat(USceneComponent* Comp, uint32 Pare
 
 	// 루트가 아닌 경우에만 ParentUUID 기록
 	if (ParentID != 0)
-		PrimObj[SceneKeys::ParentUUID] = static_cast<int>(ParentID);
+		PrimObj[SceneKeys::ParentUUID] = static_cast<int32>(ParentID);
 
 	// 프로퍼티 기반 직렬화
 	TArray<FPropertyDescriptor> Descriptors;
@@ -173,7 +170,7 @@ void FSceneSaveManager::CollectNonSceneComponents(AActor* Actor, json::JSON& Out
 
 		json::JSON CompObj = json::Object();
 		CompObj[SceneKeys::Type] = Comp->GetTypeInfo()->name;
-		CompObj[SceneKeys::OwnerRootUUID] = static_cast<int>(RootUUID);
+		CompObj[SceneKeys::OwnerRootUUID] = static_cast<int32>(RootUUID);
 
 		TArray<FPropertyDescriptor> Descriptors;
 		Comp->GetEditableProperties(Descriptors);
@@ -297,7 +294,7 @@ json::JSON FSceneSaveManager::SerializePropertyValue(const FPropertyDescriptor& 
 	case EPropertyType::SceneComponentRef: {
 		// USceneComponent* 포인터를 UUID로 직렬화 (-1은 nullptr)
 		USceneComponent* RefComp = *static_cast<USceneComponent**>(Prop.ValuePtr);
-		return RefComp ? JSON(static_cast<int>(RefComp->GetUUID())) : JSON(-1);
+		return RefComp ? JSON(static_cast<int32>(RefComp->GetUUID())) : JSON(-1);
 	}
 
 	case EPropertyType::Vec3Array: {
@@ -863,7 +860,7 @@ void FSceneSaveManager::DeserializePropertyValue(FPropertyDescriptor& Prop, json
 
 	case EPropertyType::Vec3: {
 		float* v = static_cast<float*>(Prop.ValuePtr);
-		int i = 0;
+		int32 i = 0;
 		for (auto& elem : Value.ArrayRange()) {
 			if (i < 3) v[i] = static_cast<float>(elem.ToFloat());
 			i++;
@@ -872,7 +869,7 @@ void FSceneSaveManager::DeserializePropertyValue(FPropertyDescriptor& Prop, json
 	}
 	case EPropertyType::Color: {
 		float* v = static_cast<float*>(Prop.ValuePtr);
-		int i = 0;
+		int32 i = 0;
 		for (auto& elem : Value.ArrayRange())
 		{
 			if (i < 3)
@@ -883,7 +880,7 @@ void FSceneSaveManager::DeserializePropertyValue(FPropertyDescriptor& Prop, json
 	}
 	case EPropertyType::Vec4: {
 		float* v = static_cast<float*>(Prop.ValuePtr);
-		int i = 0;
+		int32 i = 0;
 		for (auto& elem : Value.ArrayRange()) {
 			if (i < 4) v[i] = static_cast<float>(elem.ToFloat());
 			i++;
@@ -922,7 +919,7 @@ void FSceneSaveManager::DeserializePropertyValue(FPropertyDescriptor& Prop, json
 	}
 
 	case EPropertyType::Enum: {
-		*static_cast<int*>(Prop.ValuePtr) = Value.ToInt();
+		*static_cast<int32*>(Prop.ValuePtr) = Value.ToInt();
 		break;
 	}
 
