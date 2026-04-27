@@ -66,7 +66,7 @@ public:
 
 	ID3D11ShaderResourceView* GetShadowMap() const
 	{
-		if (!RenderTargetSet)
+		if (!RenderTargetSet || !RenderTargetSet->ShadowMap || !RenderTargetSet->ShadowMap->Resource)
 			return nullptr;
 
 		return RenderTargetSet->ShadowMap->Resource->SRV;
