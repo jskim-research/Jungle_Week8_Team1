@@ -7,9 +7,48 @@
 #include "Core/ResourceManager.h"
 #include "SceneLightBinding.h"
 #include "ShadowPass.h"
+#include <algorithm>
 
 namespace
 {
+	constexpr uint32 ShadowMapType_None = 0u;
+	constexpr uint32 ShadowMapType_Depth2D = 1u;
+	constexpr uint32 ShadowMapType_DepthCube = 2u;
+	constexpr uint32 InvalidVisibleLightIndex = 0xffffffffu;
+
+	bool IsLocalLightType(uint32 Type)
+	{
+		return Type == static_cast<uint32>(ELightType::LightType_Point) ||
+			   Type == static_cast<uint32>(ELightType::LightType_Spot);
+	}
+
+	uint32 FindVisibleLocalLightIndex(const FRenderBus& RenderBus, uint32 ShadowLightId)
+	{
+		const TArray<FRenderLight>& Lights = RenderBus.GetLights();
+		if (ShadowLightId >= static_cast<uint32>(Lights.size()))
+		{
+			return InvalidVisibleLightIndex;
+		}
+
+		uint32 LocalIndex = 0;
+		for (uint32 LightIndex = 0; LightIndex < static_cast<uint32>(Lights.size()); ++LightIndex)
+		{
+			if (!IsLocalLightType(Lights[LightIndex].Type))
+			{
+				continue;
+			}
+
+			if (LightIndex == ShadowLightId)
+			{
+				return LocalIndex;
+			}
+
+			++LocalIndex;
+		}
+
+		return InvalidVisibleLightIndex;
+	}
+
 	UShader* ResolveOpaqueShaderOverride(const FRenderPassContext* Context)
 	{
 		if (!Context || !Context->RenderBus)
@@ -68,6 +107,70 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 	SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
 
+	FShadowCB ShadowCB = {};
+	ShadowCB.ShadowLightView = FMatrix::Identity;
+	ShadowCB.ShadowLightProjection = FMatrix::Identity;
+	for (uint32 FaceIndex = 0; FaceIndex < 6; ++FaceIndex)
+	{
+		ShadowCB.ShadowCubeViewProjection[FaceIndex] = FMatrix::Identity;
+	}
+	ShadowCB.ShadowMapType = ShadowMapType_None;
+	ShadowCB.ShadowedVisibleLightIndex = InvalidVisibleLightIndex;
+
+	ID3D11ShaderResourceView* ShadowMap2DSRV = nullptr;
+	ID3D11ShaderResourceView* ShadowMapCubeSRV = nullptr;
+
+	if (!FShadowPass::GetShadowMaps().empty())
+	{
+		const FShadowMap& ShadowMap = FShadowPass::GetShadowMaps()[0];
+		if (ShadowMap.Resource != nullptr)
+		{
+			ShadowCB.bShadowEnabled = 1;
+			ShadowCB.ShadowBias = 0.005f;
+
+			if (ShadowMap.MapType == EShadowMapType::DepthCube)
+			{
+				ShadowMapCubeSRV = ShadowMap.Resource->SRV;
+				ShadowCB.ShadowMapType = ShadowMapType_DepthCube;
+
+				if (Context->RenderBus && ShadowMap.LightId < static_cast<uint32>(Context->RenderBus->GetLights().size()))
+				{
+					const FRenderLight& ShadowLight = Context->RenderBus->GetLights()[ShadowMap.LightId];
+					ShadowCB.ShadowLightPosition = ShadowLight.Position;
+					ShadowCB.ShadowFar = ShadowLight.Radius;
+					ShadowCB.ShadowedVisibleLightIndex = FindVisibleLocalLightIndex(*Context->RenderBus, ShadowMap.LightId);
+				}
+
+				const uint32 CubeViewCount = std::min<uint32>(6, static_cast<uint32>(ShadowMap.Views.size()));
+				for (uint32 FaceIndex = 0; FaceIndex < CubeViewCount; ++FaceIndex)
+				{
+					ShadowCB.ShadowCubeViewProjection[FaceIndex] =
+						ShadowMap.Views[FaceIndex].LightView * ShadowMap.Views[FaceIndex].LightProjection;
+				}
+			}
+			else
+			{
+				ShadowMap2DSRV = ShadowMap.Resource->SRV;
+				ShadowCB.ShadowMapType = ShadowMapType_Depth2D;
+
+				if (!ShadowMap.Views.empty())
+				{
+					ShadowCB.ShadowLightView = ShadowMap.Views[0].LightView;
+					ShadowCB.ShadowLightProjection = ShadowMap.Views[0].LightProjection;
+				}
+			}
+		}
+	}
+
+	D3D11_MAPPED_SUBRESOURCE Mapped = {};
+	if (SUCCEEDED(Context->DeviceContext->Map(ShadowConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped)))
+	{
+		std::memcpy(Mapped.pData, &ShadowCB, sizeof(ShadowCB));
+		Context->DeviceContext->Unmap(ShadowConstantBuffer.Get(), 0);
+	}
+
+	ID3D11SamplerState* ShadowSampler = FResourceManager::Get().GetOrCreateSamplerState(ESamplerType::EST_Point, Context->Device);
+
 	for (const FRenderCommand& Cmd : Commands)
 	{
 		if (Cmd.Type == ERenderCommandType::PostProcessOutline)
@@ -101,28 +204,13 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 		SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
 
-		// 테스트용으로 하나만 mapping
-		if (!FShadowPass::GetShadowMaps().empty())
-		{
-			Context->DeviceContext->PSSetShaderResources(11, 1, &FShadowPass::GetShadowMaps()[0].Resource->SRV);
+		// Material bind가 texture 슬롯을 다시 덮어쓸 수 있으므로 shadow 리소스는 draw 직전 재바인딩한다.
+		ID3D11ShaderResourceView* ShadowSRVs[2] = { ShadowMap2DSRV, ShadowMapCubeSRV };
+		Context->DeviceContext->PSSetShaderResources(11, 2, ShadowSRVs);
 
-			FShadowCB ShadowCB;
-			ShadowCB.ShadowLightView = FShadowPass::GetShadowMaps()[0].Views[0].LightView;
-			ShadowCB.ShadowLightProjection = FShadowPass::GetShadowMaps()[0].Views[0].LightProjection;
-
-			D3D11_MAPPED_SUBRESOURCE Mapped = {};
-			if (SUCCEEDED(Context->DeviceContext->Map(ShadowConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped)))
-			{
-				std::memcpy(Mapped.pData, &ShadowCB, sizeof(ShadowCB));
-				Context->DeviceContext->Unmap(ShadowConstantBuffer.Get(), 0);
-			}
-
-			ID3D11Buffer* RawShadowConstantBuffer = ShadowConstantBuffer.Get();
-			Context->DeviceContext->PSSetConstantBuffers(6, 1, &RawShadowConstantBuffer);
-
-			ID3D11SamplerState* ShadowSampler = FResourceManager::Get().GetOrCreateSamplerState(ESamplerType::EST_Point, Context->Device);
-			Context->DeviceContext->PSSetSamplers(1, 1, &ShadowSampler);
-		}
+		ID3D11Buffer* RawShadowConstantBuffer = ShadowConstantBuffer.Get();
+		Context->DeviceContext->PSSetConstantBuffers(6, 1, &RawShadowConstantBuffer);
+		Context->DeviceContext->PSSetSamplers(1, 1, &ShadowSampler);
 
 		CheckOverrideViewMode(Context);
 
@@ -149,8 +237,10 @@ bool FOpaqueRenderPass::End(const FRenderPassContext* Context)
 {
 	SceneLightBinding::UnbindResources(Context ? Context->DeviceContext : nullptr);
 
-	ID3D11ShaderResourceView* NullSRV[] = { nullptr };
-	Context->DeviceContext->PSSetShaderResources(11, 1, NullSRV);
+	ID3D11ShaderResourceView* NullSRVs[2] = { nullptr, nullptr };
+	Context->DeviceContext->PSSetShaderResources(11, 2, NullSRVs);
+	ID3D11Buffer* NullShadowCB = nullptr;
+	Context->DeviceContext->PSSetConstantBuffers(6, 1, &NullShadowCB);
 	return true;
 }
 

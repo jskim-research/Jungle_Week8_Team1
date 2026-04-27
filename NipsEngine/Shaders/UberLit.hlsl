@@ -43,6 +43,14 @@ cbuffer ShadowLightViewInfo : register(b6)
 {
     row_major float4x4 ShadowLightView;
     row_major float4x4 ShadowLightProjection;
+    row_major float4x4 ShadowCubeViewProjection[6];
+    float3 ShadowLightPosition;
+    float ShadowFar;
+    float ShadowBias;
+    uint ShadowMapType;
+    uint ShadowedVisibleLightIndex;
+    uint bShadowEnabled;
+    uint _ShadowPad0;
 }
 
 struct FVisibleLightData
@@ -63,13 +71,17 @@ StructuredBuffer<FVisibleLightData> VisibleLights : register(t8);
 StructuredBuffer<uint> TileVisibleLightCount : register(t9);
 StructuredBuffer<uint> TileVisibleLightIndices : register(t10);
 // 테스트용 임시 Texture
-Texture2D ShadowMap : register(t11);
+Texture2D ShadowMap2D : register(t11);
+TextureCube ShadowMapCube : register(t12);
 SamplerState ShadowSampler : register(s1);
 
 static const uint LIGHT_TYPE_DIRECTIONAL = 0u;
 static const uint LIGHT_TYPE_POINT = 1u;
 static const uint LIGHT_TYPE_SPOT = 2u;
 static const uint LIGHT_TYPE_AMBIENT = 3u;
+static const uint SHADOW_MAP_TYPE_NONE = 0u;
+static const uint SHADOW_MAP_TYPE_DEPTH2D = 1u;
+static const uint SHADOW_MAP_TYPE_DEPTHCUBE = 2u;
 static const float3 DEFAULT_AMBIENT_COLOR = float3(0.02f, 0.02f, 0.02f);
 
 struct FLightingResult
@@ -77,6 +89,48 @@ struct FLightingResult
     float3 Diffuse;
     float3 Specular;
 };
+
+float ComputePointShadowFactor(float3 WorldPos)
+{
+    if (bShadowEnabled == 0u || ShadowMapType != SHADOW_MAP_TYPE_DEPTHCUBE || ShadowFar <= 1.0e-4f)
+    {
+        return 1.0f;
+    }
+
+    const float3 ToPixel = WorldPos - ShadowLightPosition;
+    const float Distance = length(ToPixel);
+    if (Distance <= 1.0e-4f || Distance >= ShadowFar)
+    {
+        return 1.0f;
+    }
+
+    const float3 SampleDir = ToPixel / Distance;
+
+    // CubeMap face 인덱싱과 별도로, 큐브 투영에서 depth를 결정하는 축(major axis)로 현재 깊이를 계산한다.
+    // 이렇게 하면 셰이더의 face 선택 로직과 하드웨어 cube face 선택이 어긋날 때 생기는 쐐기 아티팩트를 줄일 수 있다.
+    const float ViewDepth = max(abs(ToPixel.x), max(abs(ToPixel.y), abs(ToPixel.z)));
+    const float PointShadowNear = 1.0f;
+    if (ShadowFar <= PointShadowNear + 1.0e-4f)
+    {
+        return 1.0f;
+    }
+
+    if (ViewDepth <= PointShadowNear + 1.0e-4f)
+    {
+        return 1.0f;
+    }
+
+    const float DepthA = ShadowFar / (ShadowFar - PointShadowNear);
+    const float DepthB = (PointShadowNear * ShadowFar) / (ShadowFar - PointShadowNear);
+    const float CurrentDepth = DepthA - (DepthB / ViewDepth);
+    if (CurrentDepth < 0.0f || CurrentDepth > 1.0f)
+    {
+        return 1.0f;
+    }
+
+    const float StoredDepth = ShadowMapCube.Sample(ShadowSampler, SampleDir).r;
+    return (StoredDepth + ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
+}
 
 float ComputeDistanceAttenuation(float Distance, float Radius, float FalloffExponent)
 {
@@ -173,6 +227,25 @@ void AccumulateVisiblePointLights(float3 WorldPos, float3 N, float3 V, float2 Sc
             const float CosAngle = dot(SpotDir, -L);
             const float ConeRange = max(Light.SpotInnerCos - Light.SpotOuterCos, 1.0e-4f);
             Att *= saturate((CosAngle - Light.SpotOuterCos) / ConeRange);
+            if (Att <= 0.0f)
+            {
+                continue;
+            }
+        }
+
+        if (bShadowEnabled != 0u &&
+            ShadowMapType == SHADOW_MAP_TYPE_DEPTHCUBE &&
+            Light.Type == LIGHT_TYPE_POINT)
+        {
+            const bool bMatchesShadowLight =
+                all(abs(Light.WorldPos - ShadowLightPosition) < float3(0.01f, 0.01f, 0.01f)) &&
+                abs(Light.Radius - ShadowFar) < 0.01f;
+
+            if (bMatchesShadowLight)
+            {
+                Att *= ComputePointShadowFactor(WorldPos);
+            }
+
             if (Att <= 0.0f)
             {
                 continue;
@@ -313,6 +386,11 @@ float3 ApplyLighting(FUberSurfaceData Surface, FLightingResult Lighting)
 
 float3 ApplyShadow(FUberSurfaceData Surface, float3 ColorAfterLighting)
 {
+    if (bShadowEnabled == 0u || ShadowMapType != SHADOW_MAP_TYPE_DEPTH2D)
+    {
+        return ColorAfterLighting;
+    }
+
     float4 ShadowLightPos = mul(mul(float4(Surface.WorldPos, 1), ShadowLightView), ShadowLightProjection);
     
     float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
@@ -324,10 +402,8 @@ float3 ApplyShadow(FUberSurfaceData Surface, float3 ColorAfterLighting)
         CurrentDepth < 0.0 || CurrentDepth > 1.0)
         return ColorAfterLighting;
     
-    float ShadowLightDepth = ShadowMap.Sample(ShadowSampler, ShadowUV);
-    
-    float bias = 0.005;
-    float ShadowFactor = (ShadowLightDepth >= CurrentDepth - bias) ? 1.0 : 0.0;
+    float ShadowLightDepth = ShadowMap2D.Sample(ShadowSampler, ShadowUV);
+    float ShadowFactor = (ShadowLightDepth + ShadowBias >= CurrentDepth) ? 1.0 : 0.0;
     
     return ColorAfterLighting * ShadowFactor;
     // return float3(ShadowLightDepth, ShadowLightDepth, ShadowLightDepth);
@@ -437,7 +513,8 @@ FUberPSOutput mainPS(FUberPSInput Input)
 
 
 #endif
-    return ComposeOutput(Surface, ApplyShadow(Surface, ApplyLighting(Surface, Lighting)));
+    const float3 LitColor = ApplyLighting(Surface, Lighting);
+    return ComposeOutput(Surface, ApplyShadow(Surface, LitColor));
 }
 
 #endif

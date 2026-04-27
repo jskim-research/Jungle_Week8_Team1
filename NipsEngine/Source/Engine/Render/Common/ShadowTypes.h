@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Math/Matrix.h"
 #include "Math/Vector2.h"
+#include "Render/Common/RenderTypes.h"
 #include "Render/Resource/ShadowResource.h"
 
 enum class EShadowProjectionMode
@@ -94,4 +95,6 @@ struct FShadowMap
 	TArray<FShadowSlice> Slices;
 
 	EShadowMapType MapType; // Shader Sampling 방식
+	uint32 LightId = 0;
+	ELightType LightType = ELightType::Max;
 };

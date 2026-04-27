@@ -2,6 +2,7 @@
 #include "Render/Scene/ShadowLightSelector.h"
 #include "Core/ResourceManager.h"
 #include "Editor/UI/EditorConsoleWidget.h"
+#include <algorithm>
 
 namespace
 {
@@ -108,66 +109,87 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 	D3D11_VIEWPORT ShadowViewport = {};
 	ShadowViewport.TopLeftX = 0.0f;
 	ShadowViewport.TopLeftY = 0.0f;
-	ShadowViewport.Width = (float)GShadowMaps[0].Resource->Resolution;
-	ShadowViewport.Height = (float)GShadowMaps[0].Resource->Resolution;
 	ShadowViewport.MinDepth = 0.0f;
 	ShadowViewport.MaxDepth = 1.0f;
-	Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
+	Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	for (uint32 i = 0; i < GShadowMaps[0].Resource->DSVs.size(); i++)
+	for (FShadowMap& ShadowMap : GShadowMaps)
 	{
-
-		Context->DeviceContext->ClearDepthStencilView(GShadowMaps[0].Resource->DSVs[i], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-		Context->DeviceContext->OMSetRenderTargets(0, nullptr, GShadowMaps[0].Resource->DSVs[i]);
-
-		for (const FRenderCommand& Cmd : Commands)
+		if (ShadowMap.Resource == nullptr)
 		{
-			if (Cmd.Type == ERenderCommandType::PostProcessOutline)
-			{
-				continue;
-			}
+			continue;
+		}
 
-			if (Cmd.MeshBuffer == nullptr || !Cmd.MeshBuffer->IsValid())
-			{
-				return false;
-			}
+		const uint32 DSVCount = static_cast<uint32>(ShadowMap.Resource->DSVs.size());
+		const uint32 ViewCount = static_cast<uint32>(ShadowMap.Views.size());
+		const uint32 DrawSliceCount = std::min<uint32>(DSVCount, ViewCount);
+		if (DrawSliceCount == 0)
+		{
+			continue;
+		}
 
-			uint32 offset = 0;
-			ID3D11Buffer* vertexBuffer = Cmd.MeshBuffer->GetVertexBuffer().GetBuffer();
-			if (vertexBuffer == nullptr)
-			{
-				return false;
-			}
+		ShadowViewport.Width = static_cast<float>(ShadowMap.Resource->Resolution);
+		ShadowViewport.Height = static_cast<float>(ShadowMap.Resource->Resolution);
+		Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
 
-			uint32 vertexCount = Cmd.MeshBuffer->GetVertexBuffer().GetVertexCount();
-			uint32 stride = Cmd.MeshBuffer->GetVertexBuffer().GetStride();
-			if (vertexCount == 0 || stride == 0)
-			{
-				return false;
-			}
+		for (uint32 i = 0; i < DrawSliceCount; i++)
+		{
+			ShaderBinding->SetMatrix4("View", ShadowMap.Views[i].LightView);
+			ShaderBinding->SetMatrix4("Projection", ShadowMap.Views[i].LightProjection);
 
-			if (Cmd.Material)
-			{
-				UShader* Shader = FResourceManager::Get().GetShader("Shaders/Primitive.hlsl");
-				ShaderBinding->ApplyPerObjectParameters(Cmd.PerObjectConstants);
-				ShaderBinding->Bind(Context->DeviceContext);
-			}
+			Context->DeviceContext->ClearDepthStencilView(ShadowMap.Resource->DSVs[i], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+			Context->DeviceContext->OMSetRenderTargets(0, nullptr, ShadowMap.Resource->DSVs[i]);
+			Context->DeviceContext->PSSetShader(nullptr, nullptr, 0);
 
-			CheckOverrideViewMode(Context);
-
-			Context->DeviceContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
-
-			ID3D11Buffer* indexBuffer = Cmd.MeshBuffer->GetIndexBuffer().GetBuffer();
-			if (indexBuffer != nullptr)
+			for (const FRenderCommand& Cmd : Commands)
 			{
-				uint32 indexStart = Cmd.SectionIndexStart;
-				uint32 indexCount = Cmd.SectionIndexCount;
-				Context->DeviceContext->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
-				Context->DeviceContext->DrawIndexed(indexCount, indexStart, 0);
-			}
-			else
-			{
-				Context->DeviceContext->Draw(vertexCount, 0);
+				if (Cmd.Type == ERenderCommandType::PostProcessOutline)
+				{
+					continue;
+				}
+
+				if (Cmd.MeshBuffer == nullptr || !Cmd.MeshBuffer->IsValid())
+				{
+					return false;
+				}
+
+				uint32 offset = 0;
+				ID3D11Buffer* vertexBuffer = Cmd.MeshBuffer->GetVertexBuffer().GetBuffer();
+				if (vertexBuffer == nullptr)
+				{
+					return false;
+				}
+
+				uint32 vertexCount = Cmd.MeshBuffer->GetVertexBuffer().GetVertexCount();
+				uint32 stride = Cmd.MeshBuffer->GetVertexBuffer().GetStride();
+				if (vertexCount == 0 || stride == 0)
+				{
+					return false;
+				}
+
+				if (Cmd.Material)
+				{
+					ShaderBinding->ApplyPerObjectParameters(Cmd.PerObjectConstants);
+					ShaderBinding->Bind(Context->DeviceContext);
+					Context->DeviceContext->PSSetShader(nullptr, nullptr, 0);
+				}
+
+				CheckOverrideViewMode(Context);
+
+				Context->DeviceContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
+
+				ID3D11Buffer* indexBuffer = Cmd.MeshBuffer->GetIndexBuffer().GetBuffer();
+				if (indexBuffer != nullptr)
+				{
+					uint32 indexStart = Cmd.SectionIndexStart;
+					uint32 indexCount = Cmd.SectionIndexCount;
+					Context->DeviceContext->IASetIndexBuffer(indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+					Context->DeviceContext->DrawIndexed(indexCount, indexStart, 0);
+				}
+				else
+				{
+					Context->DeviceContext->Draw(vertexCount, 0);
+				}
 			}
 		}
 	}
@@ -189,7 +211,7 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 {
 	FShadowRequestDesc Desc;
 	Desc.AllocationMode = EShadowAllocationMode::ArrayBased; // CSM
-	Desc.MapType = EShadowMapType::Depth2D;
+	Desc.MapType = Req.Type != ELightType::LightType_Point ? EShadowMapType::Depth2D : EShadowMapType::DepthCube;
 	Desc.Resolution = Req.Resolution;
 	Desc.CascadeCount = 1; // 일단은 한 장씩만 사용
 
@@ -200,6 +222,8 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 	if (!BuildSlices(Context, Req, OutShadowMap.Slices))
 		return false;
 	OutShadowMap.MapType = Desc.MapType;
+	OutShadowMap.LightId = Req.LightId;
+	OutShadowMap.LightType = Req.Type;
 
 	return true;
 }
@@ -363,45 +387,48 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 
 	case ELightType::LightType_Point:
 	{
-        static FVector CubeDirs[6] = {
-            FVector::UpVector,
-            -FVector::UpVector,
-            FVector::ForwardVector,
-            -FVector::ForwardVector,
-            FVector::RightVector,
-            -FVector::RightVector
-        };
+		static const FVector CubeDirs[6] = {
+			FVector::ForwardVector,
+			-FVector::ForwardVector,
+			FVector::RightVector,
+			-FVector::RightVector,
+			FVector::UpVector,
+			-FVector::UpVector
+		};
+		static const FVector CubeUps[6] = {
+			FVector::RightVector,
+			FVector::RightVector,
+			-FVector::UpVector,
+			FVector::UpVector,
+			FVector::RightVector,
+			FVector::RightVector
+		};
 
-        for (uint32 i = 0; i < 6; i++)
-        {
-            FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
-            FShadowViewInfo ViewInfo;
+		for (uint32 i = 0; i < 6; i++)
+		{
+			FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
+			FShadowViewInfo ViewInfo;
 
-            FVector LightDir = CubeDirs[i];
+			FVector LightDir = CubeDirs[i];
 
-            FVector Eye = Light.Position;
-            FVector Target = Eye + LightDir;
+			FVector Eye = Light.Position;
+			FVector Target = Eye + LightDir;
+			FVector Up = CubeUps[i];
 
-            FVector Up = FVector(0, 0, 1);
-            if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
-            {
-                Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
-            }
+			ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
+			ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
 
-            ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
-            ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
+			float FovRad = (90.0f * (3.141592f / 180.0f)); // 전체 FOV
 
-            float FovRad = (90.0f * (3.141592f / 180.0f)); // 전체 FOV
+			ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
+				FovRad,
+				1.0f,        // 정사각형 섀도우 맵
+				1.0f,        // Near
+				Light.Radius // Far = 라이트 반경
+			);
 
-            ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
-                FovRad,
-                1.0f,        // 정사각형 섀도우 맵
-                1.0f,        // Near
-                Light.Radius // Far = 라이트 반경
-            );
-
-            OutViewInfoArray.push_back(ViewInfo);
-        }
+			OutViewInfoArray.push_back(ViewInfo);
+		}
 		break;
 	}
         
@@ -448,6 +475,7 @@ bool FShadowPass::BuildSlices(const FRenderPassContext* Context, const FShadowRe
 			ShadowSlice.Type = EShadowSliceType::CubeFace;
 			ShadowSlice.UVOffset = FVector2(0, 0);
 			ShadowSlice.UVScale = FVector2(1, 1);
+			OutShadowSlices.push_back(ShadowSlice);
 		}
 		break;
 	default:
