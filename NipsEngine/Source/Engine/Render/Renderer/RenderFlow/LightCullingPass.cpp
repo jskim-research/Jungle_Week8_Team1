@@ -103,10 +103,9 @@ bool FLightCullingPass::Begin(const FRenderPassContext* Context)
 	OutRTV = PrevPassRTV;
 	return true;
 }
-
 bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
 {
-	GLightCullingOutputs = {};
+    GLightCullingOutputs = {};
 
     if (!EnsureComputeShader(Context->Device) || !EnsureConstantBuffer(Context->Device))
     {
@@ -132,8 +131,8 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     {
         return false;
     }
-	
-	TArray<FLightCullingLight> CullingLights;
+
+    TArray<FLightCullingLight> CullingLights;
     const TArray<FRenderLight>& SceneLights = Context->RenderBus->GetLights();
     const FVector& CameraPos = Context->RenderBus->GetCameraPosition();
 
@@ -147,7 +146,7 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
         return A.first < B.first; // max-heap: 거리 큰 게 top
     };
 
-    // 범위 기반 for 문을 인덱스 기반 for 문으로 변경합니다.
+    // 범위 기반 for 문을 인덱스 기반 for 문으로 변경하여 ShadowIndex를 매핑합니다.
     for (uint32 i = 0; i < SceneLights.size(); ++i)
     {
         const FRenderLight& Light = SceneLights[i];
@@ -167,6 +166,7 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
         CullingLight.SpotOuterCos = Light.SpotOuterCos;
         CullingLight.Direction = Light.Direction;
 
+        // ★ 우리가 추가했던 ShadowIndex 완벽 매핑!
         CullingLight.ShadowIndex = FShadowPass::GetLightToShadowIndices()[i];
 
         float Dist = FVector::DistSquared(CameraPos, Light.Position);
@@ -183,152 +183,80 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     }
 
     CullingLights.reserve(MaxLocalLightNum + 1);
-	for (FLightWithDist& Entry : Heap)
+    for (FLightWithDist& Entry : Heap)
+    {
+        CullingLights.push_back(std::move(Entry.second));
+    }
 
-	{
-		return false;
-	}
+    const uint32 LightCount = static_cast<uint32>(CullingLights.size());
 
-	const float Width = Context->RenderTargets->Width;
-	const float Height = Context->RenderTargets->Height;
-	if (Width <= 0.0f || Height <= 0.0f)
-	{
-		return true;
-	}
+    if (LightCount > 0)
+    {
+        if (!EnsureInputLightBuffer(Context->Device, LightCount))
+        {
+            return false;
+        }
 
-	const uint32 TileCountX = CeilDivide(static_cast<uint32>(Width), LightCullingTileSize);
-	const uint32 TileCountY = CeilDivide(static_cast<uint32>(Height), LightCullingTileSize);
-	const uint32 TileCount = TileCountX * TileCountY;
-	if (TileCount == 0)
-	{
-		return true;
-	}
+        D3D11_MAPPED_SUBRESOURCE MappedLightBuffer = {};
+        if (FAILED(Context->DeviceContext->Map(LightBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedLightBuffer)))
+        {
+            return false;
+        }
+        std::memcpy(MappedLightBuffer.pData, CullingLights.data(), sizeof(FLightCullingLight) * LightCount);
+        Context->DeviceContext->Unmap(LightBuffer.Get(), 0);
+    }
 
-	if (!EnsureTileBuffers(Context->Device, TileCount))
-	{
-		return false;
-	}
-	
-	TArray<FLightCullingLight> CullingLights;
-	const TArray<FRenderLight>& SceneLights = Context->RenderBus->GetLights();
-	const FVector& CameraPos = Context->RenderBus->GetCameraPosition();
+    FLightCullingConstants Constants = {};
+    Constants.View = Context->RenderBus->GetView();
+    Constants.Projection = Context->RenderBus->GetProj();
+    Constants.LightCount = LightCount;
+    Constants.TileCountX = TileCountX;
+    Constants.TileCountY = TileCountY;
+    Constants.TileSize = LightCullingTileSize;
+    Constants.ViewportWidth = Width;
+    Constants.ViewportHeight = Height;
+    Constants.IsOrthographic = Context->RenderBus->IsOrthographic() ? 1 : 0;
 
-	// 거리 포함한 임시 구조체로 max-heap 구성 (가장 먼 것이 top)
-	using FLightWithDist = TPair<float, FLightCullingLight>;
-	TArray<FLightWithDist> Heap;
-	Heap.reserve(MaxLocalLightNum + 1);
+    D3D11_MAPPED_SUBRESOURCE MappedCB = {};
+    if (FAILED(Context->DeviceContext->Map(CullingConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedCB)))
+    {
+        return false;
+    }
+    std::memcpy(MappedCB.pData, &Constants, sizeof(Constants));
+    Context->DeviceContext->Unmap(CullingConstantBuffer.Get(), 0);
 
-	auto HeapCmp = [](const FLightWithDist& A, const FLightWithDist& B)
-	{
-		return A.first < B.first; // max-heap: 거리 큰 게 top
-	};
+    ID3D11ComputeShader* CS = ComputeShader.Get();
+    Context->DeviceContext->CSSetShader(CS, nullptr, 0);
 
-	for (const FRenderLight& Light : SceneLights)
-	{
-		if (Light.Type != (uint32)ELightType::LightType_Point &&
-			Light.Type != (uint32)ELightType::LightType_Spot)
-			continue;
+    ID3D11Buffer* CBuffers[] = { CullingConstantBuffer.Get() };
+    Context->DeviceContext->CSSetConstantBuffers(0, 1, CBuffers);
 
-		FLightCullingLight CullingLight = {};
-		CullingLight.WorldPos = Light.Position;
-		CullingLight.Radius = Light.Radius;
-		CullingLight.Color = Light.Color;
-		CullingLight.Intensity = Light.Intensity;
-		CullingLight.RadiusFalloff = Light.FalloffExponent;
-		CullingLight.Type = Light.Type;
-		CullingLight.SpotInnerCos = Light.SpotInnerCos;
-		CullingLight.SpotOuterCos = Light.SpotOuterCos;
-		CullingLight.Direction = Light.Direction;
+    ID3D11ShaderResourceView* SRVs[] = { LightCount > 0 ? LightBufferSRV.Get() : nullptr };
+    Context->DeviceContext->CSSetShaderResources(0, 1, SRVs);
 
-		float Dist = FVector::DistSquared(CameraPos, Light.Position);
+    UINT ClearValues[4] = { 0u, 0u, 0u, 0u };
+    Context->DeviceContext->ClearUnorderedAccessViewUint(TileLightCountUAV.Get(), ClearValues);
+    Context->DeviceContext->ClearUnorderedAccessViewUint(TileLightIndexUAV.Get(), ClearValues);
 
-		Heap.push_back({ Dist, CullingLight });
-		std::push_heap(Heap.begin(), Heap.end(), HeapCmp);
+    ID3D11UnorderedAccessView* UAVs[] = { TileLightCountUAV.Get(), TileLightIndexUAV.Get() };
+    Context->DeviceContext->CSSetUnorderedAccessViews(0, 2, UAVs, nullptr);
 
-		// MaxLocalLightNum 초과 시 가장 먼 것(top) 제거
-		if (Heap.size() > MaxLocalLightNum)
-		{
-			std::pop_heap(Heap.begin(), Heap.end(), HeapCmp);
-			Heap.pop_back();
-		}
-	}
+    Context->DeviceContext->Dispatch(TileCountX, TileCountY, 1);
 
-	CullingLights.reserve(MaxLocalLightNum + 1);
-	for (FLightWithDist& Entry : Heap)
-	{
-		CullingLights.push_back(std::move(Entry.second));
-	}
+    GLightCullingOutputs.LightBufferSRV = (LightCount > 0) ? LightBufferSRV.Get() : nullptr;
+    GLightCullingOutputs.TileLightCountSRV = TileLightCountSRV.Get();
+    GLightCullingOutputs.TileLightIndexSRV = TileLightIndexSRV.Get();
+    GLightCullingOutputs.TileCountX = TileCountX;
+    GLightCullingOutputs.TileCountY = TileCountY;
+    GLightCullingOutputs.TileSize = LightCullingTileSize;
+    GLightCullingOutputs.MaxLightsPerTile = MaxLightsPerTile;
+    GLightCullingOutputs.LightCount = LightCount;
 
-	const uint32 LightCount = static_cast<uint32>(CullingLights.size());
+    // TODO: 디버그용
+    EmitDebugStats(Context, TileCountX, TileCountY);
 
-	if (LightCount > 0)
-	{
-		if (!EnsureInputLightBuffer(Context->Device, LightCount))
-		{
-			return false;
-		}
-
-		D3D11_MAPPED_SUBRESOURCE MappedLightBuffer = {};
-		if (FAILED(Context->DeviceContext->Map(LightBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedLightBuffer)))
-		{
-			return false;
-		}
-		std::memcpy(MappedLightBuffer.pData, CullingLights.data(), sizeof(FLightCullingLight) * LightCount);
-		Context->DeviceContext->Unmap(LightBuffer.Get(), 0);
-	}
-
-	FLightCullingConstants Constants = {};
-	Constants.View = Context->RenderBus->GetView();
-	Constants.Projection = Context->RenderBus->GetProj();
-	Constants.LightCount = LightCount;
-	Constants.TileCountX = TileCountX;
-	Constants.TileCountY = TileCountY;
-	Constants.TileSize = LightCullingTileSize;
-	Constants.ViewportWidth = Width;
-	Constants.ViewportHeight = Height;
-	Constants.IsOrthographic = Context->RenderBus->IsOrthographic() ? 1 : 0;
-
-	D3D11_MAPPED_SUBRESOURCE MappedCB = {};
-	if (FAILED(Context->DeviceContext->Map(CullingConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedCB)))
-	{
-		return false;
-	}
-	std::memcpy(MappedCB.pData, &Constants, sizeof(Constants));
-	Context->DeviceContext->Unmap(CullingConstantBuffer.Get(), 0);
-
-	ID3D11ComputeShader* CS = ComputeShader.Get();
-	Context->DeviceContext->CSSetShader(CS, nullptr, 0);
-
-	ID3D11Buffer* CBuffers[] = { CullingConstantBuffer.Get() };
-	Context->DeviceContext->CSSetConstantBuffers(0, 1, CBuffers);
-
-	ID3D11ShaderResourceView* SRVs[] = { LightCount > 0 ? LightBufferSRV.Get() : nullptr };
-	Context->DeviceContext->CSSetShaderResources(0, 1, SRVs);
-
-	UINT ClearValues[4] = { 0u, 0u, 0u, 0u };
-	Context->DeviceContext->ClearUnorderedAccessViewUint(TileLightCountUAV.Get(), ClearValues);
-	Context->DeviceContext->ClearUnorderedAccessViewUint(TileLightIndexUAV.Get(), ClearValues);
-
-	ID3D11UnorderedAccessView* UAVs[] = { TileLightCountUAV.Get(), TileLightIndexUAV.Get() };
-	Context->DeviceContext->CSSetUnorderedAccessViews(0, 2, UAVs, nullptr);
-
-	Context->DeviceContext->Dispatch(TileCountX, TileCountY, 1);
-
-	GLightCullingOutputs.LightBufferSRV = (LightCount > 0) ? LightBufferSRV.Get() : nullptr;
-	GLightCullingOutputs.TileLightCountSRV = TileLightCountSRV.Get();
-	GLightCullingOutputs.TileLightIndexSRV = TileLightIndexSRV.Get();
-	GLightCullingOutputs.TileCountX = TileCountX;
-	GLightCullingOutputs.TileCountY = TileCountY;
-	GLightCullingOutputs.TileSize = LightCullingTileSize;
-	GLightCullingOutputs.MaxLightsPerTile = MaxLightsPerTile;
-	GLightCullingOutputs.LightCount = LightCount;
-
-	// TODO: 디버그용
-	 EmitDebugStats(Context, TileCountX, TileCountY);
-
-	return true;
+    return true;
 }
-
 bool FLightCullingPass::End(const FRenderPassContext* Context)
 {
 	ID3D11ShaderResourceView* NullSRVs[] = { nullptr };
