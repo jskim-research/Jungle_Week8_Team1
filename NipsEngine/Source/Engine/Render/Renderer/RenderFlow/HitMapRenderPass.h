@@ -14,8 +14,10 @@ private:
     bool End(const FRenderPassContext* Context) override;
 
     bool EnsureResources(ID3D11Device* Device);
+    bool EnsureConstantBuffer(ID3D11Device* Device);
 
     TComPtr<ID3D11VertexShader> VertexShader;
     TComPtr<ID3D11PixelShader> PixelShader;
+    TComPtr<ID3D11Buffer> HitMapConstantBuffer;
     bool bSkipHitMapDraw = true;
 };

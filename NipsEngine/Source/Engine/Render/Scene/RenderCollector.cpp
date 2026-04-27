@@ -156,11 +156,10 @@ namespace
 			return FVector::ForwardVector;
 		}
 
-		// Spot 조명은 엔진 규약상 -Forward가 빛이 향하는 방향이다.
-		FVector Direction = (SpotLight->GetForwardVector() * -1.0f).GetSafeNormal();
+		FVector Direction = (SpotLight->GetUpVector() * -1.0f).GetSafeNormal();
 		if (Direction.IsNearlyZero())
 		{
-			Direction = (SpotLight->GetUpVector() * -1.0f).GetSafeNormal();
+			Direction = (SpotLight->GetForwardVector() * -1.0f).GetSafeNormal();
 		}
 		if (Direction.IsNearlyZero())
 		{
@@ -587,6 +586,7 @@ void FRenderCollector::CollectFromActor(AActor* Actor, const FShowFlags& ShowFla
 bool FRenderCollector::CollectFromSelectedActor(AActor* Actor, const FShowFlags& ShowFlags, EViewMode ViewMode, FRenderBus& RenderBus)
 {
 	if (!Actor->IsVisible()) return false;
+    const FEditorSettings& Settings = FEditorSettings::Get();
 
 	bool bHasSelectionMask = false;
 	std::unordered_set<int32> SeenBVHNodeIndices;
@@ -712,12 +712,15 @@ bool FRenderCollector::CollectFromSelectedActor(AActor* Actor, const FShowFlags&
             FVector DebugRight = FVector::RightVector;
             FVector DebugUp = FVector::UpVector;
             ResolvePointLightBasis(PointLightComponent, DebugRight, DebugUp);
-
-            LineBatcher->AddPointLight(
+            
+			if (Settings.bShowPointLightDebugLine)
+            {
+                LineBatcher->AddPointLight(
                 PointLightComponent->GetWorldLocation(),
                 PointLightComponent->GetAttenuationRadius(),
                 DebugRight,
                 DebugUp);
+            }
             break;
         }
 
@@ -733,14 +736,17 @@ bool FRenderCollector::CollectFromSelectedActor(AActor* Actor, const FShowFlags&
             FVector DebugRight = FVector::RightVector;
             FVector DebugUp = FVector::UpVector;
             BuildStableLightBasis(LightDirection, SpotLightComponent->GetRightVector(), DebugRight, DebugUp);
-
-            LineBatcher->AddSpotLight(
+            
+			if (Settings.bShowSpotLightDebugLine)
+            {
+                LineBatcher->AddSpotLight(
                 SpotLightComponent->GetWorldLocation(),
                 LightDirection,
                 DebugRight,
                 SpotLightComponent->GetAttenuationRadius(),
                 SpotLightComponent->GetInnerConeAngle(),
                 SpotLightComponent->GetOuterConeAngle());
+            }
             break;
         }
         }

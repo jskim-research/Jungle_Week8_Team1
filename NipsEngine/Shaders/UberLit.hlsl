@@ -34,32 +34,44 @@ cbuffer VisibleLightInfo : register(b4)
     uint TileCountX;
     uint TileCountY;
     uint TileSize;
-    uint MaxLightsPerTile;
-    uint VisibleLightCount;
-    float3 _VisibleLightInfoPad0;
+    uint MaxPointLightsPerTile;
+    uint MaxSpotLightsPerTile;
+    uint VisiblePointLightCount;
+    uint VisibleSpotLightCount;
+    uint _VisibleLightInfoPad0;
 }
 
-struct FVisibleLightData
+struct FVisiblePointLightData
 {
     float3 WorldPos;
     float Radius;
     float3 Color;
     float Intensity;
     float RadiusFalloff;
-    uint Type;
-    float SpotInnerCos;
-    float SpotOuterCos;
-    float3 Direction;
-    float _Pad;
+    float3 _Pad;
 };
 
-StructuredBuffer<FVisibleLightData> VisibleLights : register(t8);
-StructuredBuffer<uint> TileVisibleLightCount : register(t9);
-StructuredBuffer<uint> TileVisibleLightIndices : register(t10);
+struct FVisibleSpotLightData
+{
+    float3 WorldPos;
+    float Radius;
+    float3 Color;
+    float Intensity;
+    float3 Direction;
+    float SpotInnerCos;
+    float SpotOuterCos;
+    float RadiusFalloff;
+    float2 _Pad;
+};
+
+StructuredBuffer<FVisiblePointLightData> VisiblePointLights : register(t8);
+StructuredBuffer<FVisibleSpotLightData> VisibleSpotLights : register(t9);
+StructuredBuffer<uint2> TilePointLightGrid : register(t10);
+StructuredBuffer<uint> TilePointLightIndices : register(t11);
+StructuredBuffer<uint2> TileSpotLightGrid : register(t12);
+StructuredBuffer<uint> TileSpotLightIndices : register(t13);
 
 static const uint LIGHT_TYPE_DIRECTIONAL = 0u;
-static const uint LIGHT_TYPE_POINT = 1u;
-static const uint LIGHT_TYPE_SPOT = 2u;
 static const uint LIGHT_TYPE_AMBIENT = 3u;
 static const float3 DEFAULT_AMBIENT_COLOR = float3(0.02f, 0.02f, 0.02f);
 
@@ -120,9 +132,10 @@ void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3
 #endif
 }
 
-void AccumulateVisiblePointLights(float3 WorldPos, float3 N, float3 V, float2 ScreenPos, inout FLightingResult Result)
+void AccumulateVisibleLocalLights(float3 WorldPos, float3 N, float3 V, float2 ScreenPos, inout FLightingResult Result)
 {
-    if (VisibleLightCount == 0u || TileCountX == 0u || TileCountY == 0u || TileSize == 0u || MaxLightsPerTile == 0u)
+    if ((VisiblePointLightCount + VisibleSpotLightCount) == 0u ||
+        TileCountX == 0u || TileCountY == 0u || TileSize == 0u)
     {
         return;
     }
@@ -131,19 +144,19 @@ void AccumulateVisiblePointLights(float3 WorldPos, float3 N, float3 V, float2 Sc
     const uint TileY = min((uint)ScreenPos.y / TileSize, TileCountY - 1u);
     const uint TileIndex = TileY * TileCountX + TileX;
 
-    const uint LocalCount = min(TileVisibleLightCount[TileIndex], MaxLightsPerTile);
-    const uint TileOffset = TileIndex * MaxLightsPerTile;
+    const uint2 PointGrid = TilePointLightGrid[TileIndex];
+    const uint PointCount = min(PointGrid.y, MaxPointLightsPerTile);
 
     [loop]
-    for (uint VisIdx = 0u; VisIdx < LocalCount; ++VisIdx)
+    for (uint VisIdx = 0u; VisIdx < PointCount; ++VisIdx)
     {
-        const uint LightIndex = TileVisibleLightIndices[TileOffset + VisIdx];
-        if (LightIndex >= VisibleLightCount)
+        const uint LightIndex = TilePointLightIndices[PointGrid.x + VisIdx];
+        if (LightIndex >= VisiblePointLightCount)
         {
             continue;
         }
 
-        const FVisibleLightData Light = VisibleLights[LightIndex];
+        const FVisiblePointLightData Light = VisiblePointLights[LightIndex];
         const float3 ToLight = Light.WorldPos - WorldPos;
         const float Distance = length(ToLight);
         if (Distance <= 1.0e-4f || Distance >= Light.Radius)
@@ -158,16 +171,43 @@ void AccumulateVisiblePointLights(float3 WorldPos, float3 N, float3 V, float2 Sc
             continue;
         }
 
-        if (Light.Type == LIGHT_TYPE_SPOT)
+        AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
+    }
+
+    const uint2 SpotGrid = TileSpotLightGrid[TileIndex];
+    const uint SpotCount = min(SpotGrid.y, MaxSpotLightsPerTile);
+
+    [loop]
+    for (uint SpotVisIdx = 0u; SpotVisIdx < SpotCount; ++SpotVisIdx)
+    {
+        const uint LightIndex = TileSpotLightIndices[SpotGrid.x + SpotVisIdx];
+        if (LightIndex >= VisibleSpotLightCount)
         {
-            const float3 SpotDir = normalize(Light.Direction);
-            const float CosAngle = dot(SpotDir, -L);
-            const float ConeRange = max(Light.SpotInnerCos - Light.SpotOuterCos, 1.0e-4f);
-            Att *= saturate((CosAngle - Light.SpotOuterCos) / ConeRange);
-            if (Att <= 0.0f)
-            {
-                continue;
-            }
+            continue;
+        }
+
+        const FVisibleSpotLightData Light = VisibleSpotLights[LightIndex];
+        const float3 ToLight = Light.WorldPos - WorldPos;
+        const float Distance = length(ToLight);
+        if (Distance <= 1.0e-4f || Distance >= Light.Radius)
+        {
+            continue;
+        }
+
+        const float3 L = ToLight / Distance;
+        float Att = ComputeDistanceAttenuation(Distance, Light.Radius, Light.RadiusFalloff);
+        if (Att <= 0.0f)
+        {
+            continue;
+        }
+
+        const float3 SpotDir = normalize(Light.Direction);
+        const float CosAngle = dot(SpotDir, -L);
+        const float ConeRange = max(Light.SpotInnerCos - Light.SpotOuterCos, 1.0e-4f);
+        Att *= saturate((CosAngle - Light.SpotOuterCos) / ConeRange);
+        if (Att <= 0.0f)
+        {
+            continue;
         }
 
         AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
@@ -211,7 +251,7 @@ FLightingResult EvaluateLightingFromWorld(float3 WorldPos, float3 WorldNormal, f
     }
 
     Result.Diffuse += AmbientContribution;
-    AccumulateVisiblePointLights(WorldPos, N, V, ScreenPos, Result);
+    AccumulateVisibleLocalLights(WorldPos, N, V, ScreenPos, Result);
 
     return Result;
 }
@@ -262,9 +302,9 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
     // 해당 함수는 구로 셰이딩 모드에서만 들어오고, 픽셀 단위 컬링을 쓰지 않기 때문에 전체 순회
     // =========================
     [loop]
-    for (uint j = 0u; j < VisibleLightCount; ++j)
+    for (uint j = 0u; j < VisiblePointLightCount; ++j)
     {
-        const FVisibleLightData Light = VisibleLights[j];
+        const FVisiblePointLightData Light = VisiblePointLights[j];
 
         const float3 ToLight = Light.WorldPos - WorldPos;
         const float Dist = length(ToLight);
@@ -275,20 +315,35 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
         const float3 L = ToLight / Dist;
 
         float Att = ComputeDistanceAttenuation(Dist, Light.Radius, Light.RadiusFalloff);
-        
         if (Att <= 0.0f)
             continue;
 
-        if (Light.Type == LIGHT_TYPE_SPOT)
-        {
-            const float3 SpotDir = normalize(Light.Direction);
-            const float CosAngle = dot(SpotDir, -L);
-            const float ConeRange = max(Light.SpotInnerCos - Light.SpotOuterCos, 1.0e-4f);
+        AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
+    }
 
-            Att *= saturate((CosAngle - Light.SpotOuterCos) / ConeRange);
-            if (Att <= 0.0f)
-                continue;
-        }
+    [loop]
+    for (uint k = 0u; k < VisibleSpotLightCount; ++k)
+    {
+        const FVisibleSpotLightData Light = VisibleSpotLights[k];
+
+        const float3 ToLight = Light.WorldPos - WorldPos;
+        const float Dist = length(ToLight);
+
+        if (Dist <= 1.0e-4f || Dist >= Light.Radius)
+            continue;
+
+        const float3 L = ToLight / Dist;
+
+        float Att = ComputeDistanceAttenuation(Dist, Light.Radius, Light.RadiusFalloff);
+        if (Att <= 0.0f)
+            continue;
+
+        const float3 SpotDir = normalize(Light.Direction);
+        const float CosAngle = dot(SpotDir, -L);
+        const float ConeRange = max(Light.SpotInnerCos - Light.SpotOuterCos, 1.0e-4f);
+        Att *= saturate((CosAngle - Light.SpotOuterCos) / ConeRange);
+        if (Att <= 0.0f)
+            continue;
 
         AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
     }

@@ -213,7 +213,7 @@
     <FxCompile Include="Shaders\Multipass\FogPass.hlsl">
       <Filter>Shaders\Multipass</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\Multipass\LightCullingCS.hlsl">
+    <FxCompile Include="Shaders\Multipass\LightCulling25DCS.hlsl">
       <Filter>Shaders\Multipass</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\Multipass\HitMapPass.hlsl">

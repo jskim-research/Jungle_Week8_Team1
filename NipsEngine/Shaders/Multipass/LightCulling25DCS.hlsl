@@ -15,7 +15,11 @@
     - C++ 쪽에서 이 파일의 slot / buffer 크기를 정확히 맞춰줘야 한다.
 */
 
-#include "Common.hlsl"
+cbuffer ForwardPlusFrame : register(b0)
+{
+    row_major float4x4 View;
+    row_major float4x4 InvProjection;
+};
 
 #ifndef FORWARD_PLUS_TILE_SIZE_X
     #define FORWARD_PLUS_TILE_SIZE_X 16
@@ -45,6 +49,8 @@ struct FPointLightInfo
     float  Radius;
     float3 Color;
     float  Intensity;
+    float  RadiusFalloff;
+    float3 Padding;
 };
 
 struct FSpotLightInfo
@@ -59,7 +65,8 @@ struct FSpotLightInfo
     float  InnerConeCos;
 
     float  OuterConeCos;
-    float3 Padding;
+    float  RadiusFalloff;
+    float2 Padding;
 };
 
 struct FTileFrustum
@@ -85,7 +92,7 @@ struct FSpotConeBounds
     float Padding;
 };
 
-cbuffer ForwardPlusConstants : register(b11)
+cbuffer ForwardPlusConstants : register(b1)
 {
     uint2 ViewportMin;
     uint2 ViewportSize;
@@ -95,7 +102,7 @@ cbuffer ForwardPlusConstants : register(b11)
     float3 Padding;
 };
 
-cbuffer Lighting : register(b13)
+cbuffer Lighting : register(b2)
 {
     float3 UnusedAmbientColor;
     float UnusedAmbientIntensity;
@@ -519,9 +526,9 @@ void TileLightCulling25DCS(
     }
 
    [loop]
-    for (uint lightIndex = flatThreadIndex; lightIndex < SpotLightCount; lightIndex += FORWARD_PLUS_THREAD_COUNT)
+    for (uint spotLightIndex = flatThreadIndex; spotLightIndex < SpotLightCount; spotLightIndex += FORWARD_PLUS_THREAD_COUNT)
     {
-        FSpotLightInfo light = SpotLights[lightIndex];
+        FSpotLightInfo light = SpotLights[spotLightIndex];
 
         FSpotConeBounds bounds = BuildSpotConeBounds(light);
 
@@ -546,7 +553,7 @@ void TileLightCulling25DCS(
         InterlockedAdd(gSpotLightCount, 1u, writeIndex);
         if (writeIndex < FORWARD_PLUS_MAX_SPOT_LIGHTS_PER_TILE)
         {
-            gSpotLightIndices[writeIndex] = lightIndex;
+            gSpotLightIndices[writeIndex] = spotLightIndex;
         }
     }
 
@@ -568,8 +575,8 @@ void TileLightCulling25DCS(
     }
 
     [loop]
-    for (uint writeIndex = flatThreadIndex; writeIndex < spotCount; writeIndex += FORWARD_PLUS_THREAD_COUNT)
+    for (uint spotWriteIndex = flatThreadIndex; spotWriteIndex < spotCount; spotWriteIndex += FORWARD_PLUS_THREAD_COUNT)
     {
-        TileSpotLightIndices[spotStartOffset + writeIndex] = gSpotLightIndices[writeIndex];
+        TileSpotLightIndices[spotStartOffset + spotWriteIndex] = gSpotLightIndices[spotWriteIndex];
     }
 }

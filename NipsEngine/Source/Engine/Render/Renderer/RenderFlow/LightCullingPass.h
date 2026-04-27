@@ -4,14 +4,19 @@
 
 struct FLightCullingOutputs
 {
-    ID3D11ShaderResourceView* LightBufferSRV = nullptr;
-    ID3D11ShaderResourceView* TileLightCountSRV = nullptr;
-    ID3D11ShaderResourceView* TileLightIndexSRV = nullptr;
-    ID3D11ShaderResourceView* HitMapSRV = nullptr;
-    ID3D11ShaderResourceView* PerTileLightMaskSRV = nullptr;
+    ID3D11ShaderResourceView* PointLightBufferSRV = nullptr;
+    ID3D11ShaderResourceView* SpotLightBufferSRV = nullptr;
+    ID3D11ShaderResourceView* TilePointLightGridSRV = nullptr;
+    ID3D11ShaderResourceView* TilePointLightIndexSRV = nullptr;
+    ID3D11ShaderResourceView* TileSpotLightGridSRV = nullptr;
+    ID3D11ShaderResourceView* TileSpotLightIndexSRV = nullptr;
     uint32 TileCountX = 0;
     uint32 TileCountY = 0;
     uint32 TileSize = 0;
+    uint32 MaxPointLightsPerTile = 0;
+    uint32 MaxSpotLightsPerTile = 0;
+    uint32 PointLightCount = 0;
+    uint32 SpotLightCount = 0;
     uint32 MaxLightsPerTile = 0;
     uint32 LightCount = 0;
 };
@@ -41,46 +46,42 @@ private:
     bool End(const FRenderPassContext* Context) override;
 
     bool EnsureComputeShader(ID3D11Device* Device);
-    bool EnsureInputLightBuffer(ID3D11Device* Device, uint32 RequiredLightCount);
+    bool EnsureInputLightBuffers(ID3D11Device* Device, uint32 RequiredPointLightCount, uint32 RequiredSpotLightCount);
     bool EnsureTileBuffers(ID3D11Device* Device, uint32 RequiredTileCount);
-    bool EnsureConstantBuffer(ID3D11Device* Device);
+    bool EnsureConstantBuffers(ID3D11Device* Device);
     void EmitDebugStats(const FRenderPassContext* Context, uint32 TileCountX, uint32 TileCountY);
-    bool Ensure25DResources(ID3D11Device* Device, uint32 Width, uint32 Height, uint32 TileCount);
 
 
 private:
     TComPtr<ID3D11ComputeShader> ComputeShader;
-    TComPtr<ID3D11Buffer> LightBuffer;
-    TComPtr<ID3D11ShaderResourceView> LightBufferSRV;
-    TComPtr<ID3D11Buffer> TileLightCountBuffer;
-    TComPtr<ID3D11Buffer> TileLightCountReadbackBuffer;
-    TComPtr<ID3D11UnorderedAccessView> TileLightCountUAV;
-    TComPtr<ID3D11ShaderResourceView> TileLightCountSRV;
-    TComPtr<ID3D11Buffer> TileLightIndexBuffer;
-    TComPtr<ID3D11UnorderedAccessView> TileLightIndexUAV;
-    TComPtr<ID3D11ShaderResourceView> TileLightIndexSRV;
-    TComPtr<ID3D11Buffer> CullingConstantBuffer;
+    TComPtr<ID3D11Buffer> PointLightBuffer;
+    TComPtr<ID3D11ShaderResourceView> PointLightBufferSRV;
+    TComPtr<ID3D11Buffer> SpotLightBuffer;
+    TComPtr<ID3D11ShaderResourceView> SpotLightBufferSRV;
 
-	//2.5d 자원 추가
-    TComPtr<ID3D11Texture2D> DebugHitMapTexture;
-    TComPtr<ID3D11UnorderedAccessView> DebugHitMapUAV;
-    TComPtr<ID3D11ShaderResourceView> DebugHitMapSRV;
+    TComPtr<ID3D11Buffer> TilePointLightGridBuffer;
+    TComPtr<ID3D11Buffer> TilePointLightGridReadbackBuffer;
+    TComPtr<ID3D11UnorderedAccessView> TilePointLightGridUAV;
+    TComPtr<ID3D11ShaderResourceView> TilePointLightGridSRV;
 
-    // ---- PerTile Mask Buffer (UAV u1 / SRV for PS) ----
-    TComPtr<ID3D11Buffer> PerTilePointLightIndexMaskBuffer;
-    TComPtr<ID3D11UnorderedAccessView> PerTilePointLightIndexMaskOutUAV;
-    TComPtr<ID3D11ShaderResourceView> PerTilePointLightIndexMaskSRV;
+    TComPtr<ID3D11Buffer> TilePointLightIndexBuffer;
+    TComPtr<ID3D11UnorderedAccessView> TilePointLightIndexUAV;
+    TComPtr<ID3D11ShaderResourceView> TilePointLightIndexSRV;
 
-    // ---- Culled (OR 누적) Mask Buffer (UAV u2, Shadow Map용) ----
-    TComPtr<ID3D11Buffer> CulledPointLightIndexMaskBuffer;
-    TComPtr<ID3D11UnorderedAccessView> CulledPointLightIndexMaskOUTUAV;
+    TComPtr<ID3D11Buffer> TileSpotLightGridBuffer;
+    TComPtr<ID3D11Buffer> TileSpotLightGridReadbackBuffer;
+    TComPtr<ID3D11UnorderedAccessView> TileSpotLightGridUAV;
+    TComPtr<ID3D11ShaderResourceView> TileSpotLightGridSRV;
 
+    TComPtr<ID3D11Buffer> TileSpotLightIndexBuffer;
+    TComPtr<ID3D11UnorderedAccessView> TileSpotLightIndexUAV;
+    TComPtr<ID3D11ShaderResourceView> TileSpotLightIndexSRV;
 
-    uint32 LightBufferCapacity = 0;
+    TComPtr<ID3D11Buffer> FrameConstantBuffer;
+    TComPtr<ID3D11Buffer> ForwardPlusConstantBuffer;
+    TComPtr<ID3D11Buffer> LightingConstantBuffer;
+
+    uint32 PointLightBufferCapacity = 0;
+    uint32 SpotLightBufferCapacity = 0;
     uint32 TileBufferCapacity = 0;
-    uint32 CachedHitMapWidth = 0;
-    uint32 CachedHitMapHeight = 0;
-    uint32 CachedMaskTileCount = 0;
-
-    const uint32 MaxLocalLightNum = 512;
 };

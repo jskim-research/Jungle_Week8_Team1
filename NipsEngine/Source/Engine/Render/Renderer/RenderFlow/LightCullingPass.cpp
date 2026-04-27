@@ -1,50 +1,76 @@
-﻿#include "LightCullingPass.h"
+#include "LightCullingPass.h"
+
 #include "Core/Paths.h"
 #include "Render/Scene/RenderBus.h"
 #include "Render/Scene/RenderCommand.h"
-#include <cstring>
 #include "UI/EditorConsoleWidget.h"
-#include <cmath>
+
 #include <algorithm>
-#include "Editor/Settings/EditorSettings.h"
+#include <cmath>
+#include <cstring>
+#include <d3dcompiler.h>
 
 namespace
 {
     constexpr uint32 LightCullingTileSize = 16;
-    constexpr uint32 MaxLightsPerTile = 512;
-    constexpr uint32 ThreadGroupSizeX = 8;
-    constexpr uint32 ThreadGroupSizeY = 8;
+    constexpr uint32 MaxPointLightsPerTile = 256;
+    constexpr uint32 MaxSpotLightsPerTile = 256;
     constexpr uint32 DebugLogIntervalFrames = 30;
 
-    struct FLightCullingConstants
+    struct FForwardPlusFrameConstants
     {
         FMatrix View;
-        FMatrix Projection;
-        uint32 LightCount = 0;
-        uint32 TileCountX = 0;
-        uint32 TileCountY = 0;
-        uint32 TileSize = 0;
-        float ViewportWidth = 0.0f;
-        float ViewportHeight = 0.0f;
-        uint32 IsOrthographic = 0;
-        uint32 Enable25DCulling;
-        float NearZ;
-        float FarZ;
-        FVector2 Padding;
+        FMatrix InvProjection;
     };
 
-	struct FLightCullingLight
+    struct FForwardPlusConstants
     {
-        FVector WorldPos = FVector::ZeroVector;
+        uint32 ViewportMinX = 0;
+        uint32 ViewportMinY = 0;
+        uint32 ViewportSizeX = 0;
+        uint32 ViewportSizeY = 0;
+        uint32 DepthTextureSizeX = 0;
+        uint32 DepthTextureSizeY = 0;
+        uint32 TileCountX = 0;
+        uint32 TileCountY = 0;
+        uint32 bEnable25DMask = 1;
+        float Padding[3] = { 0.0f, 0.0f, 0.0f };
+    };
+
+    struct FLightingConstants
+    {
+        FVector UnusedAmbientColor = FVector::ZeroVector;
+        float UnusedAmbientIntensity = 0.0f;
+        uint32 DirectionalLightCount = 0;
+        uint32 PointLightCount = 0;
+        uint32 SpotLightCount = 0;
+        float LightingPad = 0.0f;
+    };
+
+    struct alignas(16) FPointLightInfo
+    {
+        FVector Position = FVector::ZeroVector;
         float Radius = 0.0f;
         FVector Color = FVector::ZeroVector;
         float Intensity = 0.0f;
         float RadiusFalloff = 1.0f;
-        uint32 Type = 0; // 0=Point, 1=Spot
-        float SpotInnerCos = 1.0f;
-        float SpotOuterCos = 0.0f;
-        FVector Direction = FVector::ZeroVector;
-        float _Pad = 0.0f;
+        float Padding[3] = { 0.0f, 0.0f, 0.0f };
+    };
+
+    struct alignas(16) FSpotLightInfo
+    {
+        FVector Position = FVector::ZeroVector;
+        float Radius = 0.0f;
+
+        FVector Color = FVector::ZeroVector;
+        float Intensity = 0.0f;
+
+        FVector Direction = FVector::ForwardVector;
+        float InnerConeCos = 1.0f;
+
+        float OuterConeCos = 0.0f;
+        float RadiusFalloff = 1.0f;
+        float Padding[2] = { 0.0f, 0.0f };
     };
 
     struct FSpotBroadPhaseBounds
@@ -52,6 +78,21 @@ namespace
         FVector Center = FVector::ZeroVector;
         float Radius = 0.0f;
     };
+
+    struct FUInt2
+    {
+        uint32 X = 0;
+        uint32 Y = 0;
+    };
+
+    static_assert(sizeof(FPointLightInfo) == 48, "FPointLightInfo layout must match HLSL.");
+    static_assert(sizeof(FSpotLightInfo) == 64, "FSpotLightInfo layout must match HLSL.");
+    static_assert(sizeof(FUInt2) == 8, "FUInt2 layout must match HLSL uint2.");
+
+    uint32 CeilDivide(uint32 Numerator, uint32 Denominator)
+    {
+        return (Numerator + Denominator - 1u) / Denominator;
+    }
 
     float ComputePointLightScore(const FRenderLight& Light, const FVector& CameraPos)
     {
@@ -103,11 +144,6 @@ namespace
         return (Influence * FacingWeight) / (1.0f + VolumeDist * VolumeDist);
     }
 
-    uint32 CeilDivide(uint32 Numerator, uint32 Denominator)
-    {
-        return (Numerator + Denominator - 1u) / Denominator;
-    }
-
     FLightCullingOutputs GLightCullingOutputs = {};
     FLightCullingDebugStats GDebugStats = {};
 }
@@ -120,35 +156,38 @@ bool FLightCullingPass::Initialize()
 bool FLightCullingPass::Release()
 {
     ComputeShader.Reset();
-    LightBuffer.Reset();
-    LightBufferSRV.Reset();
-    TileLightCountBuffer.Reset();
-    TileLightCountReadbackBuffer.Reset();
-    TileLightCountUAV.Reset();
-    TileLightCountSRV.Reset();
-    TileLightIndexBuffer.Reset();
-    TileLightIndexUAV.Reset();
-    TileLightIndexSRV.Reset();
-    CullingConstantBuffer.Reset();
-    LightBufferCapacity = 0;
+
+    PointLightBuffer.Reset();
+    PointLightBufferSRV.Reset();
+    SpotLightBuffer.Reset();
+    SpotLightBufferSRV.Reset();
+
+    TilePointLightGridBuffer.Reset();
+    TilePointLightGridReadbackBuffer.Reset();
+    TilePointLightGridUAV.Reset();
+    TilePointLightGridSRV.Reset();
+    TilePointLightIndexBuffer.Reset();
+    TilePointLightIndexUAV.Reset();
+    TilePointLightIndexSRV.Reset();
+
+    TileSpotLightGridBuffer.Reset();
+    TileSpotLightGridReadbackBuffer.Reset();
+    TileSpotLightGridUAV.Reset();
+    TileSpotLightGridSRV.Reset();
+    TileSpotLightIndexBuffer.Reset();
+    TileSpotLightIndexUAV.Reset();
+    TileSpotLightIndexSRV.Reset();
+
+    FrameConstantBuffer.Reset();
+    ForwardPlusConstantBuffer.Reset();
+    LightingConstantBuffer.Reset();
+
+    PointLightBufferCapacity = 0;
+    SpotLightBufferCapacity = 0;
     TileBufferCapacity = 0;
+
     GLightCullingOutputs = {};
-
-	DebugHitMapTexture.Reset();
-    DebugHitMapUAV.Reset();
-    DebugHitMapSRV.Reset();
-
-    PerTilePointLightIndexMaskBuffer.Reset();
-    PerTilePointLightIndexMaskOutUAV.Reset();
-    PerTilePointLightIndexMaskSRV.Reset();
-
-    CulledPointLightIndexMaskBuffer.Reset();
-    CulledPointLightIndexMaskOUTUAV.Reset();
-
-    CachedHitMapWidth = 0;
-    CachedHitMapHeight = 0;
-    CachedMaskTileCount = 0;
-
+    GDebugStats = {};
     return true;
 }
 
@@ -178,20 +217,22 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
 {
     GLightCullingOutputs = {};
 
-    if (!EnsureComputeShader(Context->Device) || !EnsureConstantBuffer(Context->Device))
+    if (!EnsureComputeShader(Context->Device) || !EnsureConstantBuffers(Context->Device))
     {
         return false;
     }
 
-    const float Width = Context->RenderTargets->Width;
-    const float Height = Context->RenderTargets->Height;
-    if (Width <= 0.0f || Height <= 0.0f)
+    const float WidthF = Context->RenderTargets->Width;
+    const float HeightF = Context->RenderTargets->Height;
+    if (WidthF <= 0.0f || HeightF <= 0.0f)
     {
         return true;
     }
 
-    const uint32 TileCountX = CeilDivide(static_cast<uint32>(Width), LightCullingTileSize);
-    const uint32 TileCountY = CeilDivide(static_cast<uint32>(Height), LightCullingTileSize);
+    const uint32 ViewportWidth = static_cast<uint32>(WidthF);
+    const uint32 ViewportHeight = static_cast<uint32>(HeightF);
+    const uint32 TileCountX = CeilDivide(ViewportWidth, LightCullingTileSize);
+    const uint32 TileCountY = CeilDivide(ViewportHeight, LightCullingTileSize);
     const uint32 TileCount = TileCountX * TileCountY;
     if (TileCount == 0)
     {
@@ -202,65 +243,59 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     {
         return false;
     }
-    if (!Ensure25DResources(Context->Device, static_cast<uint32>(Width), static_cast<uint32>(Height), TileCount))
-        return false;
 
-	TArray<FLightCullingLight> CullingLights;
     const TArray<FRenderLight>& SceneLights = Context->RenderBus->GetLights();
     const FVector& CameraPos = Context->RenderBus->GetCameraPosition();
 
-    // 거리 포함한 임시 구조체로 max-heap 구성 (가장 먼 것이 top)
-    using FLightWithScore = TPair<float, FLightCullingLight>;
-    TArray<FLightWithScore> PointHeap;
-    TArray<FLightWithScore> SpotHeap;
-    
-    constexpr uint32 MaxTypeLightNum = 256;
-    PointHeap.reserve(MaxTypeLightNum + 1);
-    SpotHeap.reserve(MaxTypeLightNum + 1);
+    using FPointWithScore = TPair<float, FPointLightInfo>;
+    using FSpotWithScore = TPair<float, FSpotLightInfo>;
 
-    auto HeapCmp = [](const FLightWithScore& A, const FLightWithScore& B)
+    TArray<FPointWithScore> PointHeap;
+    TArray<FSpotWithScore> SpotHeap;
+    PointHeap.reserve(MaxPointLightsPerTile + 1);
+    SpotHeap.reserve(MaxSpotLightsPerTile + 1);
+
+    auto HeapCmp = [](const auto& A, const auto& B)
     {
-        return A.first > B.first; // min-heap based on score: smallest score is top for removal
+        return A.first > B.first;
     };
 
     for (const FRenderLight& Light : SceneLights)
     {
-        if (Light.Type != (uint32)ELightType::LightType_Point &&
-            Light.Type != (uint32)ELightType::LightType_Spot)
-            continue;
-
-        FLightCullingLight CullingLight = {};
-        CullingLight.WorldPos = Light.Position;
-        CullingLight.Radius = Light.Radius;
-        CullingLight.Color = Light.Color;
-        CullingLight.Intensity = Light.Intensity;
-        CullingLight.RadiusFalloff = Light.FalloffExponent;
-        CullingLight.Type = Light.Type;
-        CullingLight.SpotInnerCos = Light.SpotInnerCos;
-        CullingLight.SpotOuterCos = Light.SpotOuterCos;
-        CullingLight.Direction = Light.Direction;
-
-        const float Score = (Light.Type == (uint32)ELightType::LightType_Spot)
-            ? ComputeSpotLightScore(Light, CameraPos)
-            : ComputePointLightScore(Light, CameraPos);
-
-        if (Light.Type == (uint32)ELightType::LightType_Point)
+        if (Light.Type == static_cast<uint32>(ELightType::LightType_Point))
         {
-            PointHeap.push_back({ Score, CullingLight });
-            std::push_heap(PointHeap.begin(), PointHeap.end(), HeapCmp);
+            FPointLightInfo Point = {};
+            Point.Position = Light.Position;
+            Point.Radius = Light.Radius;
+            Point.Color = Light.Color;
+            Point.Intensity = Light.Intensity;
+            Point.RadiusFalloff = Light.FalloffExponent;
 
-            if (PointHeap.size() > MaxTypeLightNum)
+            const float Score = ComputePointLightScore(Light, CameraPos);
+            PointHeap.push_back({ Score, Point });
+            std::push_heap(PointHeap.begin(), PointHeap.end(), HeapCmp);
+            if (PointHeap.size() > MaxPointLightsPerTile)
             {
                 std::pop_heap(PointHeap.begin(), PointHeap.end(), HeapCmp);
                 PointHeap.pop_back();
             }
         }
-        else if (Light.Type == (uint32)ELightType::LightType_Spot)
+        else if (Light.Type == static_cast<uint32>(ELightType::LightType_Spot))
         {
-            SpotHeap.push_back({ Score, CullingLight });
-            std::push_heap(SpotHeap.begin(), SpotHeap.end(), HeapCmp);
+            FSpotLightInfo Spot = {};
+            Spot.Position = Light.Position;
+            Spot.Radius = Light.Radius;
+            Spot.Color = Light.Color;
+            Spot.Intensity = Light.Intensity;
+            Spot.Direction = Light.Direction;
+            Spot.InnerConeCos = Light.SpotInnerCos;
+            Spot.OuterConeCos = Light.SpotOuterCos;
+            Spot.RadiusFalloff = Light.FalloffExponent;
 
-            if (SpotHeap.size() > MaxTypeLightNum)
+            const float Score = ComputeSpotLightScore(Light, CameraPos);
+            SpotHeap.push_back({ Score, Spot });
+            std::push_heap(SpotHeap.begin(), SpotHeap.end(), HeapCmp);
+            if (SpotHeap.size() > MaxSpotLightsPerTile)
             {
                 std::pop_heap(SpotHeap.begin(), SpotHeap.end(), HeapCmp);
                 SpotHeap.pop_back();
@@ -268,237 +303,174 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
         }
     }
 
-    CullingLights.reserve(PointHeap.size() + SpotHeap.size());
-	for (FLightWithScore& Entry : PointHeap)
-	{
-        CullingLights.push_back(std::move(Entry.second));
-	}
-    for (FLightWithScore& Entry : SpotHeap)
+    TArray<FPointLightInfo> PointLights;
+    TArray<FSpotLightInfo> SpotLights;
+    PointLights.reserve(PointHeap.size());
+    SpotLights.reserve(SpotHeap.size());
+
+    for (FPointWithScore& Entry : PointHeap)
     {
-        CullingLights.push_back(std::move(Entry.second));
+        PointLights.push_back(std::move(Entry.second));
+    }
+    for (FSpotWithScore& Entry : SpotHeap)
+    {
+        SpotLights.push_back(std::move(Entry.second));
     }
 
-    const uint32 LightCount = static_cast<uint32>(CullingLights.size());
+    const uint32 PointLightCount = static_cast<uint32>(PointLights.size());
+    const uint32 SpotLightCount = static_cast<uint32>(SpotLights.size());
+    const uint32 LocalLightCount = PointLightCount + SpotLightCount;
 
-    if (LightCount > 0)
-    {
-        if (!EnsureInputLightBuffer(Context->Device, LightCount))
-        {
-            return false;
-        }
-
-        D3D11_MAPPED_SUBRESOURCE MappedLightBuffer = {};
-        if (FAILED(Context->DeviceContext->Map(LightBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedLightBuffer)))
-        {
-            return false;
-        }
-        std::memcpy(MappedLightBuffer.pData, CullingLights.data(), sizeof(FLightCullingLight) * LightCount);
-        Context->DeviceContext->Unmap(LightBuffer.Get(), 0);
-    }
-
-    FLightCullingConstants Constants = {};
-    Constants.View = Context->RenderBus->GetView();
-    Constants.Projection = Context->RenderBus->GetProj();
-    Constants.LightCount = LightCount;
-    Constants.TileCountX = TileCountX;
-    Constants.TileCountY = TileCountY;
-    Constants.TileSize = LightCullingTileSize;
-    Constants.ViewportWidth = Width;
-    Constants.ViewportHeight = Height;
-    Constants.IsOrthographic = Context->RenderBus->IsOrthographic() ? 1 : 0;
-
-    const FEditorSettings& Settings = FEditorSettings::Get();
-    Constants.Enable25DCulling = 1; // Always enable 2.5D logic if needed
-    if (Settings.bShowLightHitMap)
-    {
-        Constants.Enable25DCulling |= 2; // Bit 1 for HitMap rendering
-    }
-
-	if (Constants.IsOrthographic)
-	{
-        float A = Constants.Projection[0][2];
-        float B = Constants.Projection[3][2];
-
-        Constants.NearZ = -B / A;
-        Constants.FarZ = (1.0f - B) / A;
-	}
-    else
-    {
-        float A = Constants.Projection[0][2];
-        float B = Constants.Projection[3][2];
-
-        Constants.NearZ = -B / A;
-        Constants.FarZ = -B / (A - 1.0f);
-	}
-
-    D3D11_MAPPED_SUBRESOURCE MappedCB = {};
-    if (FAILED(Context->DeviceContext->Map(CullingConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedCB)))
+    if (!EnsureInputLightBuffers(Context->Device, PointLightCount, SpotLightCount))
     {
         return false;
     }
-    std::memcpy(MappedCB.pData, &Constants, sizeof(Constants));
-    Context->DeviceContext->Unmap(CullingConstantBuffer.Get(), 0);
 
-    ID3D11ComputeShader* CS = ComputeShader.Get();
-    Context->DeviceContext->CSSetShader(CS, nullptr, 0);
+    if (PointLightCount > 0)
+    {
+        D3D11_MAPPED_SUBRESOURCE MappedPoint = {};
+        if (FAILED(Context->DeviceContext->Map(PointLightBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedPoint)))
+        {
+            return false;
+        }
 
-    ID3D11Buffer* CBuffers[] = { CullingConstantBuffer.Get() };
-    Context->DeviceContext->CSSetConstantBuffers(0, 1, CBuffers);
+        std::memcpy(MappedPoint.pData, PointLights.data(), sizeof(FPointLightInfo) * PointLightCount);
+        Context->DeviceContext->Unmap(PointLightBuffer.Get(), 0);
+    }
 
+    if (SpotLightCount > 0)
+    {
+        D3D11_MAPPED_SUBRESOURCE MappedSpot = {};
+        if (FAILED(Context->DeviceContext->Map(SpotLightBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSpot)))
+        {
+            return false;
+        }
 
-    ID3D11ShaderResourceView* DSV = Context->RenderTargets->SceneDepthSRV;
-    ID3D11ShaderResourceView* SRVs[] = { LightCount > 0 ? LightBufferSRV.Get() : nullptr, DSV };
-    Context->DeviceContext->CSSetShaderResources(0, 2, SRVs);
+        std::memcpy(MappedSpot.pData, SpotLights.data(), sizeof(FSpotLightInfo) * SpotLightCount);
+        Context->DeviceContext->Unmap(SpotLightBuffer.Get(), 0);
+    }
 
-    UINT ClearValues[4] = { 0u, 0u, 0u, 0u };
-    FLOAT ClearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    Context->DeviceContext->ClearUnorderedAccessViewUint(TileLightCountUAV.Get(), ClearValues);
-    Context->DeviceContext->ClearUnorderedAccessViewUint(TileLightIndexUAV.Get(), ClearValues);
-    Context->DeviceContext->ClearUnorderedAccessViewUint(PerTilePointLightIndexMaskOutUAV.Get(), ClearValues); // 2.5d 리소스 바인딩
-    Context->DeviceContext->ClearUnorderedAccessViewUint(CulledPointLightIndexMaskOUTUAV.Get(), ClearValues);  // 2.5d 리소스 바인딩
-    Context->DeviceContext->ClearUnorderedAccessViewFloat(DebugHitMapUAV.Get(), ClearColor);                   // 2.5d 리소스 바인딩
+    const FForwardPlusFrameConstants FrameConstants =
+    {
+        Context->RenderBus->GetView(),
+        Context->RenderBus->GetProj().GetInverse()
+    };
 
-	ID3D11UnorderedAccessView* UAVs[6] = { nullptr };
-    UAVs[0] = TileLightCountUAV.Get();
-    UAVs[1] = TileLightIndexUAV.Get();
-    UAVs[2] = nullptr;
-    UAVs[3] = CulledPointLightIndexMaskOUTUAV.Get();
-    UAVs[4] = PerTilePointLightIndexMaskOutUAV.Get();
-    UAVs[5] = DebugHitMapUAV.Get();
+    const FForwardPlusConstants ForwardConstants =
+    {
+        0u,
+        0u,
+        ViewportWidth,
+        ViewportHeight,
+        ViewportWidth,
+        ViewportHeight,
+        TileCountX,
+        TileCountY,
+        1u,
+        { 0.0f, 0.0f, 0.0f }
+    };
 
-    Context->DeviceContext->CSSetUnorderedAccessViews(0, 6, UAVs, nullptr);
+    FLightingConstants LightingConstants = {};
+    LightingConstants.DirectionalLightCount = 0;
+    LightingConstants.PointLightCount = PointLightCount;
+    LightingConstants.SpotLightCount = SpotLightCount;
+
+    auto UploadConstant = [&](ID3D11Buffer* Buffer, const void* Data, size_t Size) -> bool
+    {
+        D3D11_MAPPED_SUBRESOURCE Mapped = {};
+        if (FAILED(Context->DeviceContext->Map(Buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped)))
+        {
+            return false;
+        }
+
+        std::memcpy(Mapped.pData, Data, Size);
+        Context->DeviceContext->Unmap(Buffer, 0);
+        return true;
+    };
+
+    if (!UploadConstant(FrameConstantBuffer.Get(), &FrameConstants, sizeof(FrameConstants)) ||
+        !UploadConstant(ForwardPlusConstantBuffer.Get(), &ForwardConstants, sizeof(ForwardConstants)) ||
+        !UploadConstant(LightingConstantBuffer.Get(), &LightingConstants, sizeof(LightingConstants)))
+    {
+        return false;
+    }
+
+    Context->DeviceContext->CSSetShader(ComputeShader.Get(), nullptr, 0);
+
+    ID3D11Buffer* FrameCB = FrameConstantBuffer.Get();
+    ID3D11Buffer* ForwardCB = ForwardPlusConstantBuffer.Get();
+    ID3D11Buffer* LightingCB = LightingConstantBuffer.Get();
+    Context->DeviceContext->CSSetConstantBuffers(0, 1, &FrameCB);
+    Context->DeviceContext->CSSetConstantBuffers(1, 1, &ForwardCB);
+    Context->DeviceContext->CSSetConstantBuffers(2, 1, &LightingCB);
+
+    ID3D11ShaderResourceView* DepthSRV = Context->RenderTargets->SceneDepthSRV;
+    if (!DepthSRV)
+    {
+        return true;
+    }
+    ID3D11ShaderResourceView* SRVs[3] =
+    {
+        DepthSRV,
+        PointLightCount > 0 ? PointLightBufferSRV.Get() : nullptr,
+        SpotLightCount > 0 ? SpotLightBufferSRV.Get() : nullptr
+    };
+    Context->DeviceContext->CSSetShaderResources(0, 3, SRVs);
+
+    const UINT ClearValues[4] = { 0u, 0u, 0u, 0u };
+    Context->DeviceContext->ClearUnorderedAccessViewUint(TilePointLightGridUAV.Get(), ClearValues);
+    Context->DeviceContext->ClearUnorderedAccessViewUint(TilePointLightIndexUAV.Get(), ClearValues);
+    Context->DeviceContext->ClearUnorderedAccessViewUint(TileSpotLightGridUAV.Get(), ClearValues);
+    Context->DeviceContext->ClearUnorderedAccessViewUint(TileSpotLightIndexUAV.Get(), ClearValues);
+
+    ID3D11UnorderedAccessView* UAVs[4] =
+    {
+        TilePointLightGridUAV.Get(),
+        TilePointLightIndexUAV.Get(),
+        TileSpotLightGridUAV.Get(),
+        TileSpotLightIndexUAV.Get()
+    };
+    Context->DeviceContext->CSSetUnorderedAccessViews(0, 4, UAVs, nullptr);
 
     Context->DeviceContext->Dispatch(TileCountX, TileCountY, 1);
 
-    GLightCullingOutputs.LightBufferSRV = (LightCount > 0) ? LightBufferSRV.Get() : nullptr;
-    GLightCullingOutputs.TileLightCountSRV = TileLightCountSRV.Get();
-    GLightCullingOutputs.TileLightIndexSRV = TileLightIndexSRV.Get();
-    GLightCullingOutputs.HitMapSRV = DebugHitMapSRV.Get();
-    GLightCullingOutputs.PerTileLightMaskSRV = PerTilePointLightIndexMaskSRV.Get();
+    GLightCullingOutputs.PointLightBufferSRV = PointLightCount > 0 ? PointLightBufferSRV.Get() : nullptr;
+    GLightCullingOutputs.SpotLightBufferSRV = SpotLightCount > 0 ? SpotLightBufferSRV.Get() : nullptr;
+    GLightCullingOutputs.TilePointLightGridSRV = TilePointLightGridSRV.Get();
+    GLightCullingOutputs.TilePointLightIndexSRV = TilePointLightIndexSRV.Get();
+    GLightCullingOutputs.TileSpotLightGridSRV = TileSpotLightGridSRV.Get();
+    GLightCullingOutputs.TileSpotLightIndexSRV = TileSpotLightIndexSRV.Get();
     GLightCullingOutputs.TileCountX = TileCountX;
     GLightCullingOutputs.TileCountY = TileCountY;
     GLightCullingOutputs.TileSize = LightCullingTileSize;
-    GLightCullingOutputs.MaxLightsPerTile = MaxLightsPerTile;
-    GLightCullingOutputs.LightCount = LightCount;
+    GLightCullingOutputs.MaxPointLightsPerTile = MaxPointLightsPerTile;
+    GLightCullingOutputs.MaxSpotLightsPerTile = MaxSpotLightsPerTile;
+    GLightCullingOutputs.PointLightCount = PointLightCount;
+    GLightCullingOutputs.SpotLightCount = SpotLightCount;
+    GLightCullingOutputs.MaxLightsPerTile = MaxPointLightsPerTile + MaxSpotLightsPerTile;
+    GLightCullingOutputs.LightCount = LocalLightCount;
 
-    // TODO: 디버그용
-     EmitDebugStats(Context, TileCountX, TileCountY);
-
+    EmitDebugStats(Context, TileCountX, TileCountY);
     return true;
 }
 
 bool FLightCullingPass::End(const FRenderPassContext* Context)
 {
-    ID3D11ShaderResourceView* NullSRVs[2] = { nullptr, nullptr };
-    Context->DeviceContext->CSSetShaderResources(0, 2, NullSRVs);
+    ID3D11ShaderResourceView* NullSRVs[3] = { nullptr, nullptr, nullptr };
+    Context->DeviceContext->CSSetShaderResources(0, 3, NullSRVs);
 
-    ID3D11UnorderedAccessView* NullUAVs[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
-    Context->DeviceContext->CSSetUnorderedAccessViews(0, 6, NullUAVs, nullptr);
+    ID3D11UnorderedAccessView* NullUAVs[4] = { nullptr, nullptr, nullptr, nullptr };
+    Context->DeviceContext->CSSetUnorderedAccessViews(0, 4, NullUAVs, nullptr);
 
-    ID3D11Buffer* NullCBs[] = { nullptr };
-    Context->DeviceContext->CSSetConstantBuffers(0, 1, NullCBs);
+    ID3D11Buffer* NullCB = nullptr;
+    Context->DeviceContext->CSSetConstantBuffers(0, 1, &NullCB);
+    Context->DeviceContext->CSSetConstantBuffers(1, 1, &NullCB);
+    Context->DeviceContext->CSSetConstantBuffers(2, 1, &NullCB);
+
     Context->DeviceContext->CSSetShader(nullptr, nullptr, 0);
     return true;
 }
 
-bool FLightCullingPass::Ensure25DResources(ID3D11Device* Device, uint32 Width, uint32 Height, uint32 TileCount)
-{
-    const bool bHasAllResources =
-        DebugHitMapTexture != nullptr &&
-        DebugHitMapUAV != nullptr &&
-        DebugHitMapSRV != nullptr &&
-        PerTilePointLightIndexMaskBuffer != nullptr &&
-        PerTilePointLightIndexMaskOutUAV != nullptr &&
-        PerTilePointLightIndexMaskSRV != nullptr &&
-        CulledPointLightIndexMaskBuffer != nullptr &&
-        CulledPointLightIndexMaskOUTUAV != nullptr;
-
-    const bool bNeedRecreate = !bHasAllResources ||
-        CachedHitMapWidth != Width ||
-        CachedHitMapHeight != Height ||
-        CachedMaskTileCount != TileCount;
-
-    if (!bNeedRecreate)
-    {
-        return true;
-    }
-
-    DebugHitMapTexture.Reset();
-    DebugHitMapUAV.Reset();
-    DebugHitMapSRV.Reset();
-    PerTilePointLightIndexMaskBuffer.Reset();
-    PerTilePointLightIndexMaskOutUAV.Reset();
-    PerTilePointLightIndexMaskSRV.Reset();
-    CulledPointLightIndexMaskBuffer.Reset();
-    CulledPointLightIndexMaskOUTUAV.Reset();
-
-    // ----------------------------------------------------
-    // 1. Debug HitMap Texture & UAV/SRV 생성
-    // ----------------------------------------------------
-    D3D11_TEXTURE2D_DESC TexDesc = {};
-    TexDesc.Width = Width;
-    TexDesc.Height = Height;
-    TexDesc.MipLevels = 1;
-    TexDesc.ArraySize = 1;
-    TexDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT; // float4 히트맵용
-    TexDesc.SampleDesc.Count = 1;
-    TexDesc.Usage = D3D11_USAGE_DEFAULT;
-    TexDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-
-    if (FAILED(Device->CreateTexture2D(&TexDesc, nullptr, &DebugHitMapTexture)))
-        return false;
-    if (FAILED(Device->CreateUnorderedAccessView(DebugHitMapTexture.Get(), nullptr, DebugHitMapUAV.GetAddressOf())))
-        return false;
-    if (FAILED(Device->CreateShaderResourceView(DebugHitMapTexture.Get(), nullptr, DebugHitMapSRV.GetAddressOf())))
-        return false;
-
-    // ----------------------------------------------------
-    // 2. Per-Tile Mask Buffer 생성 (각 타일당 16개의 버킷(512조명/32비트))
-    // ----------------------------------------------------
-    const uint32 BucketsPerTile = MaxLocalLightNum / 32; // 512 / 32 = 16
-    const uint32 TotalMaskElements = TileCount * BucketsPerTile;
-
-    D3D11_BUFFER_DESC MaskBufDesc = {};
-    MaskBufDesc.Usage = D3D11_USAGE_DEFAULT;
-    MaskBufDesc.ByteWidth = sizeof(uint32) * TotalMaskElements;
-    MaskBufDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-    MaskBufDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    MaskBufDesc.StructureByteStride = sizeof(uint32);
-
-    if (FAILED(Device->CreateBuffer(&MaskBufDesc, nullptr, &PerTilePointLightIndexMaskBuffer)))
-        return false;
-
-    D3D11_UNORDERED_ACCESS_VIEW_DESC MaskUavDesc = {};
-    MaskUavDesc.Format = DXGI_FORMAT_UNKNOWN;
-    MaskUavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-    MaskUavDesc.Buffer.NumElements = TotalMaskElements;
-    if (FAILED(Device->CreateUnorderedAccessView(PerTilePointLightIndexMaskBuffer.Get(), &MaskUavDesc, PerTilePointLightIndexMaskOutUAV.GetAddressOf())))
-        return false;
-
-    D3D11_SHADER_RESOURCE_VIEW_DESC MaskSrvDesc = {};
-    MaskSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-    MaskSrvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-    MaskSrvDesc.Buffer.NumElements = TotalMaskElements;
-    if (FAILED(Device->CreateShaderResourceView(PerTilePointLightIndexMaskBuffer.Get(), &MaskSrvDesc, PerTilePointLightIndexMaskSRV.GetAddressOf())))
-        return false;
-
-    // ----------------------------------------------------
-    // 3. Culled Global Mask Buffer 생성 (전체 누적 OR용, 1타일 분량이면 충분함)
-    // ----------------------------------------------------
-    MaskBufDesc.ByteWidth = sizeof(uint32) * BucketsPerTile;
-    if (FAILED(Device->CreateBuffer(&MaskBufDesc, nullptr, &CulledPointLightIndexMaskBuffer)))
-        return false;
-
-    MaskUavDesc.Buffer.NumElements = BucketsPerTile;
-    if (FAILED(Device->CreateUnorderedAccessView(CulledPointLightIndexMaskBuffer.Get(), &MaskUavDesc, CulledPointLightIndexMaskOUTUAV.GetAddressOf())))
-        return false;
-
-    CachedHitMapWidth = Width;
-    CachedHitMapHeight = Height;
-    CachedMaskTileCount = TileCount;
-
-    return true;
-}
 bool FLightCullingPass::EnsureComputeShader(ID3D11Device* Device)
 {
     if (ComputeShader)
@@ -506,7 +478,7 @@ bool FLightCullingPass::EnsureComputeShader(ID3D11Device* Device)
         return true;
     }
 
-    const std::wstring ShaderPath = FPaths::ToAbsolute(FPaths::ToWide("Shaders/Multipass/LightCullingCS.hlsl"));
+    const std::wstring ShaderPath = FPaths::ToAbsolute(FPaths::ToWide("Shaders/Multipass/LightCulling25DCS.hlsl"));
 
     TComPtr<ID3DBlob> CSBlob;
     TComPtr<ID3DBlob> ErrorBlob;
@@ -514,7 +486,7 @@ bool FLightCullingPass::EnsureComputeShader(ID3D11Device* Device)
         ShaderPath.c_str(),
         nullptr,
         D3D_COMPILE_STANDARD_FILE_INCLUDE,
-        "mainCS",
+        "TileLightCulling25DCS",
         "cs_5_0",
         0,
         0,
@@ -525,188 +497,227 @@ bool FLightCullingPass::EnsureComputeShader(ID3D11Device* Device)
     {
         if (ErrorBlob)
         {
-            UE_LOG("LightCulling CS Compile Error: %s", static_cast<const char*>(ErrorBlob->GetBufferPointer()));
+            UE_LOG("LightCulling25D CS Compile Error: %s", static_cast<const char*>(ErrorBlob->GetBufferPointer()));
         }
         else
         {
-            UE_LOG("Failed to compile LightCullingCS.hlsl");
+            UE_LOG("Failed to compile LightCulling25DCS.hlsl");
         }
         return false;
     }
 
-    const HRESULT CreateResult =
-        Device->CreateComputeShader(CSBlob->GetBufferPointer(), CSBlob->GetBufferSize(), nullptr, ComputeShader.GetAddressOf());
-    if (FAILED(CreateResult))
+    if (FAILED(Device->CreateComputeShader(CSBlob->GetBufferPointer(), CSBlob->GetBufferSize(), nullptr, ComputeShader.GetAddressOf())))
     {
-        UE_LOG("Failed to create LightCulling compute shader");
+        UE_LOG("Failed to create LightCulling25D compute shader");
         return false;
     }
 
     return true;
 }
 
-bool FLightCullingPass::EnsureInputLightBuffer(ID3D11Device* Device, uint32 RequiredLightCount)
+bool FLightCullingPass::EnsureInputLightBuffers(ID3D11Device* Device, uint32 RequiredPointLightCount, uint32 RequiredSpotLightCount)
 {
-    if (RequiredLightCount <= LightBufferCapacity && LightBuffer && LightBufferSRV)
+    auto EnsureBuffer = [&](uint32 RequiredCount,
+                            uint32 ElementSize,
+                            TComPtr<ID3D11Buffer>& Buffer,
+                            TComPtr<ID3D11ShaderResourceView>& SRV,
+                            uint32& Capacity) -> bool
     {
+        if (RequiredCount == 0)
+        {
+            return true;
+        }
+
+        if (RequiredCount <= Capacity && Buffer && SRV)
+        {
+            return true;
+        }
+
+        D3D11_BUFFER_DESC BufferDesc = {};
+        BufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+        BufferDesc.ByteWidth = ElementSize * RequiredCount;
+        BufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        BufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        BufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+        BufferDesc.StructureByteStride = ElementSize;
+
+        TComPtr<ID3D11Buffer> NewBuffer;
+        if (FAILED(Device->CreateBuffer(&BufferDesc, nullptr, NewBuffer.GetAddressOf())))
+        {
+            return false;
+        }
+
+        D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+        SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+        SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+        SRVDesc.Buffer.FirstElement = 0;
+        SRVDesc.Buffer.NumElements = RequiredCount;
+
+        TComPtr<ID3D11ShaderResourceView> NewSRV;
+        if (FAILED(Device->CreateShaderResourceView(NewBuffer.Get(), &SRVDesc, NewSRV.GetAddressOf())))
+        {
+            return false;
+        }
+
+        Buffer = std::move(NewBuffer);
+        SRV = std::move(NewSRV);
+        Capacity = RequiredCount;
         return true;
-    }
+    };
 
-    const uint32 NewCapacity = RequiredLightCount;
-
-    D3D11_BUFFER_DESC BufferDesc = {};
-    BufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-    BufferDesc.ByteWidth = static_cast<uint32>(sizeof(FLightCullingLight) * NewCapacity);
-    BufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    BufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    BufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    BufferDesc.StructureByteStride = sizeof(FLightCullingLight);
-
-    TComPtr<ID3D11Buffer> NewBuffer;
-    if (FAILED(Device->CreateBuffer(&BufferDesc, nullptr, NewBuffer.GetAddressOf())))
-    {
-        return false;
-    }
-
-    D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
-    SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
-    SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-    SRVDesc.Buffer.FirstElement = 0;
-    SRVDesc.Buffer.NumElements = NewCapacity;
-
-    TComPtr<ID3D11ShaderResourceView> NewSRV;
-    if (FAILED(Device->CreateShaderResourceView(NewBuffer.Get(), &SRVDesc, NewSRV.GetAddressOf())))
-    {
-        return false;
-    }
-
-    LightBuffer = std::move(NewBuffer);
-    LightBufferSRV = std::move(NewSRV);
-    LightBufferCapacity = NewCapacity;
-    return true;
+    return EnsureBuffer(RequiredPointLightCount,
+                        sizeof(FPointLightInfo),
+                        PointLightBuffer,
+                        PointLightBufferSRV,
+                        PointLightBufferCapacity)
+        && EnsureBuffer(RequiredSpotLightCount,
+                        sizeof(FSpotLightInfo),
+                        SpotLightBuffer,
+                        SpotLightBufferSRV,
+                        SpotLightBufferCapacity);
 }
 
 bool FLightCullingPass::EnsureTileBuffers(ID3D11Device* Device, uint32 RequiredTileCount)
 {
-    if (RequiredTileCount <= TileBufferCapacity && TileLightCountBuffer && TileLightCountUAV && TileLightIndexBuffer && TileLightIndexUAV)
+    const bool bHasAllResources =
+        TilePointLightGridBuffer && TilePointLightGridReadbackBuffer && TilePointLightGridUAV && TilePointLightGridSRV &&
+        TilePointLightIndexBuffer && TilePointLightIndexUAV && TilePointLightIndexSRV &&
+        TileSpotLightGridBuffer && TileSpotLightGridReadbackBuffer && TileSpotLightGridUAV && TileSpotLightGridSRV &&
+        TileSpotLightIndexBuffer && TileSpotLightIndexUAV && TileSpotLightIndexSRV;
+
+    if (RequiredTileCount <= TileBufferCapacity && bHasAllResources)
     {
         return true;
     }
 
-    const uint32 NewTileCount = RequiredTileCount;
-    const uint32 TileLightIndexCount = NewTileCount * MaxLightsPerTile;
+    TilePointLightGridBuffer.Reset();
+    TilePointLightGridReadbackBuffer.Reset();
+    TilePointLightGridUAV.Reset();
+    TilePointLightGridSRV.Reset();
+    TilePointLightIndexBuffer.Reset();
+    TilePointLightIndexUAV.Reset();
+    TilePointLightIndexSRV.Reset();
 
-    D3D11_BUFFER_DESC CountBufferDesc = {};
-    CountBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    CountBufferDesc.ByteWidth = static_cast<uint32>(sizeof(uint32) * NewTileCount);
-    CountBufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-    CountBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    CountBufferDesc.StructureByteStride = sizeof(uint32);
+    TileSpotLightGridBuffer.Reset();
+    TileSpotLightGridReadbackBuffer.Reset();
+    TileSpotLightGridUAV.Reset();
+    TileSpotLightGridSRV.Reset();
+    TileSpotLightIndexBuffer.Reset();
+    TileSpotLightIndexUAV.Reset();
+    TileSpotLightIndexSRV.Reset();
 
-    TComPtr<ID3D11Buffer> NewCountBuffer;
-    if (FAILED(Device->CreateBuffer(&CountBufferDesc, nullptr, NewCountBuffer.GetAddressOf())))
+    const uint32 PointIndexCount = RequiredTileCount * MaxPointLightsPerTile;
+    const uint32 SpotIndexCount = RequiredTileCount * MaxSpotLightsPerTile;
+
+    D3D11_BUFFER_DESC GridBufferDesc = {};
+    GridBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    GridBufferDesc.ByteWidth = sizeof(FUInt2) * RequiredTileCount;
+    GridBufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+    GridBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    GridBufferDesc.StructureByteStride = sizeof(FUInt2);
+
+    D3D11_BUFFER_DESC GridReadbackDesc = {};
+    GridReadbackDesc.Usage = D3D11_USAGE_STAGING;
+    GridReadbackDesc.ByteWidth = sizeof(FUInt2) * RequiredTileCount;
+    GridReadbackDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    GridReadbackDesc.StructureByteStride = sizeof(FUInt2);
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC GridUAVDesc = {};
+    GridUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
+    GridUAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    GridUAVDesc.Buffer.FirstElement = 0;
+    GridUAVDesc.Buffer.NumElements = RequiredTileCount;
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC GridSRVDesc = {};
+    GridSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+    GridSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+    GridSRVDesc.Buffer.FirstElement = 0;
+    GridSRVDesc.Buffer.NumElements = RequiredTileCount;
+
+    if (FAILED(Device->CreateBuffer(&GridBufferDesc, nullptr, TilePointLightGridBuffer.GetAddressOf())) ||
+        FAILED(Device->CreateBuffer(&GridReadbackDesc, nullptr, TilePointLightGridReadbackBuffer.GetAddressOf())) ||
+        FAILED(Device->CreateUnorderedAccessView(TilePointLightGridBuffer.Get(), &GridUAVDesc, TilePointLightGridUAV.GetAddressOf())) ||
+        FAILED(Device->CreateShaderResourceView(TilePointLightGridBuffer.Get(), &GridSRVDesc, TilePointLightGridSRV.GetAddressOf())))
     {
         return false;
     }
 
-    D3D11_UNORDERED_ACCESS_VIEW_DESC CountUAVDesc = {};
-    CountUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
-    CountUAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-    CountUAVDesc.Buffer.FirstElement = 0;
-    CountUAVDesc.Buffer.NumElements = NewTileCount;
-
-    TComPtr<ID3D11UnorderedAccessView> NewCountUAV;
-    if (FAILED(Device->CreateUnorderedAccessView(NewCountBuffer.Get(), &CountUAVDesc, NewCountUAV.GetAddressOf())))
-    {
-        return false;
-    }
-
-    D3D11_BUFFER_DESC CountReadbackDesc = {};
-    CountReadbackDesc.Usage = D3D11_USAGE_STAGING;
-    CountReadbackDesc.ByteWidth = static_cast<uint32>(sizeof(uint32) * NewTileCount);
-    CountReadbackDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-    CountReadbackDesc.StructureByteStride = sizeof(uint32);
-
-    TComPtr<ID3D11Buffer> NewCountReadbackBuffer;
-    if (FAILED(Device->CreateBuffer(&CountReadbackDesc, nullptr, NewCountReadbackBuffer.GetAddressOf())))
-    {
-        return false;
-    }
-
-    D3D11_SHADER_RESOURCE_VIEW_DESC CountSRVDesc = {};
-    CountSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
-    CountSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-    CountSRVDesc.Buffer.FirstElement = 0;
-    CountSRVDesc.Buffer.NumElements = NewTileCount;
-
-    TComPtr<ID3D11ShaderResourceView> NewCountSRV;
-    if (FAILED(Device->CreateShaderResourceView(NewCountBuffer.Get(), &CountSRVDesc, NewCountSRV.GetAddressOf())))
+    if (FAILED(Device->CreateBuffer(&GridBufferDesc, nullptr, TileSpotLightGridBuffer.GetAddressOf())) ||
+        FAILED(Device->CreateBuffer(&GridReadbackDesc, nullptr, TileSpotLightGridReadbackBuffer.GetAddressOf())) ||
+        FAILED(Device->CreateUnorderedAccessView(TileSpotLightGridBuffer.Get(), &GridUAVDesc, TileSpotLightGridUAV.GetAddressOf())) ||
+        FAILED(Device->CreateShaderResourceView(TileSpotLightGridBuffer.Get(), &GridSRVDesc, TileSpotLightGridSRV.GetAddressOf())))
     {
         return false;
     }
 
     D3D11_BUFFER_DESC IndexBufferDesc = {};
     IndexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    IndexBufferDesc.ByteWidth = static_cast<uint32>(sizeof(uint32) * TileLightIndexCount);
     IndexBufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
     IndexBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
     IndexBufferDesc.StructureByteStride = sizeof(uint32);
-
-    TComPtr<ID3D11Buffer> NewIndexBuffer;
-    if (FAILED(Device->CreateBuffer(&IndexBufferDesc, nullptr, NewIndexBuffer.GetAddressOf())))
-    {
-        return false;
-    }
 
     D3D11_UNORDERED_ACCESS_VIEW_DESC IndexUAVDesc = {};
     IndexUAVDesc.Format = DXGI_FORMAT_UNKNOWN;
     IndexUAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
     IndexUAVDesc.Buffer.FirstElement = 0;
-    IndexUAVDesc.Buffer.NumElements = TileLightIndexCount;
-
-    TComPtr<ID3D11UnorderedAccessView> NewIndexUAV;
-    if (FAILED(Device->CreateUnorderedAccessView(NewIndexBuffer.Get(), &IndexUAVDesc, NewIndexUAV.GetAddressOf())))
-    {
-        return false;
-    }
 
     D3D11_SHADER_RESOURCE_VIEW_DESC IndexSRVDesc = {};
     IndexSRVDesc.Format = DXGI_FORMAT_UNKNOWN;
     IndexSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
     IndexSRVDesc.Buffer.FirstElement = 0;
-    IndexSRVDesc.Buffer.NumElements = TileLightIndexCount;
 
-    TComPtr<ID3D11ShaderResourceView> NewIndexSRV;
-    if (FAILED(Device->CreateShaderResourceView(NewIndexBuffer.Get(), &IndexSRVDesc, NewIndexSRV.GetAddressOf())))
+    IndexBufferDesc.ByteWidth = sizeof(uint32) * PointIndexCount;
+    IndexUAVDesc.Buffer.NumElements = PointIndexCount;
+    IndexSRVDesc.Buffer.NumElements = PointIndexCount;
+
+    if (FAILED(Device->CreateBuffer(&IndexBufferDesc, nullptr, TilePointLightIndexBuffer.GetAddressOf())) ||
+        FAILED(Device->CreateUnorderedAccessView(TilePointLightIndexBuffer.Get(), &IndexUAVDesc, TilePointLightIndexUAV.GetAddressOf())) ||
+        FAILED(Device->CreateShaderResourceView(TilePointLightIndexBuffer.Get(), &IndexSRVDesc, TilePointLightIndexSRV.GetAddressOf())))
     {
         return false;
     }
 
-    TileLightCountBuffer = std::move(NewCountBuffer);
-    TileLightCountReadbackBuffer = std::move(NewCountReadbackBuffer);
-    TileLightCountUAV = std::move(NewCountUAV);
-    TileLightCountSRV = std::move(NewCountSRV);
-    TileLightIndexBuffer = std::move(NewIndexBuffer);
-    TileLightIndexUAV = std::move(NewIndexUAV);
-    TileLightIndexSRV = std::move(NewIndexSRV);
-    TileBufferCapacity = NewTileCount;
+    IndexBufferDesc.ByteWidth = sizeof(uint32) * SpotIndexCount;
+    IndexUAVDesc.Buffer.NumElements = SpotIndexCount;
+    IndexSRVDesc.Buffer.NumElements = SpotIndexCount;
+
+    if (FAILED(Device->CreateBuffer(&IndexBufferDesc, nullptr, TileSpotLightIndexBuffer.GetAddressOf())) ||
+        FAILED(Device->CreateUnorderedAccessView(TileSpotLightIndexBuffer.Get(), &IndexUAVDesc, TileSpotLightIndexUAV.GetAddressOf())) ||
+        FAILED(Device->CreateShaderResourceView(TileSpotLightIndexBuffer.Get(), &IndexSRVDesc, TileSpotLightIndexSRV.GetAddressOf())))
+    {
+        return false;
+    }
+
+    TileBufferCapacity = RequiredTileCount;
     return true;
 }
 
-bool FLightCullingPass::EnsureConstantBuffer(ID3D11Device* Device)
+bool FLightCullingPass::EnsureConstantBuffers(ID3D11Device* Device)
 {
-    if (CullingConstantBuffer)
+    const auto RoundUp16 = [](uint32 Size) -> uint32
     {
-        return true;
-    }
+        return (Size + 15u) & ~15u;
+    };
 
-    D3D11_BUFFER_DESC CBDesc = {};
-    CBDesc.ByteWidth = sizeof(FLightCullingConstants);
-    CBDesc.Usage = D3D11_USAGE_DYNAMIC;
-    CBDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    CBDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    auto EnsureConstantBuffer = [&](TComPtr<ID3D11Buffer>& Buffer, uint32 ByteWidth) -> bool
+    {
+        if (Buffer)
+        {
+            return true;
+        }
 
-    return SUCCEEDED(Device->CreateBuffer(&CBDesc, nullptr, CullingConstantBuffer.GetAddressOf()));
+        D3D11_BUFFER_DESC Desc = {};
+        Desc.ByteWidth = RoundUp16(ByteWidth);
+        Desc.Usage = D3D11_USAGE_DYNAMIC;
+        Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+        return SUCCEEDED(Device->CreateBuffer(&Desc, nullptr, Buffer.GetAddressOf()));
+    };
+
+    return EnsureConstantBuffer(FrameConstantBuffer, sizeof(FForwardPlusFrameConstants)) &&
+           EnsureConstantBuffer(ForwardPlusConstantBuffer, sizeof(FForwardPlusConstants)) &&
+           EnsureConstantBuffer(LightingConstantBuffer, sizeof(FLightingConstants));
 }
 
 void FLightCullingPass::EmitDebugStats(const FRenderPassContext* Context, uint32 TileCountX, uint32 TileCountY)
@@ -719,7 +730,8 @@ void FLightCullingPass::EmitDebugStats(const FRenderPassContext* Context, uint32
         return;
     }
 
-    if (!Context || !Context->DeviceContext || !TileLightCountBuffer || !TileLightCountReadbackBuffer)
+    if (!Context || !Context->DeviceContext || !TilePointLightGridBuffer || !TilePointLightGridReadbackBuffer ||
+        !TileSpotLightGridBuffer || !TileSpotLightGridReadbackBuffer)
     {
         return;
     }
@@ -730,35 +742,51 @@ void FLightCullingPass::EmitDebugStats(const FRenderPassContext* Context, uint32
         return;
     }
 
-    Context->DeviceContext->CopyResource(TileLightCountReadbackBuffer.Get(), TileLightCountBuffer.Get());
+    Context->DeviceContext->CopyResource(TilePointLightGridReadbackBuffer.Get(), TilePointLightGridBuffer.Get());
+    Context->DeviceContext->CopyResource(TileSpotLightGridReadbackBuffer.Get(), TileSpotLightGridBuffer.Get());
 
-    D3D11_MAPPED_SUBRESOURCE Mapped = {};
-    if (FAILED(Context->DeviceContext->Map(TileLightCountReadbackBuffer.Get(), 0, D3D11_MAP_READ, 0, &Mapped)))
+    D3D11_MAPPED_SUBRESOURCE MappedPoint = {};
+    D3D11_MAPPED_SUBRESOURCE MappedSpot = {};
+    if (FAILED(Context->DeviceContext->Map(TilePointLightGridReadbackBuffer.Get(), 0, D3D11_MAP_READ, 0, &MappedPoint)) ||
+        FAILED(Context->DeviceContext->Map(TileSpotLightGridReadbackBuffer.Get(), 0, D3D11_MAP_READ, 0, &MappedSpot)))
     {
+        if (MappedPoint.pData)
+        {
+            Context->DeviceContext->Unmap(TilePointLightGridReadbackBuffer.Get(), 0);
+        }
         return;
     }
 
-    const uint32* Counts = static_cast<const uint32*>(Mapped.pData);
+    const FUInt2* PointGrid = static_cast<const FUInt2*>(MappedPoint.pData);
+    const FUInt2* SpotGrid = static_cast<const FUInt2*>(MappedSpot.pData);
+
     uint64 TotalVisibleLights = 0;
     uint32 MaxVisibleLightsInTile = 0;
     uint32 NonZeroTileCount = 0;
 
     for (uint32 TileIndex = 0; TileIndex < TileCount; ++TileIndex)
     {
-        const uint32 Count = Counts[TileIndex];
-        TotalVisibleLights += Count;
-        if (Count > MaxVisibleLightsInTile) MaxVisibleLightsInTile = Count;
-        if (Count > 0) ++NonZeroTileCount;
+        const uint32 VisiblePoint = PointGrid[TileIndex].Y;
+        const uint32 VisibleSpot = SpotGrid[TileIndex].Y;
+        const uint32 VisibleTotal = VisiblePoint + VisibleSpot;
+
+        TotalVisibleLights += VisibleTotal;
+        MaxVisibleLightsInTile = std::max(MaxVisibleLightsInTile, VisibleTotal);
+        if (VisibleTotal > 0)
+        {
+            ++NonZeroTileCount;
+        }
     }
 
-    Context->DeviceContext->Unmap(TileLightCountReadbackBuffer.Get(), 0);
+    Context->DeviceContext->Unmap(TileSpotLightGridReadbackBuffer.Get(), 0);
+    Context->DeviceContext->Unmap(TilePointLightGridReadbackBuffer.Get(), 0);
 
-    GDebugStats.LightCount       = GLightCullingOutputs.LightCount;
-    GDebugStats.TileCountX       = TileCountX;
-    GDebugStats.TileCountY       = TileCountY;
-    GDebugStats.TileCount        = TileCount;
+    GDebugStats.LightCount = GLightCullingOutputs.LightCount;
+    GDebugStats.TileCountX = TileCountX;
+    GDebugStats.TileCountY = TileCountY;
+    GDebugStats.TileCount = TileCount;
     GDebugStats.NonZeroTileCount = NonZeroTileCount;
-    GDebugStats.MaxLightsInTile  = MaxVisibleLightsInTile;
+    GDebugStats.MaxLightsInTile = MaxVisibleLightsInTile;
     GDebugStats.AvgLightsPerTile = (TileCount > 0)
         ? static_cast<float>(TotalVisibleLights) / static_cast<float>(TileCount)
         : 0.0f;

@@ -11,9 +11,11 @@ namespace SceneLightBinding
 		uint32 TileCountX = 0;
 		uint32 TileCountY = 0;
 		uint32 TileSize = 0;
-		uint32 MaxLightsPerTile = 0;
-		uint32 LightCount = 0;
-		float Padding[3] = { 0.0f, 0.0f, 0.0f };
+		uint32 MaxPointLightsPerTile = 0;
+		uint32 MaxSpotLightsPerTile = 0;
+		uint32 VisiblePointLightCount = 0;
+		uint32 VisibleSpotLightCount = 0;
+		uint32 Padding0 = 0;
 	};
 
 	inline bool EnsureVisibleLightConstantBuffer(ID3D11Device* Device, TComPtr<ID3D11Buffer>& VisibleLightConstantBuffer)
@@ -49,8 +51,10 @@ namespace SceneLightBinding
 		Constants.TileCountX = Outputs.TileCountX;
 		Constants.TileCountY = Outputs.TileCountY;
 		Constants.TileSize = Outputs.TileSize;
-		Constants.MaxLightsPerTile = Outputs.MaxLightsPerTile;
-		Constants.LightCount = Outputs.LightCount;
+		Constants.MaxPointLightsPerTile = Outputs.MaxPointLightsPerTile;
+		Constants.MaxSpotLightsPerTile = Outputs.MaxSpotLightsPerTile;
+		Constants.VisiblePointLightCount = Outputs.PointLightCount;
+		Constants.VisibleSpotLightCount = Outputs.SpotLightCount;
 
 		D3D11_MAPPED_SUBRESOURCE Mapped = {};
 		if (SUCCEEDED(Context->DeviceContext->Map(VisibleLightConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped)))
@@ -59,18 +63,21 @@ namespace SceneLightBinding
 			Context->DeviceContext->Unmap(VisibleLightConstantBuffer.Get(), 0);
 		}
 
-		ID3D11ShaderResourceView* SRVs[3] =
+		ID3D11ShaderResourceView* SRVs[6] =
 		{
-			Outputs.LightBufferSRV,
-			Outputs.TileLightCountSRV,
-			Outputs.TileLightIndexSRV
+			Outputs.PointLightBufferSRV,
+			Outputs.SpotLightBufferSRV,
+			Outputs.TilePointLightGridSRV,
+			Outputs.TilePointLightIndexSRV,
+			Outputs.TileSpotLightGridSRV,
+			Outputs.TileSpotLightIndexSRV
 		};
 		
-		Context->DeviceContext->PSSetShaderResources(8, 3, SRVs);
+		Context->DeviceContext->PSSetShaderResources(8, 6, SRVs);
 		ID3D11Buffer* CBuffer = VisibleLightConstantBuffer.Get();
 		Context->DeviceContext->PSSetConstantBuffers(4, 1, &CBuffer);
 
-		Context->DeviceContext->VSSetShaderResources(8, 3, SRVs);
+		Context->DeviceContext->VSSetShaderResources(8, 6, SRVs);
         Context->DeviceContext->VSSetConstantBuffers(4, 1, &CBuffer);
 	}
 
@@ -81,10 +88,12 @@ namespace SceneLightBinding
 			return;
 		}
 
-		ID3D11ShaderResourceView* NullSRVs[3] = { nullptr, nullptr, nullptr };
-		DeviceContext->PSSetShaderResources(8, 3, NullSRVs);
+		ID3D11ShaderResourceView* NullSRVs[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+		DeviceContext->PSSetShaderResources(8, 6, NullSRVs);
+		DeviceContext->VSSetShaderResources(8, 6, NullSRVs);
 
 		ID3D11Buffer* NullCB = nullptr;
 		DeviceContext->PSSetConstantBuffers(4, 1, &NullCB);
+		DeviceContext->VSSetConstantBuffers(4, 1, &NullCB);
 	}
 }
