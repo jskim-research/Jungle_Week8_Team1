@@ -2,7 +2,7 @@
 
 #include "RenderPass.h"
 #include "Render/Scene/ShadowLightSelector.h"
-
+#include "Render/Resource/ShadowAtlasAllocator.h"
 class FShadowPass : public FBaseRenderPass
 {
 public:
@@ -28,6 +28,6 @@ private:
 private:
     FShadowLightSelector ShadowLightSelector;
     bool bSkip = false;
-
+    FShadowAtlasAllocator AtlasAllocator;
     std::shared_ptr<FShaderBindingInstance> ShaderBinding;
 };
