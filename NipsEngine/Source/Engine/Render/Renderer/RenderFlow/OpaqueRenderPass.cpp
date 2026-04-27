@@ -113,13 +113,13 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 		{
 			Context->DeviceContext->PSSetShaderResources(11, 1, &FShadowPass::GetShadowMaps()[0].Resource->SRV);
 
-			FShadowCB ShadowCB;
+			//FShadowCB ShadowCB;
 
-            ShadowCB.ShadowLightView = FShadowPass::GetShadowMaps()[0].Views[0].LightView;
-            ShadowCB.ShadowLightProjection = FShadowPass::GetShadowMaps()[0].Views[0].LightProjection;
-            // 아틀라스용 (아틀라스가 아니면 기본값(1,1)(0, 0)을 가짐)
-            ShadowCB.UVOffset = FShadowPass::GetShadowMaps()[0].Slices[0].UVOffset;
-            ShadowCB.UVScale = FShadowPass::GetShadowMaps()[0].Slices[0].UVScale;
+   //         ShadowCB.ShadowLightView = FShadowPass::GetShadowMaps()[0].Views[0].LightView;
+   //         ShadowCB.ShadowLightProjection = FShadowPass::GetShadowMaps()[0].Views[0].LightProjection;
+   //         // 아틀라스용 (아틀라스가 아니면 기본값(1,1)(0, 0)을 가짐)
+   //         ShadowCB.UVOffset = FShadowPass::GetShadowMaps()[0].Slices[0].UVOffset;
+   //         ShadowCB.UVScale = FShadowPass::GetShadowMaps()[0].Slices[0].UVScale;
 
 			D3D11_MAPPED_SUBRESOURCE Mapped = {};
             if (SUCCEEDED(Context->DeviceContext->Map(ShadowConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped)))

@@ -26,7 +26,7 @@ struct FGPULight
     float3 Direction;
     int ShadowIndex;    //자신이 가지고 있는 섀도우 맵, -1이면 섀도우 맵 없음
 };
-#define ATLAS_SIZE 1
+
 StructuredBuffer<FGPULight> GlobalLights : register(t3);
 
 cbuffer VisibleLightInfo : register(b4)
@@ -39,15 +39,15 @@ cbuffer VisibleLightInfo : register(b4)
     float3 _VisibleLightInfoPad0;
 }
 
-cbuffer ShadowLightViewInfo : register(b6)
-{
-    row_major float4x4 ShadowLightView;
-    row_major float4x4 ShadowLightProjection;
-    float2 UVScale;
-    float2 UVOffset;
-    uint SliceIndex;
-    float3 _Padding;
-}
+//cbuffer ShadowLightViewInfo : register(b6)
+//{
+//    row_major float4x4 ShadowLightView;
+//    row_major float4x4 ShadowLightProjection;
+//    float2 UVScale;
+//    float2 UVOffset;
+//    uint SliceIndex;
+//    float3 _Padding;
+//}
 
 struct FVisibleLightData
 {
@@ -113,7 +113,7 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
         return 1.0f; // 빛의 범위를 벗어나면 그림자 없음
 
     // 분기문 없이 아틀라스 UV 오프셋/스케일 적용
-    ShadowUV = (ShadowUV * SData.UVScale * ATLAS_SIZE) + SData.UVOffset * ATLAS_SIZE;
+    ShadowUV = (ShadowUV * SData.UVScale ) + SData.UVOffset ;
     float Bias = 0.005f;
     // Atlas면 ShadowMap에서 샘플링 (Texture2D)
     float ShadowLightDepth = ShadowMap.Sample(ShadowSampler, ShadowUV);
@@ -355,26 +355,26 @@ float3 ApplyLighting(FUberSurfaceData Surface, FLightingResult Lighting)
     return Surface.Albedo * Lighting.Diffuse + Lighting.Specular;
 }
 
-float3 ApplyShadow(FUberSurfaceData Surface, float3 ColorAfterLighting)
-{
-    float4 ShadowLightPos = mul(mul(float4(Surface.WorldPos, 1), ShadowLightView), ShadowLightProjection);
+//float3 ApplyShadow(FUberSurfaceData Surface, float3 ColorAfterLighting)
+//{
+//    float4 ShadowLightPos = mul(mul(float4(Surface.WorldPos, 1), ShadowLightView), ShadowLightProjection);
     
-    float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
-    float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
-    float CurrentDepth = NDC.z;
+//    float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
+//    float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
+//    float CurrentDepth = NDC.z;
     
-    if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 ||
-        ShadowUV.y < 0.0 || ShadowUV.y > 1.0 ||
-        CurrentDepth < 0.0 || CurrentDepth > 1.0)
-        return ColorAfterLighting;
+//    if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 ||
+//        ShadowUV.y < 0.0 || ShadowUV.y > 1.0 ||
+//        CurrentDepth < 0.0 || CurrentDepth > 1.0)
+//        return ColorAfterLighting;
     
-    float ShadowLightDepth = ShadowMap.Sample(ShadowSampler, ShadowUV);
+//    float ShadowLightDepth = ShadowMap.Sample(ShadowSampler, ShadowUV);
     
-    float bias = 0.005;
-    float ShadowFactor = (ShadowLightDepth >= CurrentDepth - bias) ? 1.0 : 0.0;
+//    float bias = 0.005;
+//    float ShadowFactor = (ShadowLightDepth >= CurrentDepth - bias) ? 1.0 : 0.0;
     
-    return ColorAfterLighting * ShadowFactor;
-}
+//    return ColorAfterLighting * ShadowFactor;
+//}
 
 #if defined(MATERIAL_DOMAIN_DECAL)
 
