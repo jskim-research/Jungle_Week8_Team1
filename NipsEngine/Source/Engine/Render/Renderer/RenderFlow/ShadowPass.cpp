@@ -228,30 +228,98 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
             // 반대로 Spot/Point Light 는 그대로 forward 벡터임
             FVector LightDir = Light.Direction; // normalize 되어 있어야 함
 
-            FVector Eye = LightDir * 500;
-            FVector Target = FVector(0, 0, 0);
-
             FVector Up = FVector(0, 0, 1);
             if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
             {
                 Up = FVector(1, 0, 0);
             }
 
-            FMatrix LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
+            // -----------------------------------
+            // 3. Frustum Corner 계산
+            // -----------------------------------
+            float NearH = 2.0f * Near * tanf(FovY * 0.5f);
+            float NearW = NearH * Aspect;
 
-            // FMatrix CenterOffset = FMatrix::MakeTranslation(-CenterLS);
+            float FarH = 2.0f * Far * tanf(FovY * 0.5f);
+            float FarW = FarH * Aspect;
+
+            FVector NearCenter = CamPos + CamForward * Near;
+            FVector FarCenter = CamPos + CamForward * Far;
+
+            FVector FrustumCorners[8];
+
+            // Near
+            FrustumCorners[0] = NearCenter + CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f);
+            FrustumCorners[1] = NearCenter + CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f);
+            FrustumCorners[2] = NearCenter - CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f);
+            FrustumCorners[3] = NearCenter - CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f);
+
+            // Far
+            FrustumCorners[4] = FarCenter + CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f);
+            FrustumCorners[5] = FarCenter + CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f);
+            FrustumCorners[6] = FarCenter - CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f);
+            FrustumCorners[7] = FarCenter - CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f);
+
+            FVector FrustumWorldCenter = FVector(0, 0, 0);
+            for (int j = 0; j < 8; j++)
+            {
+                FrustumWorldCenter += FrustumCorners[j];
+            }
+            FrustumWorldCenter *= (1.0f / 8.0f);
+
+            // Radius
+            float AABBRadius = 0.0f;
+            for (int j = 0; j < 8; j++)
+            {
+                float Dist = (FrustumCorners[j] - FrustumWorldCenter).Size();
+                AABBRadius = std::max(AABBRadius, Dist);
+            }
+
+            FVector Eye = FrustumWorldCenter + LightDir * AABBRadius;
+            FVector Target = FrustumWorldCenter;
+
+            //FVector Eye = LightDir * AABBRadius;
+            //FVector Target = FVector(0, 0, 0);
+
+            FMatrix LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
             FShadowViewInfo ViewInfo;
-            // ViewInfo.LightView = LightView * CenterOffset;
             ViewInfo.LightView = LightView;
+
+            // -----------------------------------
+            // 4. Light Space 변환
+            // -----------------------------------
+            FVector FrustumCornersLS[8];
+            for (int j = 0; j < 8; j++)
+            {
+                FrustumCornersLS[j] = LightView.TransformPosition(FrustumCorners[j]);
+            }
+
+            // -----------------------------------
+            // 5. AABB 계산
+            // -----------------------------------
+            FVector Min = FrustumCornersLS[0];
+            FVector Max = FrustumCornersLS[0];
+
+            for (int j = 1; j < 8; j++)
+            {
+                Min.X = std::min(Min.X, FrustumCornersLS[j].X);
+                Min.Y = std::min(Min.Y, FrustumCornersLS[j].Y);
+                Min.Z = std::min(Min.Z, FrustumCornersLS[j].Z);
+                Max.X = std::max(Max.X, FrustumCornersLS[j].X);
+                Max.Y = std::max(Max.Y, FrustumCornersLS[j].Y);
+                Max.Z = std::max(Max.Z, FrustumCornersLS[j].Z);
+            }
 
             // =========================
             // 6. Projection
             // =========================
+            float NewFar = AABBRadius + (Max.Z - Min.Z) / 2;
             ViewInfo.LightProjection = FMatrix::MakeOrthographicLH(
-                500,
-                500,
+                Max.X - Min.X,
+                Max.Y - Min.Y,
                 0,
-                1000);
+                Max.Z + abs(Min.Z));
+
 
             ViewInfo.SplitDepth = Far; // 일단 전체 (CSM 전 단계)
 
