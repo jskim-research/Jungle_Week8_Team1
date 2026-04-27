@@ -22,12 +22,18 @@ bool FSelectionMaskRenderPass::Begin(const FRenderPassContext* Context)
 	Context->DeviceContext->OMSetRenderTargets(1, &RTV, DSV);
 	Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	ID3D11DepthStencilState* DepthStencilState = FResourceManager::Get().GetOrCreateDepthStencilState(EDepthStencilType::StencilWrite);
-	ID3D11BlendState* BlendState = FResourceManager::Get().GetOrCreateBlendState(EBlendType::AlphaBlend);
-	ID3D11RasterizerState* RasterizerState = FResourceManager::Get().GetOrCreateRasterizerState(ERasterizerType::SolidNoCull);
-	Context->DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
-	Context->DeviceContext->OMSetBlendState(BlendState, nullptr, 0xFFFFFFFF);
-	Context->DeviceContext->RSSetState(RasterizerState);
+    ID3D11DepthStencilState* DepthStencilState = FResourceManager::Get().GetOrCreateDepthStencilState(EDepthStencilType::StencilWrite);
+    ID3D11BlendState* BlendState = FResourceManager::Get().GetOrCreateBlendState(EBlendType::AlphaBlend);
+    ID3D11RasterizerState* RasterizerState = FResourceManager::Get().GetOrCreateRasterizerState(ERasterizerType::SolidNoCull);
+
+    Context->DeviceContext->OMGetDepthStencilState(&PrevDepthStencilState, &PrevStencilRef);
+    Context->DeviceContext->OMGetBlendState(&PrevBlendState, PrevBlendFactor, &PrevSampleMask);
+    Context->DeviceContext->RSGetState(&PrevRasterizerState);
+
+
+    Context->DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
+    Context->DeviceContext->OMSetBlendState(BlendState, nullptr, 0xFFFFFFFF);
+    Context->DeviceContext->RSSetState(RasterizerState);
 
 	UShader* SelectionMaskShader = FResourceManager::Get().GetShader("Shaders/SelectionMask.hlsl");
 	if (SelectionMaskShader)
@@ -133,5 +139,15 @@ bool FSelectionMaskRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 bool FSelectionMaskRenderPass::End(const FRenderPassContext* Context)
 {
-	return true;
+    Context->DeviceContext->OMSetDepthStencilState(PrevDepthStencilState, PrevStencilRef);
+    Context->DeviceContext->OMSetBlendState(PrevBlendState, PrevBlendFactor, PrevSampleMask);
+    Context->DeviceContext->RSSetState(PrevRasterizerState);
+
+    if (PrevDepthStencilState)
+        PrevDepthStencilState->Release();
+    if (PrevBlendState)
+        PrevBlendState->Release();
+    if (PrevRasterizerState)
+        PrevRasterizerState->Release();
+    return true;
 }
