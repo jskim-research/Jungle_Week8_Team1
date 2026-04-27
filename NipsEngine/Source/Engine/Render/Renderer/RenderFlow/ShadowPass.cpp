@@ -126,10 +126,14 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
     AtlasAllocator.Reset();
 
-    for (const FShadowRequest& ShadowRequest : ShadowRequests)
+    // 기존의 범위 기반 for 문을 인덱스 기반으로 교체
+    for (int i = 0; i < ShadowRequests.size(); ++i)
     {
+        const FShadowRequest& ShadowRequest = ShadowRequests[i];
+
         if (ShadowIndexCounter >= MAX_SHADOW_LIGHTS)
             break;
+
         if (ShadowRequest.Type == ELightType::LightType_Spot)
         {
             // 1. 공간 할당 가능?
@@ -161,32 +165,37 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
             uint32 AtlasIndex = AtlasAllocator.GetCurrentAtlasIndex();
             FShadowMap& CurrentAtlasMap = GShadowMaps[AtlasIndex];
 
+            // 뷰 추가 (배열 맨 뒤에 push_back 됨)
             BuildViews(Context, ShadowRequest, CurrentAtlasMap.Views);
 
-            // 아틀라스 전용 UV 적용
+            // 아틀라스 전용 UV 슬라이스 추가
             FShadowSlice Slice;
             Slice.Index = 0;
             Slice.Type = EShadowSliceType::Atlas;
-            Slice.UVOffset = AllocResult.UVOffset; // Allocator가 준 값
-            Slice.UVScale = AllocResult.UVScale;   // Allocator가 준 값
+            Slice.UVOffset = AllocResult.UVOffset;
+            Slice.UVScale = AllocResult.UVScale;
             CurrentAtlasMap.Slices.push_back(Slice);
 
+            // ★ 방금 추가된 View와 Slice의 실제 인덱스 추출 (맨 마지막 위치)
+            uint32 CurrentViewIndex = CurrentAtlasMap.Views.size() - 1;
+            uint32 CurrentSliceIndex = CurrentAtlasMap.Slices.size() - 1;
+
             // 매핑 테이블 기록
-            // 라이팅 패스에서 "이 Spot Light 그림자 어딨어?" 하면 바로 대답할 수 있게 기록합니다.
             FLightShadowMappingInfo& MappingInfo = ShadowLookupTable[ShadowRequest.LightId];
             MappingInfo.bHasShadow = true;
             MappingInfo.ShadowMapIndex = AtlasIndex;
-            MappingInfo.SliceIndex = CurrentAtlasMap.Slices.size() - 1;
+            MappingInfo.SliceIndex = CurrentSliceIndex; // 계산된 슬라이스 인덱스 사용
 
-			//현재 LightId가 몇 번째 ShadowIndex를 쓰는지 기록
-			GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
+            // 현재 LightId가 몇 번째 ShadowIndex를 쓰는지 기록
+            GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
 
             // ★ 2. GPU에 넘길 상수 버퍼 데이터를 여기서 싹 다 채워버림!
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView = CurrentAtlasMap.Views[0].LightView;
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection = CurrentAtlasMap.Views[0].LightProjection;
+            // [수정됨] Views[0] 대신 방금 추가된 Views[CurrentViewIndex]를 참조합니다!
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView = CurrentAtlasMap.Views[CurrentViewIndex].LightView;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection = CurrentAtlasMap.Views[CurrentViewIndex].LightProjection;
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = AllocResult.UVOffset;
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = AllocResult.UVScale;
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceIndex = 0; // 아틀라스는 0
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceIndex = 0;
 
             ShadowIndexCounter++;
         }
@@ -194,10 +203,21 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
         {
             FShadowMap ShadowMap;
             if (MakeShadowMap(Context, ShadowRequest, ShadowMap))
+            {
                 GShadowMaps.push_back(ShadowMap);
+
+                GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
+
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView = ShadowMap.Views[0].LightView;
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection = ShadowMap.Views[0].LightProjection;
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = FVector2(0, 0);
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = FVector2(1, 1);
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceIndex = 0;
+
+                ShadowIndexCounter++;
+            }
         }
     }
-
     if (GShadowMaps.empty())
     {
         bSkip = true;
@@ -232,20 +252,20 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
     UINT oldVPCount = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
     Context->DeviceContext->RSGetViewports(&oldVPCount, oldVP);
 
-    D3D11_VIEWPORT ShadowViewport = {};
-    ShadowViewport.TopLeftX = 0.0f;
-    ShadowViewport.TopLeftY = 0.0f;
-    ShadowViewport.Width = (float)GShadowMaps[0].Resource->Resolution;
-    ShadowViewport.Height = (float)GShadowMaps[0].Resource->Resolution;
-    ShadowViewport.MinDepth = 0.0f;
-    ShadowViewport.MaxDepth = 1.0f;
-    Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
+    //D3D11_VIEWPORT ShadowViewport = {};
+    //ShadowViewport.TopLeftX = (float)GShadowMaps[0];
+    //ShadowViewport.TopLeftY = (float)GShadowMaps[0].Resource->Resolution;
+    //ShadowViewport.Width = (float)GShadowMaps[0].Resource->Resolution;
+    //ShadowViewport.Height = (float)GShadowMaps[0].Resource->Resolution;
+    //ShadowViewport.MinDepth = 0.0f;
+    //ShadowViewport.MaxDepth = 1.0f;
+    //Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
     for (uint32 i = 0; i < GShadowMaps.size(); i++)
 
         if (GShadowMaps[i].MapType == EShadowMapType::Depth2D) // 아틀라스 진행
         {
-            Context->DeviceContext->ClearDepthStencilView(GShadowMaps[i].Resource->DSVs[i], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-            Context->DeviceContext->OMSetRenderTargets(0, nullptr, GShadowMaps[i].Resource->DSVs[i]);
+            Context->DeviceContext->ClearDepthStencilView(GShadowMaps[i].Resource->DSVs[0], D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+            Context->DeviceContext->OMSetRenderTargets(0, nullptr, GShadowMaps[i].Resource->DSVs[0]);
 
             for (uint32 j = 0; j < GShadowMaps[i].Slices.size(); j++)
             {
@@ -602,7 +622,7 @@ bool FShadowPass::BuildSlices(const FRenderPassContext* Context, const FShadowRe
 		{
 			FShadowSlice ShadowSlice;
 			ShadowSlice.Index = i;
-			ShadowSlice.Type = EShadowSliceType::CSM;
+			ShadowSlice.Type = EShadowSliceType::Atlas;
 			ShadowSlice.UVOffset = FVector2(0, 0);
 			ShadowSlice.UVScale = FVector2(1, 1);
 			OutShadowSlices.push_back(ShadowSlice);
@@ -617,6 +637,7 @@ bool FShadowPass::BuildSlices(const FRenderPassContext* Context, const FShadowRe
 			ShadowSlice.Type = EShadowSliceType::CubeFace;
 			ShadowSlice.UVOffset = FVector2(0, 0);
 			ShadowSlice.UVScale = FVector2(1, 1);
+            OutShadowSlices.push_back(ShadowSlice);
 		}
 		break;
 	default:
