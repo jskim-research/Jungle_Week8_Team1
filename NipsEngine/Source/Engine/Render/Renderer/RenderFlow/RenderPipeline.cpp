@@ -18,11 +18,15 @@
 #include "PostProcessOutlineRenderPass.h"
 #include "ToonOutlineRenderPass.h"
 #include "ShadowPass.h"
+#include "HitMapRenderPass.h"
 
 bool FRenderPipeline::Initialize()
 {
 	LightCullingPass = std::make_shared<FLightCullingPass>();
 	LightCullingPass->Initialize();
+
+	HitMapRenderPass = std::make_shared<FHitMapRenderPass>();
+	HitMapRenderPass->Initialize();
 
 	SkyRenderPass = std::make_shared<FSkyRenderPass>();
 	SkyRenderPass->Initialize();
@@ -88,14 +92,15 @@ bool FRenderPipeline::Initialize()
 	//  */
 	RenderPasses.push_back(ShadowPass);
 
+	RenderPasses.push_back(DepthPrepassRenderPass);
     RenderPasses.push_back(LightCullingPass);
-    RenderPasses.push_back(DepthPrepassRenderPass);
     RenderPasses.push_back(SkyRenderPass);
     RenderPasses.push_back(ToonOutlineRenderPass);
 	RenderPasses.push_back(OpaqueRenderPass);
 	RenderPasses.push_back(DecalRenderPass);
 	// SceneColor를 만든 뒤 fog/fxaa 전에 덮어쓸 수 있는 view mode 확장 지점이다.
 	RenderPasses.push_back(BufferVisualizationRenderPass);
+	RenderPasses.push_back(HitMapRenderPass);
 
 	RenderPasses.push_back(FogRenderPass);
 	RenderPasses.push_back(FXAARenderPass); 
@@ -144,6 +149,12 @@ void FRenderPipeline::Release()
 	{
 		LightCullingPass->Release();
 		LightCullingPass.reset();
+	}
+
+	if (HitMapRenderPass)
+	{
+		HitMapRenderPass->Release();
+		HitMapRenderPass.reset();
 	}
 
 	if (SkyRenderPass)

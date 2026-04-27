@@ -334,6 +334,7 @@
     <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\FontRenderPass.cpp" />
     <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\GridRenderPass.cpp" />
     <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\LightCullingPass.cpp" />
+    <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\HitMapRenderPass.cpp" />
     <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\OpaqueRenderPass.cpp" />
     <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\PostProcessOutlineRenderPass.cpp" />
     <ClCompile Include="Source\Engine\Render\Renderer\RenderFlow\RenderPass.cpp" />
@@ -543,6 +544,7 @@
     <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\FontRenderPass.h" />
     <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\GridRenderPass.h" />
     <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\LightCullingPass.h" />
+    <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\HitMapRenderPass.h" />
     <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\OpaqueRenderPass.h" />
     <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\PostProcessOutlineRenderPass.h" />
     <ClInclude Include="Source\Engine\Render\Renderer\RenderFlow\RenderPass.h" />
@@ -732,7 +734,12 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ObjViewer|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="Shaders\Multipass\LightCullingCS.hlsl">
+    <FxCompile Include="Shaders\HitMap.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ObjViewer|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Shaders\Multipass\LightCulling25DCS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ObjViewer|x64'">true</ExcludedFromBuild>

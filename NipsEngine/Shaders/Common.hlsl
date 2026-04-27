@@ -6,6 +6,7 @@ cbuffer FrameBuffer : register(b0)
     row_major float4x4 View;
     row_major float4x4 Projection;
     row_major float4x4 InverseViewProjection;
+    row_major float4x4 InverseProjection;
     float3 CameraPosition;
     float Padding1;
     float bIsWireframe;

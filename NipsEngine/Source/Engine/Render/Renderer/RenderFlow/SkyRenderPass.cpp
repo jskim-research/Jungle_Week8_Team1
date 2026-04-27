@@ -17,7 +17,18 @@ bool FSkyRenderPass::Release()
 
 bool FSkyRenderPass::Begin(const FRenderPassContext* Context)
 {
+	if (!Context || !Context->RenderTargets || !Context->DeviceContext)
+	{
+		return false;
+	}
+
 	bSkipSkyDraw = false;
+
+	// Ensure RenderTargets are bound even if we skip drawing, 
+	// because previous DepthPrepass might have unbound them.
+	ID3D11RenderTargetView* RTV = Context->RenderTargets->SceneColorRTV;
+	ID3D11DepthStencilView* DSV = Context->RenderTargets->DepthStencilView;
+	Context->DeviceContext->OMSetRenderTargets(1, &RTV, DSV);
 
 	const TArray<FRenderCommand>& Commands = Context->RenderBus->GetCommands(ERenderPass::Sky);
 	OutSRV = Context->RenderTargets->SceneColorSRV;
@@ -50,8 +61,6 @@ bool FSkyRenderPass::Begin(const FRenderPassContext* Context)
 	ID3D11BlendState* BlendState = FResourceManager::Get().GetOrCreateBlendState(EBlendType::Opaque);
 	Context->DeviceContext->OMSetBlendState(BlendState, nullptr, 0xFFFFFFFF);
 
-	ID3D11RenderTargetView* RTV = Context->RenderTargets->SceneColorRTV;
-	Context->DeviceContext->OMSetRenderTargets(1, &RTV, nullptr);
 	Context->DeviceContext->IASetInputLayout(nullptr);
 	Context->DeviceContext->IASetVertexBuffers(0, 0, nullptr, nullptr, nullptr);
 	Context->DeviceContext->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);

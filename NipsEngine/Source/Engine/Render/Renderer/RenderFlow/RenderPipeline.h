@@ -26,6 +26,7 @@ class FDepthPrepassRenderPass;
 class FPostProcessOutlineRenderPass;
 class FOpaqueRenderPass;
 class FLightCullingPass;
+class FHitMapRenderPass;
 class FBaseRenderPass;
 
 class FRenderPipeline
@@ -39,6 +40,7 @@ public:
 
 private:
 	std::shared_ptr<FLightCullingPass> LightCullingPass;
+	std::shared_ptr<FHitMapRenderPass> HitMapRenderPass;
 	std::shared_ptr<FSkyRenderPass> SkyRenderPass;
 	std::shared_ptr<FOpaqueRenderPass> OpaqueRenderPass;
 	std::shared_ptr<FDecalRenderPass> DecalRenderPass;

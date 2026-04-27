@@ -50,6 +50,7 @@ void FRenderer::Create(HWND hWindow)
 	FResourceManager::Get().LoadShader("Shaders/ShaderAxis.hlsl", "VS", "PS", nullptr, 0, nullptr);
 	FResourceManager::Get().LoadShader("Shaders/ShaderBillboard.hlsl", "mainVS", "mainPS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
 	FResourceManager::Get().LoadShader("Shaders/Multipass/ToonOutlinePass.hlsl", "mainVS", "mainPS", NormalVertexInputLayout, ARRAYSIZE(NormalVertexInputLayout), nullptr);
+	FResourceManager::Get().LoadShader("Shaders/HitMap.hlsl", "HitMapVS", "HitMapPS", nullptr, 0, nullptr);
 
 	if (!ShaderFileWatcher.Start(FPaths::ShaderDir(), true))
 	{

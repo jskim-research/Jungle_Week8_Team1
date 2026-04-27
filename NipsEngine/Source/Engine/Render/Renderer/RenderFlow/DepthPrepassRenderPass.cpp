@@ -97,6 +97,16 @@ bool FDepthPrepassRenderPass::DrawCommand(const FRenderPassContext* Context)
         FResourceManager::Get().GetOrCreateDepthStencilState(EDepthStencilType::Default);
     ID3D11BlendState* NoColorBlendState =
         FResourceManager::Get().GetOrCreateBlendState(EBlendType::NoColor);
+    ID3D11RasterizerState* DefaultRasterizerState =
+        FResourceManager::Get().GetOrCreateRasterizerState(ERasterizerType::SolidBackCull);
+
+    ID3D11DeviceContext* DeviceContext = Context->DeviceContext;
+
+    // Set initial states once to reduce redundant calls
+    DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
+    DeviceContext->OMSetBlendState(NoColorBlendState, nullptr, 0xFFFFFFFF);
+    DeviceContext->RSSetState(DefaultRasterizerState);
+    DeviceContext->PSSetShader(nullptr, nullptr, 0);
 
     for (const FRenderCommand& Cmd : Commands)
     {
@@ -126,23 +136,27 @@ bool FDepthPrepassRenderPass::DrawCommand(const FRenderPassContext* Context)
 
         if (Cmd.Material != nullptr)
         {
-            Cmd.Material->Bind(Context->DeviceContext, Context->RenderBus, &Cmd.PerObjectConstants, DepthShader, Context);
+            Cmd.Material->Bind(DeviceContext, Context->RenderBus, &Cmd.PerObjectConstants, DepthShader, Context);
+
+            // Re-apply states that Material::Bind might have changed, ensuring consistency (#2)
+            DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
+            DeviceContext->OMSetBlendState(NoColorBlendState, nullptr, 0xFFFFFFFF);
+            // Force the default RS to ensure consistency across all objects (#2)
+            DeviceContext->RSSetState(DefaultRasterizerState);
+            DeviceContext->PSSetShader(nullptr, nullptr, 0);
         }
 
-        Context->DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
-        Context->DeviceContext->OMSetBlendState(NoColorBlendState, nullptr, 0xFFFFFFFF);
-        Context->DeviceContext->PSSetShader(nullptr, nullptr, 0);
-        Context->DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
+        DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
 
         ID3D11Buffer* IndexBuffer = Cmd.MeshBuffer->GetIndexBuffer().GetBuffer();
         if (IndexBuffer != nullptr)
         {
-            Context->DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-            Context->DeviceContext->DrawIndexed(Cmd.SectionIndexCount, Cmd.SectionIndexStart, 0);
+            DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+            DeviceContext->DrawIndexed(Cmd.SectionIndexCount, Cmd.SectionIndexStart, 0);
         }
         else
         {
-            Context->DeviceContext->Draw(VertexCount, 0);
+            DeviceContext->Draw(VertexCount, 0);
         }
     }
 
