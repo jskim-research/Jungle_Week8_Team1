@@ -3,12 +3,15 @@
 #include "RenderPass.h"
 #include "Render/Scene/ShadowLightSelector.h"
 #include "Render/Resource/ShadowAtlasAllocator.h"
+#include "Render/Renderer/RenderFlow/OpaqueRenderPass.h"
 class FShadowPass : public FBaseRenderPass
 {
 public:
     bool Initialize();
     bool Release();
     static TArray<FShadowMap>& GetShadowMaps();
+    static const TArray<int32>& GetLightToShadowIndices();
+    static const FOpaqueRenderPass::FShadowArrayCB& GetShadowCBData();
 
 protected:
     bool Begin(const FRenderPassContext* Context);

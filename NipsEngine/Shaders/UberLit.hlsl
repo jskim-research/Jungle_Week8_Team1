@@ -3,7 +3,7 @@
 #if !defined(MATERIAL_DOMAIN_DECAL) && !defined(LIGHTING_MODEL_GOURAUD) && !defined(LIGHTING_MODEL_LAMBERT) && !defined(LIGHTING_MODEL_PHONG) && !defined(LIGHTING_MODEL_TOON)
 #define LIGHTING_MODEL_PHONG 1
 #endif
-
+#define MAX_SHADOW_LIGHTS 32
 cbuffer UberLighting : register(b3)
 {
     uint SceneGlobalLightCount;
@@ -24,9 +24,9 @@ struct FGPULight
     float SpotOuterCos;
 
     float3 Direction;
-    float Padding0;
+    int ShadowIndex;    //자신이 가지고 있는 섀도우 맵, -1이면 섀도우 맵 없음
 };
-
+#define ATLAS_SIZE 1
 StructuredBuffer<FGPULight> GlobalLights : register(t3);
 
 cbuffer VisibleLightInfo : register(b4)
@@ -43,6 +43,10 @@ cbuffer ShadowLightViewInfo : register(b6)
 {
     row_major float4x4 ShadowLightView;
     row_major float4x4 ShadowLightProjection;
+    float2 UVScale;
+    float2 UVOffset;
+    uint SliceIndex;
+    float3 _Padding;
 }
 
 struct FVisibleLightData
@@ -56,7 +60,7 @@ struct FVisibleLightData
     float SpotInnerCos;
     float SpotOuterCos;
     float3 Direction;
-    float _Pad;
+    int ShadowIndex;
 };
 
 StructuredBuffer<FVisibleLightData> VisibleLights : register(t8);
@@ -72,11 +76,50 @@ static const uint LIGHT_TYPE_SPOT = 2u;
 static const uint LIGHT_TYPE_AMBIENT = 3u;
 static const float3 DEFAULT_AMBIENT_COLOR = float3(0.02f, 0.02f, 0.02f);
 
+struct FShadowData
+{
+    row_major float4x4 ShadowLightView;
+    row_major float4x4 ShadowLightProjection;
+    float2 UVScale;
+    float2 UVOffset;
+    uint SliceIndex;
+    float3 _Padding; 
+};
+
+cbuffer ShadowLightViewInfo : register(b7)
+{
+    FShadowData ShadowDataArray[32]; // 최대 32개의 그림자 정보 전달
+}
+
 struct FLightingResult
 {
     float3 Diffuse;
     float3 Specular;
 };
+
+float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
+{
+    if (ShadowIndex < 0)
+        return 1.0f; // 그림자 없는 빛은 온전히 밝음
+
+    FShadowData SData = ShadowDataArray[ShadowIndex];
+
+    float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView), SData.ShadowLightProjection);
+    float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
+    float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
+    float CurrentDepth = NDC.z;
+
+    if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 || ShadowUV.y < 0.0 || ShadowUV.y > 1.0 || CurrentDepth < 0.0 || CurrentDepth > 1.0)
+        return 1.0f; // 빛의 범위를 벗어나면 그림자 없음
+
+    // 분기문 없이 아틀라스 UV 오프셋/스케일 적용
+    ShadowUV = (ShadowUV * SData.UVScale * ATLAS_SIZE) + SData.UVOffset * ATLAS_SIZE;
+    float Bias = 0.005f;
+    // Atlas면 ShadowMap에서 샘플링 (Texture2D)
+    float ShadowLightDepth = ShadowMap.Sample(ShadowSampler, ShadowUV);
+    
+    return (ShadowLightDepth + Bias >= CurrentDepth) ? 1.0f : 0.0f;
+}
 
 float ComputeDistanceAttenuation(float Distance, float Radius, float FalloffExponent)
 {
@@ -89,8 +132,9 @@ float ComputeDistanceAttenuation(float Distance, float Radius, float FalloffExpo
     return pow(T, max(FalloffExponent, 1.0e-4f));
 }
 
-void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3 LightContribution, inout FLightingResult Result)
+void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3 LightContribution, int ShadowIndex, inout FLightingResult Result)
 {
+    float ShadowMask = CalculateShadowFactor(WorldPos, ShadowIndex);
 #if defined(LIGHTING_MODEL_TOON)
     // --- Diffuse: 3-band 계단 처리 ---
     const float HalfLambert = dot(N, L) * 0.5f + 0.5f;    
@@ -119,12 +163,12 @@ void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3
     
 #else
     const float NdotL = saturate(dot(N, L) * 0.5f + 0.5f);
-    Result.Diffuse += LightContribution * NdotL;
+    Result.Diffuse += LightContribution * NdotL * ShadowMask;
 
 #if defined(LIGHTING_MODEL_GOURAUD) || defined(LIGHTING_MODEL_PHONG)
     const float3 H = normalize(L + V);
     const float SpecularPower = pow(saturate(dot(N, H)), max(Shininess, 1.0e-4f));
-    Result.Specular += SpecularColor * LightContribution * SpecularPower;
+    Result.Specular += SpecularColor * LightContribution * SpecularPower * ShadowMask;
 #endif
 #endif
 }
@@ -179,7 +223,7 @@ void AccumulateVisiblePointLights(float3 WorldPos, float3 N, float3 V, float2 Sc
             }
         }
 
-        AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
+        AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Light.ShadowIndex, Result);
     }
 }
 
@@ -215,7 +259,7 @@ FLightingResult EvaluateLightingFromWorld(float3 WorldPos, float3 WorldNormal, f
 
         if (Light.Type == LIGHT_TYPE_DIRECTIONAL)
         {
-            AccumulateDirectLight(WorldPos, N, V, normalize(Light.Direction), LightColor, Result);
+            AccumulateDirectLight(WorldPos, N, V, normalize(Light.Direction), LightColor, Light.ShadowIndex, Result);
         }
     }
 
@@ -261,7 +305,7 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
         if (Light.Type == LIGHT_TYPE_DIRECTIONAL)
         {
             const float3 L = normalize(Light.Direction);
-            AccumulateDirectLight(WorldPos, N, V, L, LightColor, Result);
+            AccumulateDirectLight(WorldPos, N, V, L, LightColor, Light.ShadowIndex, Result);
         }
     }
 
@@ -300,7 +344,7 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
                 continue;
         }
 
-        AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
+        AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Light.ShadowIndex, Result);
     }
 
     return Result;
@@ -436,7 +480,7 @@ FUberPSOutput mainPS(FUberPSInput Input)
 
 
 #endif
-    return ComposeOutput(Surface, ApplyShadow(Surface, ApplyLighting(Surface, Lighting)));
+    return ComposeOutput(Surface, ApplyLighting(Surface, Lighting));
 }
 
 #endif

@@ -101,6 +101,13 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 		SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
 
+		/*
+		*
+		* 필수!
+		* ShadowPass에서 작성했던 ShadowLookupTable 정보를 받아와서
+		* VisibleLight의 ShadowIndex 값 채워넣기
+		* 
+		*/
 		// 테스트용으로 하나만 mapping
 		if (!FShadowPass::GetShadowMaps().empty())
 		{
@@ -109,16 +116,19 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 			FShadowCB ShadowCB;
             ShadowCB.ShadowLightView = FShadowPass::GetShadowMaps()[0].Views[0].LightView;
             ShadowCB.ShadowLightProjection = FShadowPass::GetShadowMaps()[0].Views[0].LightProjection;
+            // 아틀라스용 (아틀라스가 아니면 기본값(1,1)(0, 0)을 가짐)
+            ShadowCB.UVOffset = FShadowPass::GetShadowMaps()[0].Slices[0].UVOffset;
+            ShadowCB.UVScale = FShadowPass::GetShadowMaps()[0].Slices[0].UVScale;
 
 			D3D11_MAPPED_SUBRESOURCE Mapped = {};
             if (SUCCEEDED(Context->DeviceContext->Map(ShadowConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped)))
             {
-                std::memcpy(Mapped.pData, &ShadowCB, sizeof(ShadowCB));
+                std::memcpy(Mapped.pData, &FShadowPass::GetShadowCBData(), sizeof(FShadowArrayCB));
                 Context->DeviceContext->Unmap(ShadowConstantBuffer.Get(), 0);
             }
 
 			ID3D11Buffer* RawShadowConstantBuffer = ShadowConstantBuffer.Get();
-			Context->DeviceContext->PSSetConstantBuffers(6, 1, &RawShadowConstantBuffer);
+			Context->DeviceContext->PSSetConstantBuffers(7, 1, &RawShadowConstantBuffer);
 
 			ID3D11SamplerState* ShadowSampler = FResourceManager::Get().GetOrCreateSamplerState(ESamplerType::EST_Point, Context->Device);
             Context->DeviceContext->PSSetSamplers(1, 1, &ShadowSampler);
@@ -161,7 +171,7 @@ bool FOpaqueRenderPass::EnsureShadowConstantBuffer(ID3D11Device* Device)
 
     HRESULT Result;
     D3D11_BUFFER_DESC Desc = {};
-    Desc.ByteWidth = sizeof(FShadowCB);
+    Desc.ByteWidth = sizeof(FShadowArrayCB);
     Desc.Usage = D3D11_USAGE_DYNAMIC;
     Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;

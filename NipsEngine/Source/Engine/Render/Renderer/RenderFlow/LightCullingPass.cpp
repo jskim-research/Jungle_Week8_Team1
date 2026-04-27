@@ -6,7 +6,7 @@
 #include "UI/EditorConsoleWidget.h"
 #include <cmath>
 #include <algorithm>
-
+#include "Render/Renderer/RenderFlow/ShadowPass.h"
 namespace
 {
     constexpr uint32 LightCullingTileSize = 16;
@@ -40,7 +40,7 @@ namespace
         float SpotInnerCos = 1.0f;
         float SpotOuterCos = 0.0f;
         FVector Direction = FVector::ZeroVector;
-        float _Pad = 0.0f;
+        int ShadowIndex;
     };
 
     uint32 CeilDivide(uint32 Numerator, uint32 Denominator)
@@ -141,8 +141,11 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
         return A.first < B.first; // max-heap: 거리 큰 게 top
     };
 
-    for (const FRenderLight& Light : SceneLights)
+    // 범위 기반 for 문을 인덱스 기반 for 문으로 변경합니다.
+    for (uint32 i = 0; i < SceneLights.size(); ++i)
     {
+        const FRenderLight& Light = SceneLights[i];
+
         if (Light.Type != (uint32)ELightType::LightType_Point &&
             Light.Type != (uint32)ELightType::LightType_Spot)
             continue;
@@ -157,6 +160,8 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
         CullingLight.SpotInnerCos = Light.SpotInnerCos;
         CullingLight.SpotOuterCos = Light.SpotOuterCos;
         CullingLight.Direction = Light.Direction;
+
+        CullingLight.ShadowIndex = FShadowPass::GetLightToShadowIndices()[i];
 
         float Dist = FVector::DistSquared(CameraPos, Light.Position);
 

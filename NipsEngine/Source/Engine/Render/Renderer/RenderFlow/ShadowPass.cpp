@@ -9,6 +9,12 @@ namespace
 {
 // 현재 Pass 간 Input, Output 연결 구조가 아니어서 전역으로 놓았는데, 나중에 바꿔야 함
 TArray<FShadowMap> GShadowMaps;
+
+// 1. LightId -> ShadowDataArray Index (0~31) 매핑 테이블
+TArray<int32> GLightToShadowIndices;
+// 2. OpaquePass에 넘겨줄 상수 버퍼 데이터
+FOpaqueRenderPass::FShadowArrayCB GShadowCBData;
+
 } // namespace
 
 bool FShadowPass::Initialize()
@@ -25,6 +31,15 @@ bool FShadowPass::Release()
 TArray<FShadowMap>& FShadowPass::GetShadowMaps()
 {
     return GShadowMaps;
+}
+
+const TArray<int32>& FShadowPass::GetLightToShadowIndices()
+{
+    return GLightToShadowIndices;
+}
+const FOpaqueRenderPass::FShadowArrayCB& FShadowPass::GetShadowCBData()
+{
+    return GShadowCBData;
 }
 
 bool FShadowPass::Begin(const FRenderPassContext* Context)
@@ -104,10 +119,17 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
     // 원본 라이트 개수만큼 매핑 테이블 할당
     TArray<FLightShadowMappingInfo> ShadowLookupTable(Context->RenderBus->GetLights().size());
 
+	GLightToShadowIndices.assign(Context->RenderBus->GetLights().size(), -1);
+    std::memset(&GShadowCBData, 0, sizeof(GShadowCBData));
+
+    uint32 ShadowIndexCounter = 0; // GPU 버퍼 배열에 들어갈 인덱스 (0 ~ 31)
+
     AtlasAllocator.Reset();
 
     for (const FShadowRequest& ShadowRequest : ShadowRequests)
     {
+        if (ShadowIndexCounter >= MAX_SHADOW_LIGHTS)
+            break;
         if (ShadowRequest.Type == ELightType::LightType_Spot)
         {
             // 1. 공간 할당 가능?
@@ -155,6 +177,18 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
             MappingInfo.bHasShadow = true;
             MappingInfo.ShadowMapIndex = AtlasIndex;
             MappingInfo.SliceIndex = CurrentAtlasMap.Slices.size() - 1;
+
+			//현재 LightId가 몇 번째 ShadowIndex를 쓰는지 기록
+			GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
+
+            // ★ 2. GPU에 넘길 상수 버퍼 데이터를 여기서 싹 다 채워버림!
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView = CurrentAtlasMap.Views[0].LightView;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection = CurrentAtlasMap.Views[0].LightProjection;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = AllocResult.UVOffset;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = AllocResult.UVScale;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceIndex = 0; // 아틀라스는 0
+
+            ShadowIndexCounter++;
         }
         else
         {
