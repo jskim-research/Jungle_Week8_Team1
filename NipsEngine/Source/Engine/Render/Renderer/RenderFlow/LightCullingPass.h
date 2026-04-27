@@ -78,6 +78,9 @@ private:
 
     uint32 LightBufferCapacity = 0;
     uint32 TileBufferCapacity = 0;
+    uint32 CachedHitMapWidth = 0;
+    uint32 CachedHitMapHeight = 0;
+    uint32 CachedMaskTileCount = 0;
 
     const uint32 MaxLocalLightNum = 512;
 };

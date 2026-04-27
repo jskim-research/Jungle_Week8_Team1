@@ -118,17 +118,29 @@ bool FRenderPipeline::Initialize()
 
 bool FRenderPipeline::Render(const FRenderPassContext* Context)
 {
-    OutSRV = nullptr;
-    OutRTV = nullptr;
+    OutSRV = Context && Context->RenderTargets ? Context->RenderTargets->SceneColorSRV : nullptr;
+    OutRTV = Context && Context->RenderTargets ? Context->RenderTargets->SceneColorRTV : nullptr;
 
-	for (std::shared_ptr<FBaseRenderPass> Pass : RenderPasses)
+	for (const std::shared_ptr<FBaseRenderPass>& Pass : RenderPasses)
 	{
         Pass->SetPrevPassSRV(OutSRV);
         Pass->SetPrevPassRTV(OutRTV);
-        Pass->Render(Context);
+        const bool bPassSucceeded = Pass->Render(Context);
+        if (!bPassSucceeded)
+        {
+            continue;
+        }
 
-		OutSRV = Pass->GetOutSRV();
-        OutRTV = Pass->GetOutRTV();
+        ID3D11ShaderResourceView* PassSRV = Pass->GetOutSRV();
+        ID3D11RenderTargetView* PassRTV = Pass->GetOutRTV();
+        if (PassSRV)
+        {
+            OutSRV = PassSRV;
+        }
+        if (PassRTV)
+        {
+            OutRTV = PassRTV;
+        }
 	}
 
 	Context->RenderTargets->FinalSRV = OutSRV;

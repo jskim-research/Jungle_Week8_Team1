@@ -47,6 +47,62 @@ namespace
         float _Pad = 0.0f;
     };
 
+    struct FSpotBroadPhaseBounds
+    {
+        FVector Center = FVector::ZeroVector;
+        float Radius = 0.0f;
+    };
+
+    float ComputePointLightScore(const FRenderLight& Light, const FVector& CameraPos)
+    {
+        const float Radius = std::max(Light.Radius, 0.001f);
+        const float DistanceToCenter = FVector::Dist(CameraPos, Light.Position);
+        const float VolumeDist = std::max(0.0f, DistanceToCenter - Radius);
+        const float Influence = std::max(Light.Intensity, 0.0f) * Radius * Radius;
+        return Influence / (1.0f + VolumeDist * VolumeDist);
+    }
+
+    FSpotBroadPhaseBounds BuildSpotBroadPhaseBounds(const FRenderLight& Light)
+    {
+        const float Height = std::max(Light.Radius, 0.001f);
+        const FVector Axis = Light.Direction.GetSafeNormal();
+
+        const float CosTheta = std::clamp(Light.SpotOuterCos, 0.001f, 0.9999f);
+        const float SinTheta = std::sqrt(std::max(0.0f, 1.0f - CosTheta * CosTheta));
+        const float BaseRadius = Height * (SinTheta / CosTheta);
+        const FVector BaseCenter = Light.Position + Axis * Height;
+
+        FSpotBroadPhaseBounds Bounds = {};
+        if (BaseRadius <= Height)
+        {
+            Bounds.Radius = (Height * Height + BaseRadius * BaseRadius) / (2.0f * Height);
+            Bounds.Center = Light.Position + Axis * Bounds.Radius;
+        }
+        else
+        {
+            Bounds.Radius = BaseRadius;
+            Bounds.Center = BaseCenter;
+        }
+
+        return Bounds;
+    }
+
+    float ComputeSpotLightScore(const FRenderLight& Light, const FVector& CameraPos)
+    {
+        const FSpotBroadPhaseBounds Bounds = BuildSpotBroadPhaseBounds(Light);
+        const float DistanceToCenter = FVector::Dist(CameraPos, Bounds.Center);
+        const float VolumeDist = std::max(0.0f, DistanceToCenter - Bounds.Radius);
+
+        const FVector LightDirection = Light.Direction.GetSafeNormal();
+        const FVector ToCamera = (CameraPos - Light.Position).GetSafeNormal();
+        const float Facing = std::max(0.0f, FVector::DotProduct(LightDirection, ToCamera));
+        const float FacingWeight = 0.25f + 0.75f * Facing * Facing;
+
+        const float InfluenceRadius = std::max(Bounds.Radius, 0.001f);
+        const float Influence = std::max(Light.Intensity, 0.0f) * InfluenceRadius * InfluenceRadius;
+        return (Influence * FacingWeight) / (1.0f + VolumeDist * VolumeDist);
+    }
+
     uint32 CeilDivide(uint32 Numerator, uint32 Denominator)
     {
         return (Numerator + Denominator - 1u) / Denominator;
@@ -88,6 +144,10 @@ bool FLightCullingPass::Release()
 
     CulledPointLightIndexMaskBuffer.Reset();
     CulledPointLightIndexMaskOUTUAV.Reset();
+
+    CachedHitMapWidth = 0;
+    CachedHitMapHeight = 0;
+    CachedMaskTileCount = 0;
 
     return true;
 }
@@ -180,9 +240,9 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
         CullingLight.SpotOuterCos = Light.SpotOuterCos;
         CullingLight.Direction = Light.Direction;
 
-        float DistSq = FVector::DistSquared(CameraPos, Light.Position);
-        // Score = Intensity / max(1.0, DistSq) - simple importance score
-        float Score = Light.Intensity / std::max(1.0f, DistSq);
+        const float Score = (Light.Type == (uint32)ELightType::LightType_Spot)
+            ? ComputeSpotLightScore(Light, CameraPos)
+            : ComputePointLightScore(Light, CameraPos);
 
         if (Light.Type == (uint32)ELightType::LightType_Point)
         {
@@ -343,9 +403,34 @@ bool FLightCullingPass::End(const FRenderPassContext* Context)
 
 bool FLightCullingPass::Ensure25DResources(ID3D11Device* Device, uint32 Width, uint32 Height, uint32 TileCount)
 {
-    // 이미 생성되어 있고 해상도/타일개수가 변하지 않았다면 스킵 (간단한 예외처리)
-    if (DebugHitMapTexture != nullptr && PerTilePointLightIndexMaskBuffer != nullptr)
+    const bool bHasAllResources =
+        DebugHitMapTexture != nullptr &&
+        DebugHitMapUAV != nullptr &&
+        DebugHitMapSRV != nullptr &&
+        PerTilePointLightIndexMaskBuffer != nullptr &&
+        PerTilePointLightIndexMaskOutUAV != nullptr &&
+        PerTilePointLightIndexMaskSRV != nullptr &&
+        CulledPointLightIndexMaskBuffer != nullptr &&
+        CulledPointLightIndexMaskOUTUAV != nullptr;
+
+    const bool bNeedRecreate = !bHasAllResources ||
+        CachedHitMapWidth != Width ||
+        CachedHitMapHeight != Height ||
+        CachedMaskTileCount != TileCount;
+
+    if (!bNeedRecreate)
+    {
         return true;
+    }
+
+    DebugHitMapTexture.Reset();
+    DebugHitMapUAV.Reset();
+    DebugHitMapSRV.Reset();
+    PerTilePointLightIndexMaskBuffer.Reset();
+    PerTilePointLightIndexMaskOutUAV.Reset();
+    PerTilePointLightIndexMaskSRV.Reset();
+    CulledPointLightIndexMaskBuffer.Reset();
+    CulledPointLightIndexMaskOUTUAV.Reset();
 
     // ----------------------------------------------------
     // 1. Debug HitMap Texture & UAV/SRV 생성
@@ -408,6 +493,10 @@ bool FLightCullingPass::Ensure25DResources(ID3D11Device* Device, uint32 Width, u
     if (FAILED(Device->CreateUnorderedAccessView(CulledPointLightIndexMaskBuffer.Get(), &MaskUavDesc, CulledPointLightIndexMaskOUTUAV.GetAddressOf())))
         return false;
 
+    CachedHitMapWidth = Width;
+    CachedHitMapHeight = Height;
+    CachedMaskTileCount = TileCount;
+
     return true;
 }
 bool FLightCullingPass::EnsureComputeShader(ID3D11Device* Device)
@@ -417,10 +506,12 @@ bool FLightCullingPass::EnsureComputeShader(ID3D11Device* Device)
         return true;
     }
 
+    const std::wstring ShaderPath = FPaths::ToAbsolute(FPaths::ToWide("Shaders/Multipass/LightCullingCS.hlsl"));
+
     TComPtr<ID3DBlob> CSBlob;
     TComPtr<ID3DBlob> ErrorBlob;
     const HRESULT CompileResult = D3DCompileFromFile(
-        FPaths::ToWide("Shaders/Multipass/LightCullingCS.hlsl").c_str(),
+        ShaderPath.c_str(),
         nullptr,
         D3D_COMPILE_STANDARD_FILE_INCLUDE,
         "mainCS",

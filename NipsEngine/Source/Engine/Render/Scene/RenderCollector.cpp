@@ -149,6 +149,70 @@ namespace
 		}
 	}
 
+	FVector ResolveSpotLightDirection(const USpotLightComponent* SpotLight)
+	{
+		if (SpotLight == nullptr)
+		{
+			return FVector::ForwardVector;
+		}
+
+		// Spot 조명은 엔진 규약상 -Forward가 빛이 향하는 방향이다.
+		FVector Direction = (SpotLight->GetForwardVector() * -1.0f).GetSafeNormal();
+		if (Direction.IsNearlyZero())
+		{
+			Direction = (SpotLight->GetUpVector() * -1.0f).GetSafeNormal();
+		}
+		if (Direction.IsNearlyZero())
+		{
+			Direction = FVector::ForwardVector;
+		}
+		return Direction;
+	}
+
+	void BuildStableLightBasis(const FVector& Direction, const FVector& CandidateRight, FVector& OutRight, FVector& OutUp)
+	{
+		const FVector Forward = Direction.GetSafeNormal();
+		FVector Right = CandidateRight.GetSafeNormal();
+
+		// 전달된 Right 벡터가 비정상이거나 Forward와 거의 평행하면 교차곱 기반으로 다시 만든다.
+		if (Right.IsNearlyZero() || MathUtil::Abs(FVector::DotProduct(Right, Forward)) > 0.98f)
+		{
+			const FVector Reference = (MathUtil::Abs(Forward.Z) < 0.98f) ? FVector::UpVector : FVector::RightVector;
+			Right = FVector::CrossProduct(Reference, Forward).GetSafeNormal();
+		}
+
+		FVector Up = FVector::CrossProduct(Forward, Right).GetSafeNormal();
+		if (Up.IsNearlyZero())
+		{
+			Right = FVector::RightVector;
+			Up = FVector::UpVector;
+		}
+
+		OutRight = Right;
+		OutUp = Up;
+	}
+
+	void ResolvePointLightBasis(const UPointLightComponent* PointLight, FVector& OutRight, FVector& OutUp)
+	{
+		if (PointLight == nullptr)
+		{
+			OutRight = FVector::RightVector;
+			OutUp = FVector::UpVector;
+			return;
+		}
+
+		OutRight = PointLight->GetRightVector().GetSafeNormal();
+		OutUp = PointLight->GetUpVector().GetSafeNormal();
+
+		if (OutRight.IsNearlyZero() ||
+			OutUp.IsNearlyZero() ||
+			MathUtil::Abs(FVector::DotProduct(OutRight, OutUp)) > 0.98f)
+		{
+			OutRight = FVector::RightVector;
+			OutUp = FVector::UpVector;
+		}
+	}
+
 	int32 SelectLODLevel(const FVector& CameraPos, const FAABB& Bounds, const FMatrix& ProjMatrix, int32 ValidLODCount)
 	{
 		bool IsOrthoGraphic = (std::abs(ProjMatrix.M[3][3] - 1.0f) < 1e-4f);
@@ -324,11 +388,15 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 			
             if (Settings.bShowPointLightDebugLine)
             {
+                FVector DebugRight = FVector::RightVector;
+                FVector DebugUp = FVector::UpVector;
+                ResolvePointLightBasis(PointLight, DebugRight, DebugUp);
+
                 LineBatcher->AddPointLight(
                     PointLight->GetWorldLocation(),
                     PointLight->GetAttenuationRadius(),
-                    PointLight->GetRightVector(),
-                    PointLight->GetUpVector());
+                    DebugRight,
+                    DebugUp);
             }
 
 			// View Frustum에 대한 Bounding Sphere 교차 검사
@@ -356,19 +424,21 @@ void FRenderCollector::CollectLight(UWorld* World, FRenderBus& RenderBus, const 
 				continue;
 			}
 			
-			const float InnerAngle = SpotLight->GetOuterConeAngle(); // Degree 단위 주의
+			const float InnerAngle = SpotLight->GetInnerConeAngle(); // Degree 단위 주의
 			const float OuterAngle = SpotLight->GetOuterConeAngle();
 
-			// -z 축을 forward로 사용
-			FVector LightDirection = SpotLight->GetUpVector() * -1.0f;
-			LightDirection.Normalize();
+			const FVector LightDirection = ResolveSpotLightDirection(SpotLight);
 
             if (Settings.bShowSpotLightDebugLine)
             {
+                FVector DebugRight = FVector::RightVector;
+                FVector DebugUp = FVector::UpVector;
+                BuildStableLightBasis(LightDirection, SpotLight->GetRightVector(), DebugRight, DebugUp);
+
                 LineBatcher->AddSpotLight(
                     SpotLight->GetWorldLocation(),
                     LightDirection,
-                    SpotLight->GetRightVector() * -1.0f,
+                    DebugRight,
                     SpotLight->GetAttenuationRadius(),
                     SpotLight->GetInnerConeAngle(),
                     SpotLight->GetOuterConeAngle());
@@ -634,21 +704,40 @@ bool FRenderCollector::CollectFromSelectedActor(AActor* Actor, const FShowFlags&
         case ELightType::LightType_Point:
         {
             const UPointLightComponent* PointLightComponent = Cast<UPointLightComponent>(LightComponent);
+            if (PointLightComponent == nullptr)
+            {
+                break;
+            }
+
+            FVector DebugRight = FVector::RightVector;
+            FVector DebugUp = FVector::UpVector;
+            ResolvePointLightBasis(PointLightComponent, DebugRight, DebugUp);
+
             LineBatcher->AddPointLight(
                 PointLightComponent->GetWorldLocation(),
                 PointLightComponent->GetAttenuationRadius(),
-                PointLightComponent->GetRightVector(),
-                PointLightComponent->GetUpVector());
+                DebugRight,
+                DebugUp);
             break;
         }
 
         case ELightType::LightType_Spot:
         {
             const USpotLightComponent* SpotLightComponent = Cast<USpotLightComponent>(LightComponent);
+            if (SpotLightComponent == nullptr)
+            {
+                break;
+            }
+
+            const FVector LightDirection = ResolveSpotLightDirection(SpotLightComponent);
+            FVector DebugRight = FVector::RightVector;
+            FVector DebugUp = FVector::UpVector;
+            BuildStableLightBasis(LightDirection, SpotLightComponent->GetRightVector(), DebugRight, DebugUp);
+
             LineBatcher->AddSpotLight(
                 SpotLightComponent->GetWorldLocation(),
-                SpotLightComponent->GetUpVector() * -1.0f,
-                SpotLightComponent->GetRightVector() * -1.0f,
+                LightDirection,
+                DebugRight,
                 SpotLightComponent->GetAttenuationRadius(),
                 SpotLightComponent->GetInnerConeAngle(),
                 SpotLightComponent->GetOuterConeAngle());

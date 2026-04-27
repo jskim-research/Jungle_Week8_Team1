@@ -234,7 +234,8 @@ void mainCS(
                             {
                                 if (tileDepthMask == 0)
                                 {
-                                    bLightAffectTile = false;
+                                    // No depth samples in this tile: keep the light conservatively.
+                                    bLightAffectTile = true;
                                 }
                                 else
                                 {
@@ -314,17 +315,22 @@ void mainCS(
         PerTilePointLightIndexMaskOut[MaskIndex] = gs_TileLightMask[GroupIndex];
     }
     
-    // HitMap Rendering (Bit 1)
-    if ((Enable25DCulling & 2) != 0)
+    if (pixel.x < (uint)ViewportWidth && pixel.y < (uint)ViewportHeight)
     {
-        float ratio = (float)hitCount / 16.0f; // 16개 이상이면 빨강
-        float3 color = lerp(float3(0.0f, 0.1f, 0.0f), float3(1.0f, 0.0f, 0.0f), saturate(ratio));
-        if (hitCount == 0) color = float3(0.0f, 0.0f, 0.0f);
-        
-        DebugHitMap[pixel] = float4(color, 0.5f);
-    }
-    else
-    {
-        DebugHitMap[pixel] = float4(0.0f, 0.0f, 0.0f, 0.0f);
+        // HitMap Rendering (Bit 1)
+        if ((Enable25DCulling & 2) != 0)
+        {
+            const float ratio = saturate((float)hitCount / 8.0f);
+            const float3 coldColor = float3(0.0f, 0.35f, 0.9f);
+            const float3 hotColor = float3(1.0f, 0.15f, 0.0f);
+            const float3 color = lerp(coldColor, hotColor, ratio);
+            const float alpha = (hitCount > 0) ? saturate(0.25f + ratio * 0.55f) : 0.0f;
+
+            DebugHitMap[pixel] = float4(color, alpha);
+        }
+        else
+        {
+            DebugHitMap[pixel] = float4(0.0f, 0.0f, 0.0f, 0.0f);
+        }
     }
 }

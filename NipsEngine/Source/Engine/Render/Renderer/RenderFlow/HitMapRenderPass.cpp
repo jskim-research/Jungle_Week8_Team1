@@ -21,15 +21,26 @@ bool FHitMapRenderPass::Release()
 
 bool FHitMapRenderPass::Begin(const FRenderPassContext* Context)
 {
+    OutSRV = PrevPassSRV;
+    OutRTV = PrevPassRTV;
+    bSkipHitMapDraw = true;
+
     if (!FEditorSettings::Get().bShowLightHitMap)
     {
-        OutSRV = PrevPassSRV;
-        OutRTV = PrevPassRTV;
+        return true;
+    }
+
+    if (!PrevPassRTV)
+    {
         return true;
     }
 
     if (!EnsureResources(Context->Device))
-        return false;
+    {
+        return true;
+    }
+
+    bSkipHitMapDraw = false;
 
     ID3D11RenderTargetView* RTV = PrevPassRTV;
     Context->DeviceContext->OMSetRenderTargets(1, &RTV, nullptr);
@@ -39,14 +50,12 @@ bool FHitMapRenderPass::Begin(const FRenderPassContext* Context)
     Context->DeviceContext->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
     Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    OutSRV = PrevPassSRV;
-    OutRTV = PrevPassRTV;
     return true;
 }
 
 bool FHitMapRenderPass::DrawCommand(const FRenderPassContext* Context)
 {
-    if (!FEditorSettings::Get().bShowLightHitMap)
+    if (bSkipHitMapDraw)
         return true;
 
     ID3D11ShaderResourceView* HitMapSRV = FLightCullingPass::GetOutputs().HitMapSRV;
@@ -68,7 +77,7 @@ bool FHitMapRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 bool FHitMapRenderPass::End(const FRenderPassContext* Context)
 {
-    if (!FEditorSettings::Get().bShowLightHitMap)
+    if (bSkipHitMapDraw)
         return true;
 
     ID3D11ShaderResourceView* nullSRV = nullptr;
@@ -81,26 +90,50 @@ bool FHitMapRenderPass::EnsureResources(ID3D11Device* Device)
     if (VertexShader && PixelShader)
         return true;
 
+    const std::wstring ShaderPathAbsolute = FPaths::ToAbsolute(FPaths::ToWide("Shaders/Multipass/HitMapPass.hlsl"));
+    const std::wstring ShaderPathRelative = FPaths::ToWide("Shaders/Multipass/HitMapPass.hlsl");
+
     TComPtr<ID3DBlob> VSBlob;
     TComPtr<ID3DBlob> PSBlob;
     TComPtr<ID3DBlob> ErrorBlob;
 
-    HRESULT hr = D3DCompileFromFile(
-        FPaths::ToWide("Shaders/Multipass/HitMapPass.hlsl").c_str(),
-        nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
-        "VSMain", "vs_5_0", 0, 0, &VSBlob, &ErrorBlob);
-    
-    if (FAILED(hr)) return false;
+    auto CompileShader = [&](const std::wstring& Path, const char* EntryPoint, const char* Target, TComPtr<ID3DBlob>& OutBlob) -> bool
+    {
+        ErrorBlob.Reset();
+        const HRESULT Result = D3DCompileFromFile(
+            Path.c_str(),
+            nullptr,
+            D3D_COMPILE_STANDARD_FILE_INCLUDE,
+            EntryPoint,
+            Target,
+            0,
+            0,
+            OutBlob.GetAddressOf(),
+            ErrorBlob.GetAddressOf());
+        return SUCCEEDED(Result);
+    };
 
-    hr = D3DCompileFromFile(
-        FPaths::ToWide("Shaders/Multipass/HitMapPass.hlsl").c_str(),
-        nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
-        "PSMain", "ps_5_0", 0, 0, &PSBlob, &ErrorBlob);
+    if (!CompileShader(ShaderPathAbsolute, "VSMain", "vs_5_0", VSBlob) &&
+        !CompileShader(ShaderPathRelative, "VSMain", "vs_5_0", VSBlob))
+    {
+        return false;
+    }
 
-    if (FAILED(hr)) return false;
+    if (!CompileShader(ShaderPathAbsolute, "PSMain", "ps_5_0", PSBlob) &&
+        !CompileShader(ShaderPathRelative, "PSMain", "ps_5_0", PSBlob))
+    {
+        return false;
+    }
 
-    Device->CreateVertexShader(VSBlob->GetBufferPointer(), VSBlob->GetBufferSize(), nullptr, &VertexShader);
-    Device->CreatePixelShader(PSBlob->GetBufferPointer(), PSBlob->GetBufferSize(), nullptr, &PixelShader);
+    if (FAILED(Device->CreateVertexShader(VSBlob->GetBufferPointer(), VSBlob->GetBufferSize(), nullptr, &VertexShader)))
+    {
+        return false;
+    }
+    if (FAILED(Device->CreatePixelShader(PSBlob->GetBufferPointer(), PSBlob->GetBufferSize(), nullptr, &PixelShader)))
+    {
+        VertexShader.Reset();
+        return false;
+    }
 
     return true;
 }

@@ -17,4 +17,5 @@ private:
 
     TComPtr<ID3D11VertexShader> VertexShader;
     TComPtr<ID3D11PixelShader> PixelShader;
+    bool bSkipHitMapDraw = true;
 };
