@@ -243,6 +243,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 					FShadowMap NewAtlasMap;
 					NewAtlasMap.Resource = NewAtlasRes;
 					NewAtlasMap.MapType = EShadowMapType::Depth2D;
+					NewAtlasMap.LightType = ELightType::LightType_Spot;
 					GShadowMaps.push_back(NewAtlasMap);
 
 					uint32 NewAtlasIndex = GShadowMaps.size() - 1;
@@ -262,6 +263,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			Slice.Type = EShadowSliceType::Atlas;
 			Slice.UVOffset = AllocResult.UVOffset;
 			Slice.UVScale = AllocResult.UVScale;
+			Slice.LightId = ShadowRequest.LightId;
+			Slice.SourceLightSlotIndex = ShadowLight.SourceLightSlotIndex;
 			CurrentAtlasMap.Slices.push_back(Slice);
 
 			// ★ 방금 추가된 View와 Slice의 실제 인덱스 추출 (맨 마지막 위치)

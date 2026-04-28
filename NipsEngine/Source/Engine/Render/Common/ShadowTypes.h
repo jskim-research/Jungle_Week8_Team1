@@ -68,12 +68,14 @@ enum class EShadowAllocationMode
 // GPU에 그리는 최소 단위 (draw 1회)
 struct FShadowSlice
 {
-	EShadowSliceType Type;
+	EShadowSliceType Type = EShadowSliceType::Atlas;
 	// FShadowMap.Views[Index] (e.g., Cubemap 일 경우 6개)
-	uint32 Index; 
+	uint32 Index = 0;
 
-	FVector2 UVOffset;
-	FVector2 UVScale;
+	FVector2 UVOffset = FVector2(0.0f, 0.0f);
+	FVector2 UVScale = FVector2(1.0f, 1.0f);
+	uint32 LightId = 0xFFFFFFFF;
+	uint32 SourceLightSlotIndex = 0xFFFFFFFF;
 };
 
 struct FShadowViewInfo
