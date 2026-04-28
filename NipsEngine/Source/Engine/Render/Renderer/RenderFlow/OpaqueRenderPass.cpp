@@ -11,44 +11,6 @@
 
 namespace
 {
-	constexpr uint32 ShadowMapType_None = 0u;
-	constexpr uint32 ShadowMapType_Depth2D = 1u;
-	constexpr uint32 ShadowMapType_DepthCube = 2u;
-	constexpr uint32 InvalidVisibleLightIndex = 0xffffffffu;
-
-	bool IsLocalLightType(uint32 Type)
-	{
-		return Type == static_cast<uint32>(ELightType::LightType_Point) ||
-			   Type == static_cast<uint32>(ELightType::LightType_Spot);
-	}
-
-	uint32 FindVisibleLocalLightIndex(const FRenderBus& RenderBus, uint32 ShadowLightId)
-	{
-		const TArray<FRenderLight>& Lights = RenderBus.GetLights();
-		if (ShadowLightId >= static_cast<uint32>(Lights.size()))
-		{
-			return InvalidVisibleLightIndex;
-		}
-
-		uint32 LocalIndex = 0;
-		for (uint32 LightIndex = 0; LightIndex < static_cast<uint32>(Lights.size()); ++LightIndex)
-		{
-			if (!IsLocalLightType(Lights[LightIndex].Type))
-			{
-				continue;
-			}
-
-			if (LightIndex == ShadowLightId)
-			{
-				return LocalIndex;
-			}
-
-			++LocalIndex;
-		}
-
-		return InvalidVisibleLightIndex;
-	}
-
 	UShader* ResolveOpaqueShaderOverride(const FRenderPassContext* Context)
 	{
 		if (!Context || !Context->RenderBus)
@@ -118,65 +80,36 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 	// Initial state setup before loop
 	Context->DeviceContext->OMSetDepthStencilState(ReadOnlyDepthStencilState, 0);
 
-	FShadowCB ShadowCB = {};
-	ShadowCB.ShadowLightView = FMatrix::Identity;
-	ShadowCB.ShadowLightProjection = FMatrix::Identity;
-	for (uint32 FaceIndex = 0; FaceIndex < 6; ++FaceIndex)
-	{
-		ShadowCB.ShadowCubeViewProjection[FaceIndex] = FMatrix::Identity;
-	}
-	ShadowCB.ShadowMapType = ShadowMapType_None;
-	ShadowCB.ShadowedVisibleLightIndex = InvalidVisibleLightIndex;
-
+	const FShadowArrayCB& ShadowCBData = FShadowPass::GetShadowCBData();
 	ID3D11ShaderResourceView* ShadowMap2DSRV = nullptr;
 	ID3D11ShaderResourceView* ShadowMapCubeSRV = nullptr;
 
-	if (!FShadowPass::GetShadowMaps().empty())
+	for (const FShadowMap& ShadowMap : FShadowPass::GetShadowMaps())
 	{
-		const FShadowMap& ShadowMap = FShadowPass::GetShadowMaps()[0];
-		if (ShadowMap.Resource != nullptr)
+		if (ShadowMap.Resource == nullptr)
 		{
-			ShadowCB.bShadowEnabled = 1;
-			ShadowCB.ShadowBias = 0.005f;
+			continue;
+		}
 
-			if (ShadowMap.MapType == EShadowMapType::DepthCube)
+		if (ShadowMap.MapType == EShadowMapType::DepthCube)
+		{
+			if (ShadowMapCubeSRV == nullptr)
 			{
 				ShadowMapCubeSRV = ShadowMap.Resource->SRV;
-				ShadowCB.ShadowMapType = ShadowMapType_DepthCube;
-
-				if (Context->RenderBus && ShadowMap.LightId < static_cast<uint32>(Context->RenderBus->GetLights().size()))
-				{
-					const FRenderLight& ShadowLight = Context->RenderBus->GetLights()[ShadowMap.LightId];
-					ShadowCB.ShadowLightPosition = ShadowLight.Position;
-					ShadowCB.ShadowFar = ShadowLight.Radius;
-					ShadowCB.ShadowedVisibleLightIndex = FindVisibleLocalLightIndex(*Context->RenderBus, ShadowMap.LightId);
-				}
-
-				const uint32 CubeViewCount = std::min<uint32>(6, static_cast<uint32>(ShadowMap.Views.size()));
-				for (uint32 FaceIndex = 0; FaceIndex < CubeViewCount; ++FaceIndex)
-				{
-					ShadowCB.ShadowCubeViewProjection[FaceIndex] =
-						ShadowMap.Views[FaceIndex].LightView * ShadowMap.Views[FaceIndex].LightProjection;
-				}
 			}
-			else
-			{
-				ShadowMap2DSRV = ShadowMap.Resource->SRV;
-				ShadowCB.ShadowMapType = ShadowMapType_Depth2D;
+			continue;
+		}
 
-				if (!ShadowMap.Views.empty())
-				{
-					ShadowCB.ShadowLightView = ShadowMap.Views[0].LightView;
-					ShadowCB.ShadowLightProjection = ShadowMap.Views[0].LightProjection;
-				}
-			}
+		if (ShadowMap2DSRV == nullptr)
+		{
+			ShadowMap2DSRV = ShadowMap.Resource->SRV;
 		}
 	}
 
 	D3D11_MAPPED_SUBRESOURCE Mapped = {};
 	if (SUCCEEDED(Context->DeviceContext->Map(ShadowConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped)))
 	{
-		std::memcpy(Mapped.pData, &ShadowCB, sizeof(ShadowCB));
+		std::memcpy(Mapped.pData, &ShadowCBData, sizeof(ShadowCBData));
 		Context->DeviceContext->Unmap(ShadowConstantBuffer.Get(), 0);
 	}
 
@@ -224,7 +157,7 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 		Context->DeviceContext->PSSetShaderResources(14, 2, ShadowSRVs);
 
 		ID3D11Buffer* RawShadowConstantBuffer = ShadowConstantBuffer.Get();
-		Context->DeviceContext->PSSetConstantBuffers(6, 1, &RawShadowConstantBuffer);
+		Context->DeviceContext->PSSetConstantBuffers(7, 1, &RawShadowConstantBuffer);
 		Context->DeviceContext->PSSetSamplers(1, 1, &ShadowSampler);
 
 		CheckOverrideViewMode(Context);
@@ -252,10 +185,17 @@ bool FOpaqueRenderPass::End(const FRenderPassContext* Context)
 {
 	SceneLightBinding::UnbindResources(Context ? Context->DeviceContext : nullptr);
 
+	if (!Context || !Context->DeviceContext)
+	{
+		return true;
+	}
+
 	ID3D11ShaderResourceView* NullSRVs[2] = { nullptr, nullptr };
 	Context->DeviceContext->PSSetShaderResources(14, 2, NullSRVs);
 	ID3D11Buffer* NullShadowCB = nullptr;
-	Context->DeviceContext->PSSetConstantBuffers(6, 1, &NullShadowCB);
+	Context->DeviceContext->PSSetConstantBuffers(7, 1, &NullShadowCB);
+	ID3D11SamplerState* NullShadowSampler = nullptr;
+	Context->DeviceContext->PSSetSamplers(1, 1, &NullShadowSampler);
 	return true;
 }
 
@@ -263,13 +203,13 @@ bool FOpaqueRenderPass::EnsureShadowConstantBuffer(ID3D11Device* Device)
 {
 	if (ShadowConstantBuffer)
 		return true;
+    HRESULT Result;
+    D3D11_BUFFER_DESC Desc = {};
+    Desc.ByteWidth = sizeof(FShadowArrayCB);
+    Desc.Usage = D3D11_USAGE_DYNAMIC;
+    Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-	HRESULT Result;
-	D3D11_BUFFER_DESC Desc = {};
-	Desc.ByteWidth = sizeof(FShadowCB);
-	Desc.Usage = D3D11_USAGE_DYNAMIC;
-	Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
 	Result = Device->CreateBuffer(&Desc, nullptr, ShadowConstantBuffer.GetAddressOf());
 

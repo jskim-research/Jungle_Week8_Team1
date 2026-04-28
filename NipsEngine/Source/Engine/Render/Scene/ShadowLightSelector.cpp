@@ -7,48 +7,48 @@ TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRe
 	if (SceneLights.empty())
 		return SelectedLights;
 
-	int32 SelectedLightId = -1;
-	ELightType SelectedType = ELightType::Max;
+	constexpr uint32 MaxAtlasShadowCount = 16;
+	constexpr uint32 MaxPointShadowCount = 1;
 
-	// Point light shadow를 우선 선택하고 없으면 Spot, Directional 순으로 fallback
-	for (uint32 i = 0; i < static_cast<uint32>(SceneLights.size()); ++i)
+	uint32 AtlasShadowCount = 0;
+	uint32 PointShadowCount = 0;
+
+	for (uint32 LightIndex = 0; LightIndex < static_cast<uint32>(SceneLights.size()); ++LightIndex)
 	{
-		const ELightType Type = static_cast<ELightType>(SceneLights[i].Type);
-		if (Type == ELightType::LightType_Point)
+		const ELightType Type = static_cast<ELightType>(SceneLights[LightIndex].Type);
+		if (Type == ELightType::LightType_AmbientLight || Type == ELightType::Max)
 		{
-			SelectedLightId = static_cast<int32>(i);
-			SelectedType = Type;
-			break;
-		}
-
-		if (Type == ELightType::LightType_Spot && SelectedLightId < 0)
-		{
-			SelectedLightId = static_cast<int32>(i);
-			SelectedType = Type;
 			continue;
 		}
 
-		if (Type == ELightType::LightType_Directional && SelectedLightId < 0)
+		if (Type == ELightType::LightType_Point)
 		{
-			SelectedLightId = static_cast<int32>(i);
-			SelectedType = Type;
+			if (PointShadowCount >= MaxPointShadowCount)
+			{
+				continue;
+			}
+
+			++PointShadowCount;
 		}
+		else
+		{
+			if (AtlasShadowCount >= MaxAtlasShadowCount)
+			{
+				continue;
+			}
+
+			++AtlasShadowCount;
+		}
+
+		FShadowRequest Req;
+		Req.LightId = LightIndex;
+		Req.Type = Type;
+		Req.Resolution = 1024;
+		Req.ProjectionMode = EShadowProjectionMode::Default;
+		Req.CascadeCount = 1;
+		Req.bUseVSM = false;
+		SelectedLights.push_back(Req);
 	}
-
-	if (SelectedLightId < 0 || SelectedType == ELightType::Max)
-	{
-		return SelectedLights;
-	}
-
-	FShadowRequest Req;
-    Req.LightId = static_cast<uint32>(SelectedLightId);
-    Req.Type = SelectedType;
-    Req.Resolution = 2048;
-    Req.ProjectionMode = EShadowProjectionMode::Default;
-    Req.CascadeCount = 1;
-    Req.bUseVSM = false;
-
-	SelectedLights.push_back(Req);
 	
 	return SelectedLights;
 }

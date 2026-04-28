@@ -735,6 +735,7 @@
     <ClCompile Include="Source\Engine\Render\Resource\ShadowResource.cpp" />
     <ClCompile Include="Source\Engine\Render\Resource\ShadowResourcePool.cpp" />
     <ClCompile Include="Source\Engine\Render\Scene\ShadowLightSelector.cpp" />
+    <ClCompile Include="Source\Engine\Render\Resource\ShadowAtlasAllocator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Editor\EditorEngine.h">
@@ -1398,5 +1399,6 @@
     <ClInclude Include="Source\Engine\Render\Common\ShadowTypes.h" />
     <ClInclude Include="Source\Engine\Render\Resource\ShadowResourcePool.h" />
     <ClInclude Include="Source\Engine\Render\Scene\ShadowLightSelector.h" />
+    <ClInclude Include="Source\Engine\Render\Resource\ShadowAtlasAllocator.h" />
   </ItemGroup>
 </Project>

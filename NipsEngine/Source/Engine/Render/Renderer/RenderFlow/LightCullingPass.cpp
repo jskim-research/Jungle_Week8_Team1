@@ -1,10 +1,13 @@
-#include "LightCullingPass.h"
+﻿#include "LightCullingPass.h"
 #include "Core/Paths.h"
 #include "Render/Scene/RenderBus.h"
 #include "Render/Scene/RenderCommand.h"
 #include "UI/EditorConsoleWidget.h"
 
 #include <algorithm>
+
+#include "Render/Renderer/RenderFlow/ShadowPass.h"
+
 #include <cmath>
 #include <cstring>
 
@@ -32,6 +35,21 @@ namespace
         float Padding[3];
     };
 
+	struct FLightCullingLight
+
+    {
+        FVector WorldPos = FVector::ZeroVector;
+        float Radius = 0.0f;
+        FVector Color = FVector::ZeroVector;
+        float Intensity = 0.0f;
+        float RadiusFalloff = 1.0f;
+        uint32 Type = 0; // 0=Point, 1=Spot
+        float SpotInnerCos = 1.0f;
+        float SpotOuterCos = 0.0f;
+        FVector Direction = FVector::ZeroVector;
+        int ShadowIndex;
+    };
+
     struct FLightingConstants
     {
         FVector UnusedAmbientColor;
@@ -48,6 +66,8 @@ namespace
         float Radius;
         FVector Color;
         float Intensity;
+        int ShadowIndex; // [복구] C++ 쪽 FPointLightData에도 int ShadowIndex; float3 Padding; 추가 필수!
+        FVector Padding;  // 16바이트 정렬을 위한 패딩
     };
 
     struct FSpotLightInfo
@@ -59,7 +79,8 @@ namespace
         FVector Direction;
         float InnerConeCos;
         float OuterConeCos;
-        FVector Padding;
+        int ShadowIndex;
+        FVector2 Padding;
     };
 
     struct FScoredLightIndex
@@ -194,7 +215,6 @@ bool FLightCullingPass::Begin(const FRenderPassContext* Context)
     OutRTV = PrevPassRTV;
     return true;
 }
-
 bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
 {
     GLightCullingOutputs = {};
@@ -223,27 +243,30 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
     TArray<FSpotLightInfo> VisibleSpotLights;
     const TArray<FRenderLight>& SceneLights = Context->RenderBus->GetLights();
 
-    for (const FRenderLight& Light : SceneLights)
+    for (uint32 i = 0; i < SceneLights.size(); ++i)
     {
-        if (Light.Type == (uint32)ELightType::LightType_Point)
+        if (SceneLights[i].Type == (uint32)ELightType::LightType_Point)
         {
             FPointLightInfo Info = {};
-            Info.Position = Light.Position;
-            Info.Radius = Light.Radius;
-            Info.Color = Light.Color;
-            Info.Intensity = Light.Intensity;
+            Info.Position = SceneLights[i].Position;
+            Info.Radius = SceneLights[i].Radius;
+            Info.Color = SceneLights[i].Color;
+            Info.Intensity = SceneLights[i].Intensity;
+            Info.ShadowIndex = FShadowPass::GetLightToShadowIndices()[i];
             VisiblePointLights.push_back(Info);
         }
-        else if (Light.Type == (uint32)ELightType::LightType_Spot)
+        else if (SceneLights[i].Type == (uint32)ELightType::LightType_Spot)
         {
             FSpotLightInfo Info = {};
-            Info.Position = Light.Position;
-            Info.Radius = Light.Radius;
-            Info.Color = Light.Color;
-            Info.Intensity = Light.Intensity;
-            Info.Direction = Light.Direction;
-            Info.InnerConeCos = Light.SpotInnerCos;
-            Info.OuterConeCos = Light.SpotOuterCos;
+            Info.Position = SceneLights[i].Position;
+            Info.Radius = SceneLights[i].Radius;
+            Info.Color = SceneLights[i].Color;
+            Info.Intensity = SceneLights[i].Intensity;
+            Info.Direction = SceneLights[i].Direction;
+            Info.InnerConeCos = SceneLights[i].SpotInnerCos;
+            Info.OuterConeCos = SceneLights[i].SpotOuterCos;
+            Info.ShadowIndex = FShadowPass::GetLightToShadowIndices()[i];
+
             VisibleSpotLights.push_back(Info);
         }
     }
@@ -410,7 +433,6 @@ bool FLightCullingPass::DrawCommand(const FRenderPassContext* Context)
 
     return true;
 }
-
 bool FLightCullingPass::End(const FRenderPassContext* Context)
 {
     ID3D11ShaderResourceView* NullSRVs[3] = { nullptr, nullptr, nullptr };

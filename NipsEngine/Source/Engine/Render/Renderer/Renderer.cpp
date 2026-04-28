@@ -10,6 +10,7 @@
 #include "Render/Mesh/MeshManager.h"
 #include "Render/Renderer/RenderTarget/DepthStencilFactory.h"
 #include "Render/Renderer/RenderTarget/RenderTargetFactory.h"
+#include "Render/Renderer/RenderFlow/ShadowPass.h"
 
 #include <algorithm>
 #include <iostream>
@@ -208,14 +209,17 @@ void FRenderer::UpdateSceneLightBuffer(const FRenderBus& InRenderBus)
 {
 	TArray<FRenderLight> GlobalLights;
 	const TArray<FRenderLight>& SceneLights = InRenderBus.GetLights();
+	const TArray<int32>& LightToShadowIndices = FShadowPass::GetLightToShadowIndices();
 	GlobalLights.reserve(SceneLights.size());
 
 	/**
 	 * Culling 제외할 Global Light 추출
 	 * 애초에 Global Light 추가 때부터 따로 Array 로 분리한다면 효율적으로 추출 가능
 	 */
-	for (const FRenderLight& Light : SceneLights)
+	for (uint32 LightIndex = 0; LightIndex < static_cast<uint32>(SceneLights.size()); ++LightIndex)
 	{
+		const FRenderLight& Light = SceneLights[LightIndex];
+
 		// 전역 Light 는 Culling X
 		if (Light.Type != (uint32)ELightType::LightType_AmbientLight &&
 			Light.Type != (uint32)ELightType::LightType_Directional)
@@ -231,6 +235,8 @@ void FRenderer::UpdateSceneLightBuffer(const FRenderBus& InRenderBus)
 		GlobalLight.SpotInnerCos = Light.SpotInnerCos;
 		GlobalLight.SpotOuterCos = Light.SpotOuterCos;
 		GlobalLight.Direction = Light.Direction;
+		GlobalLight.ShadowIndex =
+			LightIndex < static_cast<uint32>(LightToShadowIndices.size()) ? LightToShadowIndices[LightIndex] : -1;
 
 		GlobalLights.push_back(GlobalLight);
 	}
