@@ -304,7 +304,10 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
             PSM::GenerateVirtualCameraViewProjection(Sloped_Back, Camera, CamProj, Camview);
             // PostPerspective
             FMatrix PPview, PPProj;
-            PSM::GeneratePostPerspectiveViewProjection(ShadowLight.Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
+            if (ShadowLight.Type == static_cast<uint32>(ELightType::LightType_Directional))
+                PSM::GeneratePostPerspectiveViewProjection(-ShadowLight.Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
+            else
+                PSM::GeneratePostPerspectiveViewProjection(ShadowLight.Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].PSM = Camview * CamProj * PPview * PPProj;
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].isPSM = true;
             ShadowIndexCounter++;
@@ -350,7 +353,10 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
                 PSM::GenerateVirtualCameraViewProjection(Sloped_Back, Camera, CamProj, Camview);
                 // PostPerspective
                 FMatrix PPview, PPProj;
-                PSM::GeneratePostPerspectiveViewProjection(ShadowLight.Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
+                if (ShadowLight.Type == static_cast<uint32>(ELightType::LightType_Directional))
+                    PSM::GeneratePostPerspectiveViewProjection(-ShadowLight.Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
+                else
+                    PSM::GeneratePostPerspectiveViewProjection(ShadowLight.Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].PSM = Camview * CamProj * PPview * PPProj;
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].isPSM = true;
 				ShadowIndexCounter++;
@@ -416,7 +422,10 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
         PSM::GenerateVirtualCameraViewProjection(Sloped_Back, Camera, CamProj, Camview);
 		//PostPerspective
         FMatrix PPview, PPProj;
-        PSM::GeneratePostPerspectiveViewProjection(ShadowLight->Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
+        if (ShadowLight->Type == static_cast<uint32>(ELightType::LightType_Directional))
+            PSM::GeneratePostPerspectiveViewProjection(-ShadowLight->Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
+        else
+            PSM::GeneratePostPerspectiveViewProjection(ShadowLight->Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
 
 		ShaderBinding->SetMatrix4("PSM", Camview * CamProj * PPview * PPProj);
         ShaderBinding->SetBool("isPSM", 1);
