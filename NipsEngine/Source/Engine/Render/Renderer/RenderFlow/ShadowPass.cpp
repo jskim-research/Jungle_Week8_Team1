@@ -142,7 +142,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
         if (ShadowIndexCounter >= MAX_SHADOW_LIGHTS)
             break;
 
-        if (ShadowRequest.Type == ELightType::LightType_Spot || ShadowRequest.Type == ELightType::LightType_Directional)
+        if (ShadowRequest.Type == ELightType::LightType_Spot)
         {
             // 1. 공간 할당 가능?
             FAtlasAllocationResult AllocResult;
@@ -153,7 +153,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
                 Desc.AllocationMode = EShadowAllocationMode::AtlasPacked;
                 Desc.MapType = EShadowMapType::Depth2D;
                 Desc.Resolution = ATLAS_SIZE;
-                Desc.CascadeCount = 1;
+                Desc.CascadeCount = ShadowRequest.Cascades.size();
 
                 FShadowResource* NewAtlasRes = nullptr;
                 if (AcquireResource(Context, Desc, &NewAtlasRes))

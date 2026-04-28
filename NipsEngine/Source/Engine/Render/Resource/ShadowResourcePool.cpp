@@ -1,4 +1,4 @@
-#include "ShadowResourcePool.h"
+﻿#include "ShadowResourcePool.h"
 #include "Render/Renderer/RenderTarget/DepthStencilFactory.h"
 
 FShadowResource* FShadowResourcePool::Acquire(ID3D11Device* Device, const FShadowRequestDesc& Desc)
@@ -13,8 +13,15 @@ FShadowResource* FShadowResourcePool::Acquire(ID3D11Device* Device, const FShado
 	}
 	else
 	{
-		ShadowResource->BackingResource =
-			FDepthStencilFactory::CreateDepthStencilView(Device, Desc.Resolution, Desc.Resolution);
+		if (Desc.AllocationMode == EShadowAllocationMode::ArrayBased)
+		{
+            ShadowResource->BackingResource = FDepthStencilFactory::CreateDepthStencilViewCSMArray(Device, Desc.Resolution, Desc.Resolution, Desc.CascadeCount);
+		}
+		else
+        {
+            ShadowResource->BackingResource =
+                FDepthStencilFactory::CreateDepthStencilView(Device, Desc.Resolution, Desc.Resolution);
+		}
 	}
 
 	ShadowResource->SRV = ShadowResource->BackingResource.SRV.Get();

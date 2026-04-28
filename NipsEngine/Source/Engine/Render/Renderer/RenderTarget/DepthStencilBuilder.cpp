@@ -24,8 +24,20 @@ FDepthStencilBuilder& FDepthStencilBuilder::WithSRV()
 
 FDepthStencilBuilder& FDepthStencilBuilder::AsCubemap()
 {
-	bCubemap = true;
+    TextureMode = ETextureMode::Cubemap;
+    TextureArraySize = 6;
 	return *this;
+}
+
+FDepthStencilBuilder& FDepthStencilBuilder::AsArray(uint32 InArraySize)
+{
+    assert(InArraySize > 0 && InArraySize <= MAX_TEXTURE_ARRAY_NUM);
+    if (InArraySize == 0)
+        return *this;
+
+    TextureMode = ETextureMode::Array;
+    TextureArraySize = InArraySize;
+    return *this;
 }
 
 FDepthStencilResource FDepthStencilBuilder::Build(ID3D11Device* Device)
@@ -35,21 +47,24 @@ FDepthStencilResource FDepthStencilBuilder::Build(ID3D11Device* Device)
 	DepthStencilDesc.Width = Width;
 	DepthStencilDesc.Height = Height;
 	DepthStencilDesc.MipLevels = 1;
-	DepthStencilDesc.ArraySize = bCubemap ? 6 : 1; // ← 6장
+    DepthStencilDesc.ArraySize = TextureArraySize;
 	DepthStencilDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
 	DepthStencilDesc.SampleDesc.Count = 1;
 	DepthStencilDesc.SampleDesc.Quality = 0;
 	DepthStencilDesc.Usage = D3D11_USAGE_DEFAULT;
 	DepthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-	if (bCubemap)
+
+	DepthStencilDesc.MiscFlags = 0;
+	if (TextureMode == ETextureMode::Cubemap)
 		DepthStencilDesc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE; // ← 큐브 플래그
+
 	if (bCreateSRV)
 		DepthStencilDesc.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
 
 	Device->CreateTexture2D(&DepthStencilDesc, nullptr, &DSR.Texture);
 
 	// DSV: face 별로 6개
-	if (bCubemap)
+	if (TextureMode == ETextureMode::Cubemap)
 	{
 		D3D11_DEPTH_STENCIL_VIEW_DESC DsvDesc = {};
 		DsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -64,6 +79,24 @@ FDepthStencilResource FDepthStencilBuilder::Build(ID3D11Device* Device)
 			DsvDesc.Texture2DArray.FirstArraySlice = i;
 			Device->CreateDepthStencilView(DSR.Texture.Get(), &DsvDesc, &DSR.DSVs[i]);
 		}
+	}
+	else if (TextureMode == ETextureMode::Array)
+	{
+        DSR.DST = EDepthStencilResourceType::Array;
+
+        D3D11_DEPTH_STENCIL_VIEW_DESC DsvDesc = {};
+        DsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        DsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DARRAY;
+        DsvDesc.Texture2DArray.MipSlice = 0;
+        DsvDesc.Texture2DArray.ArraySize = 1; // slice 하나씩
+
+        DSR.DSVs.resize(TextureArraySize);
+
+        for (uint32 i = 0; i < TextureArraySize; i++)
+        {
+            DsvDesc.Texture2DArray.FirstArraySlice = i;
+            Device->CreateDepthStencilView(DSR.Texture.Get(), &DsvDesc, &DSR.DSVs[i]);
+        }
 	}
 	else
 	{
@@ -81,11 +114,27 @@ FDepthStencilResource FDepthStencilBuilder::Build(ID3D11Device* Device)
 	{
 		D3D11_SHADER_RESOURCE_VIEW_DESC SrvDesc = {};
 		SrvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-		SrvDesc.ViewDimension = bCubemap
-									? D3D11_SRV_DIMENSION_TEXTURECUBE // ← 큐브맵 SRV
-									: D3D11_SRV_DIMENSION_TEXTURE2D;
-		SrvDesc.TextureCube.MostDetailedMip = 0;
-		SrvDesc.TextureCube.MipLevels = 1;
+
+		if (TextureMode == ETextureMode::Cubemap)
+        {
+            SrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
+            SrvDesc.TextureCube.MostDetailedMip = 0;
+            SrvDesc.TextureCube.MipLevels = 1;
+        }
+        else if (TextureMode == ETextureMode::Array)
+        {
+            SrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+            SrvDesc.Texture2DArray.MostDetailedMip = 0;
+            SrvDesc.Texture2DArray.MipLevels = 1;
+            SrvDesc.Texture2DArray.FirstArraySlice = 0;
+            SrvDesc.Texture2DArray.ArraySize = TextureArraySize;
+        }
+        else
+        {
+            SrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+            SrvDesc.Texture2D.MostDetailedMip = 0;
+            SrvDesc.Texture2D.MipLevels = 1;
+        }
 		Device->CreateShaderResourceView(DSR.Texture.Get(), &SrvDesc, &DSR.SRV);
 	}
 
