@@ -126,7 +126,7 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 		// 테스트용으로 하나만 mapping
 		if (!FShadowPass::GetShadowMaps().empty())
 		{
-			Context->DeviceContext->PSSetShaderResources(11, 1, &FShadowPass::GetShadowMaps()[0].Resource->SRV);
+			Context->DeviceContext->PSSetShaderResources(14, 1, &FShadowPass::GetShadowMaps()[0].Resource->SRV);
 
 			//FShadowCB ShadowCB;
 
@@ -177,7 +177,7 @@ bool FOpaqueRenderPass::End(const FRenderPassContext* Context)
 	SceneLightBinding::UnbindResources(Context ? Context->DeviceContext : nullptr);
 
 	ID3D11ShaderResourceView* NullSRV[] = { nullptr };
-	Context->DeviceContext->PSSetShaderResources(11, 1, NullSRV);
+	Context->DeviceContext->PSSetShaderResources(14, 1, NullSRV);
 	return true;
 }
 
