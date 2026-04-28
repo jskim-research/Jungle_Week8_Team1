@@ -77,7 +77,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
     /*  Selection  */
     /***************/
     std::vector<FShadowRequest> ShadowRequests =
-        ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights(), Context->RenderBus->GetCameraPosition());
+        ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights(), Context->RenderBus->GetCameraPosition(), Context->RenderBus->GetCameraState());
 
     if (ShadowRequests.empty())
     {
@@ -468,7 +468,7 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
     switch (Req.Type)
     {
     case ELightType::LightType_Directional:
-        for (uint32 i = 0; i < Req.CascadeCount; ++i)
+        for (uint32 i = 0; i < Req.Cascades.size(); ++i)
         {
             // gather camera frustum corners in world space
             const FCameraState& Cam = Context->RenderBus->GetCameraState();
@@ -557,7 +557,7 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
         break;
 
 	case ELightType::LightType_Spot:
-		for (uint32 i = 0; i < Req.CascadeCount; i++)
+		for (uint32 i = 0; i < Req.Cascades.size(); i++)
 		{
 			FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
 			FShadowViewInfo ViewInfo;
@@ -657,7 +657,7 @@ bool FShadowPass::BuildSlices(const FRenderPassContext* Context, const FShadowRe
 	switch (Req.Type)
 	{
 	case ELightType::LightType_Directional:
-		for (uint32 i = 0; i < Req.CascadeCount; i++)
+		for (uint32 i = 0; i < Req.Cascades.size(); i++)
 		{
 			FShadowSlice ShadowSlice;
 			ShadowSlice.Index = i;
@@ -669,7 +669,7 @@ bool FShadowPass::BuildSlices(const FRenderPassContext* Context, const FShadowRe
 		break;
 
 	case ELightType::LightType_Spot:
-		for (uint32 i = 0; i < Req.CascadeCount; i++)
+		for (uint32 i = 0; i < Req.Cascades.size(); i++)
 		{
 			FShadowSlice ShadowSlice;
 			ShadowSlice.Index = i;

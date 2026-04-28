@@ -59,7 +59,6 @@ struct FShadowData
 cbuffer ShadowLightViewInfo : register(b7)
 {
     FShadowData ShadowDataArray[32]; // 최대 32개의 그림자 정보 전달
-
 }
 
 struct FPointLightData
