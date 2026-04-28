@@ -24,7 +24,7 @@ struct FGPULight
     float SpotOuterCos;
 
     float3 Direction;
-    float Padding0;
+    int ShadowIndex; // [복구] Padding0 자리에 ShadowIndex 삽입
 };
 
 StructuredBuffer<FGPULight> GlobalLights : register(t3);
@@ -41,10 +41,20 @@ cbuffer VisibleLightInfo : register(b4)
     float _VisibleLightInfoPad;
 }
 
-cbuffer ShadowLightViewInfo : register(b6)
+// [복구] 기존 b6 단일 섀도우 버퍼를 삭제하고 b7 다중 섀도우 배열로 교체
+struct FShadowData
 {
     row_major float4x4 ShadowLightView;
     row_major float4x4 ShadowLightProjection;
+    float2 UVScale;
+    float2 UVOffset;
+    uint SliceIndex;
+    float3 _Padding;
+};
+
+cbuffer ShadowLightViewInfo : register(b7)
+{
+    FShadowData ShadowDataArray[32]; // 최대 32개의 그림자 정보 전달
 }
 
 struct FPointLightData
@@ -53,6 +63,8 @@ struct FPointLightData
     float Radius;
     float3 Color;
     float Intensity;
+    int ShadowIndex; // [복구] C++ 쪽 FPointLightData에도 int ShadowIndex; float3 Padding; 추가 필수!
+    float3 Padding; // 16바이트 정렬을 위한 패딩
 };
 
 struct FSpotLightData
@@ -64,16 +76,10 @@ struct FSpotLightData
     float3 Direction;
     float InnerConeCos;
     float OuterConeCos;
-    float3 Padding;
+    int ShadowIndex; // [복구] Padding float3 자리를 int + float2로 쪼개어 사용
+    float2 Padding;
 };
 
-// 2.5D Light Culling Buffers (Aligned with SceneLightBinding.h: PSSetShaderResources(8, 6, SRVs))
-// t8: PointLightBuffer
-// t9: SpotLightBuffer
-// t10: TilePointLightGrid
-// t11: TilePointLightIndices
-// t12: TileSpotLightGrid
-// t13: TileSpotLightIndices
 StructuredBuffer<FPointLightData> PointLights : register(t8);
 StructuredBuffer<FSpotLightData> SpotLights : register(t9);
 StructuredBuffer<uint2> TilePointLightGrid : register(t10);
@@ -81,9 +87,7 @@ StructuredBuffer<uint> TilePointLightIndices : register(t11);
 StructuredBuffer<uint2> TileSpotLightGrid : register(t12);
 StructuredBuffer<uint> TileSpotLightIndices : register(t13);
 
-// 테스트용 임시 Texture (Conflict with t11? Moving to t14 or similar if needed)
-// Actually, SceneLightBinding uses 8~13. 
-Texture2D ShadowMap : register(t14); 
+Texture2D ShadowMap : register(t14); // OpaqueRenderPass의 바인딩 레지스터(t11 등)와 일치해야 합니다!
 SamplerState ShadowSampler : register(s1);
 
 static const uint LIGHT_TYPE_DIRECTIONAL = 0u;
@@ -98,6 +102,32 @@ struct FLightingResult
     float3 Specular;
 };
 
+// [복구] 다중 섀도우 판별 함수
+float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
+{
+
+    if (ShadowIndex < 0)
+        return 1.0f; // 그림자 없는 빛은 온전히 밝음
+
+    FShadowData SData = ShadowDataArray[ShadowIndex];
+
+    float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView), SData.ShadowLightProjection);
+    float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
+    float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
+    float CurrentDepth = NDC.z;
+
+    if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 || ShadowUV.y < 0.0 || ShadowUV.y > 1.0 || CurrentDepth < 0.0 || CurrentDepth > 1.0)
+        return 1.0f; // 빛의 범위를 벗어나면 그림자 없음
+
+    // 분기문 없이 아틀라스 UV 오프셋/스케일 적용
+    ShadowUV = (ShadowUV * SData.UVScale) + SData.UVOffset;
+    
+    float Bias = 0.005f;
+    float ShadowLightDepth = ShadowMap.Sample(ShadowSampler, ShadowUV).r;
+    
+    return (ShadowLightDepth + Bias >= CurrentDepth) ? 1.0f : 0.0f;
+}
+
 float ComputeDistanceAttenuation(float Distance, float Radius)
 {
     if (Radius <= 0.0f)
@@ -109,10 +139,13 @@ float ComputeDistanceAttenuation(float Distance, float Radius)
     return T * T; // Quadratic falloff
 }
 
-void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3 LightContribution, inout FLightingResult Result)
+// [복구] ShadowIndex 파라미터 추가 및 ShadowMask 계산
+void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3 LightContribution, int ShadowIndex, inout FLightingResult Result)
 {
+    float ShadowMask = CalculateShadowFactor(WorldPos, ShadowIndex);
+
 #if defined(LIGHTING_MODEL_TOON)
-    const float HalfLambert = dot(N, L) * 0.5f + 0.5f;    
+    const float HalfLambert = dot(N, L) * 0.5f + 0.5f;   
 
     float ToonDiffuse;
     if (HalfLambert > 0.75f)
@@ -122,15 +155,18 @@ void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3
     else
         ToonDiffuse = 0.15f;
 
-    Result.Diffuse += LightContribution * ToonDiffuse;
+    // 그림자 적용
+    Result.Diffuse += LightContribution * ToonDiffuse * ShadowMask;
 #else
     const float NdotL = saturate(dot(N, L));
-    Result.Diffuse += LightContribution * NdotL;
+    // 그림자 적용
+    Result.Diffuse += LightContribution * NdotL * ShadowMask;
 
 #if defined(LIGHTING_MODEL_GOURAUD) || defined(LIGHTING_MODEL_PHONG)
     const float3 H = normalize(L + V);
     const float SpecularPower = pow(saturate(dot(N, H)), max(Shininess, 1.0e-4f));
-    Result.Specular += SpecularColor * LightContribution * SpecularPower;
+    // 그림자 적용
+    Result.Specular += SpecularColor * LightContribution * SpecularPower * ShadowMask;
 #endif
 #endif
 }
@@ -142,8 +178,8 @@ void AccumulateVisibleLights(float3 WorldPos, float3 N, float3 V, float2 ScreenP
         return;
     }
 
-    const uint TileX = min((uint)ScreenPos.x / TileSize, TileCountX - 1u);
-    const uint TileY = min((uint)ScreenPos.y / TileSize, TileCountY - 1u);
+    const uint TileX = min((uint) ScreenPos.x / TileSize, TileCountX - 1u);
+    const uint TileY = min((uint) ScreenPos.y / TileSize, TileCountY - 1u);
     const uint TileIndex = TileY * TileCountX + TileX;
 
     // --- Point Lights ---
@@ -159,12 +195,14 @@ void AccumulateVisibleLights(float3 WorldPos, float3 N, float3 V, float2 ScreenP
         
         const float3 ToLight = Light.WorldPos - WorldPos;
         const float Distance = length(ToLight);
-        if (Distance >= Light.Radius) continue;
+        if (Distance >= Light.Radius)
+            continue;
 
         const float3 L = ToLight / max(Distance, 1.0e-4f);
         float Att = ComputeDistanceAttenuation(Distance, Light.Radius);
         
-        AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
+        // [복구] Light.ShadowIndex 전달
+        AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Light.ShadowIndex, Result);
     }
 
     // --- Spot Lights ---
@@ -180,21 +218,22 @@ void AccumulateVisibleLights(float3 WorldPos, float3 N, float3 V, float2 ScreenP
         
         const float3 ToLight = Light.WorldPos - WorldPos;
         const float Distance = length(ToLight);
-        if (Distance >= Light.Radius) continue;
+        if (Distance >= Light.Radius)
+            continue;
 
         const float3 L = ToLight / max(Distance, 1.0e-4f);
         float Att = ComputeDistanceAttenuation(Distance, Light.Radius);
         
         const float3 SpotDir = normalize(Light.Direction);
         const float CosAngle = dot(SpotDir, -L);
-        // Matching reference: smoothstep(Outer, Inner, CosAngle)
         float spotFactor = smoothstep(Light.OuterConeCos, Light.InnerConeCos, CosAngle);
         spotFactor *= spotFactor;
         Att *= spotFactor;
         
         if (Att > 0.0f)
         {
-            AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
+            // [복구] Light.ShadowIndex 전달
+            AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Light.ShadowIndex, Result);
         }
     }
 }
@@ -231,7 +270,7 @@ FLightingResult EvaluateLightingFromWorld(float3 WorldPos, float3 WorldNormal, f
 
         if (Light.Type == LIGHT_TYPE_DIRECTIONAL)
         {
-            AccumulateDirectLight(WorldPos, N, V, normalize(Light.Direction), LightColor, Result);
+            AccumulateDirectLight(WorldPos, N, V, normalize(Light.Direction), LightColor, Light.ShadowIndex, Result);
         }
     }
 
@@ -272,7 +311,7 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
 
         if (Light.Type == LIGHT_TYPE_DIRECTIONAL)
         {
-            AccumulateDirectLight(WorldPos, N, V, normalize(Light.Direction), LightColor, Result);
+            AccumulateDirectLight(WorldPos, N, V, normalize(Light.Direction), LightColor, Light.ShadowIndex, Result);
         }
     }
 
@@ -287,7 +326,7 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
         if (Dist < Light.Radius)
         {
             float Att = ComputeDistanceAttenuation(Dist, Light.Radius);
-            AccumulateDirectLight(WorldPos, N, V, ToLight / max(Dist, 1.0e-4f), Light.Color * Light.Intensity * Att, Result);
+            AccumulateDirectLight(WorldPos, N, V, ToLight / max(Dist, 1.0e-4f), Light.Color * Light.Intensity * Att, Light.ShadowIndex, Result);
         }
     }
 
@@ -309,7 +348,7 @@ FLightingResult EvaluateLightingFromWorldVertex(float3 WorldPos, float3 WorldNor
             
             if (Att > 0.0f)
             {
-                AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Result);
+                AccumulateDirectLight(WorldPos, N, V, L, Light.Color * Light.Intensity * Att, Light.ShadowIndex, Result);
             }
         }
     }
@@ -322,26 +361,7 @@ float3 ApplyLighting(FUberSurfaceData Surface, FLightingResult Lighting)
     return Surface.Albedo * Lighting.Diffuse + Lighting.Specular;
 }
 
-float3 ApplyShadow(FUberSurfaceData Surface, float3 ColorAfterLighting)
-{
-    float4 ShadowLightPos = mul(mul(float4(Surface.WorldPos, 1), ShadowLightView), ShadowLightProjection);
-    
-    float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
-    float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
-    float CurrentDepth = NDC.z;
-    
-    if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 ||
-        ShadowUV.y < 0.0 || ShadowUV.y > 1.0 ||
-        CurrentDepth < 0.0 || CurrentDepth > 1.0)
-        return ColorAfterLighting;
-    
-    float ShadowLightDepth = ShadowMap.Sample(ShadowSampler, ShadowUV);
-    
-    float bias = 0.005;
-    float ShadowFactor = (ShadowLightDepth >= CurrentDepth - bias) ? 1.0 : 0.0;
-    
-    return ColorAfterLighting * ShadowFactor;
-}
+// [복구] 쓸모없는 ApplyShadow 함수 삭제 완료
 
 #if defined(MATERIAL_DOMAIN_DECAL)
 
@@ -442,7 +462,9 @@ FUberPSOutput mainPS(FUberPSInput Input)
 #else
     Lighting = EvaluateLightingFromWorld(Surface.WorldPos, Surface.WorldNormal, Input.ClipPos.xy);
 #endif
-    return ComposeOutput(Surface, ApplyShadow(Surface, ApplyLighting(Surface, Lighting)));
+
+    // [복구] 이중 그림자 적용 안하도록 ApplyShadow 감싸진 부분 제거 완료
+    return ComposeOutput(Surface, ApplyLighting(Surface, Lighting));
 }
 
 #endif

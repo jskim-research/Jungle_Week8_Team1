@@ -18,7 +18,18 @@ TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRe
     Req.CascadeCount = 1;
     Req.bUseVSM = false;
 
-	SelectedLights.push_back(Req);
+	for (int i=0;i < SceneLights.size();i++)
+    {
+        FShadowRequest Req;
+        Req.LightId = i;
+        Req.Type = (ELightType)SceneLights[i].Type;
+        Req.Resolution = i==0? 1024 : 512;
+        Req.ProjectionMode = EShadowProjectionMode::Default;
+        Req.CascadeCount = 1;
+        Req.bUseVSM = false;
+
+        SelectedLights.push_back(Req);
+    }
 	
 	return SelectedLights;
 }

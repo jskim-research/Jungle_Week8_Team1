@@ -2,13 +2,16 @@
 
 #include "RenderPass.h"
 #include "Render/Scene/ShadowLightSelector.h"
-
+#include "Render/Resource/ShadowAtlasAllocator.h"
+#include "Render/Renderer/RenderFlow/OpaqueRenderPass.h"
 class FShadowPass : public FBaseRenderPass
 {
 public:
-	bool Initialize();
-	bool Release();
-	static TArray<FShadowMap>& GetShadowMaps();
+    bool Initialize();
+    bool Release();
+    static TArray<FShadowMap>& GetShadowMaps();
+    static const TArray<int32>& GetLightToShadowIndices();
+    static const FOpaqueRenderPass::FShadowArrayCB& GetShadowCBData();
 
 protected:
 	bool Begin(const FRenderPassContext* Context);
@@ -26,8 +29,8 @@ private:
 	bool AcquireResource(const FRenderPassContext* Context, const FShadowRequestDesc& Req, FShadowResource** OutShadowResource);
 
 private:
-	FShadowLightSelector ShadowLightSelector;
-	bool bSkip = false;
-
-	std::shared_ptr<FShaderBindingInstance> ShaderBinding;
+    FShadowLightSelector ShadowLightSelector;
+    bool bSkip = false;
+    FShadowAtlasAllocator AtlasAllocator;
+    std::shared_ptr<FShaderBindingInstance> ShaderBinding;
 };
