@@ -59,6 +59,7 @@ struct FShadowData
 cbuffer ShadowLightViewInfo : register(b7)
 {
     FShadowData ShadowDataArray[32]; // 최대 32개의 그림자 정보 전달
+
 }
 
 struct FPointLightData
@@ -114,7 +115,7 @@ struct FLightingResult
 float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
 {
     if (ShadowIndex < 0)
-        return 1.0f; // 그림자 없는 빛은 온전히 밝음
+        return 1.0f;
 
     FShadowData SData = ShadowDataArray[ShadowIndex];
 
@@ -130,8 +131,26 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
 
         ShadowUV = (ShadowUV * SData.UVScale) + SData.UVOffset;
 
-        float ShadowLightDepth = ShadowMap2D.Sample(ShadowSampler, ShadowUV).r;
-        return (ShadowLightDepth + SData.ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
+        uint ShadowMapWidth = 0;
+        uint ShadowMapHeight = 0;
+        ShadowMap2D.GetDimensions(ShadowMapWidth, ShadowMapHeight);
+
+        float2 TexelSize = 1.0f / max(float2(ShadowMapWidth, ShadowMapHeight), float2(1.0f, 1.0f));
+        float Shadow = 0.0f;
+
+        [unroll]
+        for (int X = -1; X <= 1; ++X)
+        {
+            [unroll]
+            for (int Y = -1; Y <= 1; ++Y)
+            {
+                float2 Offset = float2(X, Y) * TexelSize;
+                float SampleDepth = ShadowMap2D.Sample(ShadowSampler, ShadowUV + Offset).r;
+                Shadow += (SampleDepth + SData.ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
+            }
+        }
+
+        return Shadow / 9.0f;
     }
 
     if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTHCUBE)
