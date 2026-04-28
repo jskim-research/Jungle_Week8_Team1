@@ -1,4 +1,4 @@
-#include "ShadowLightSelector.h"
+﻿#include "ShadowLightSelector.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>

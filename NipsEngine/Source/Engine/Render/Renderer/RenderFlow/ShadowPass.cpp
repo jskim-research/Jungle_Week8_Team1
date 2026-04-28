@@ -199,13 +199,13 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
             // ★ 2. GPU에 넘길 상수 버퍼 데이터를 여기서 싹 다 채워버림!
             // [수정됨] Views[0] 대신 방금 추가된 Views[CurrentViewIndex]를 참조합니다!
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView = CurrentAtlasMap.Views[CurrentViewIndex].LightView;
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection = CurrentAtlasMap.Views[CurrentViewIndex].LightProjection;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView[0] = CurrentAtlasMap.Views[CurrentViewIndex].LightView;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection[0] = CurrentAtlasMap.Views[CurrentViewIndex].LightProjection;
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = AllocResult.UVOffset;
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = AllocResult.UVScale;
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(CurrentAtlasMap.MapType);
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceIndex = 0;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
 
             ShadowIndexCounter++;
         }
@@ -218,8 +218,13 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
                 GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
 
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView = ShadowMap.Views[0].LightView;
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection = ShadowMap.Views[0].LightProjection;
+				for (size_t i = 0; i < ShadowRequest.Cascades.size(); i++)
+				{
+                    GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView[i] = ShadowMap.Views[i].LightView;
+                    GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection[i] = ShadowMap.Views[i].LightProjection;
+                    GShadowCBData.ShadowDataArray[ShadowIndexCounter].CascadeSplits[i] = ShadowRequest.Cascades[i].Far;
+				}
+
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = FVector2(0, 0);
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = FVector2(1, 1);
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightPosition = ShadowLight.Position;
@@ -227,7 +232,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
                     std::max(ShadowLight.Radius, 0.1f);
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceIndex = 0;
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = ShadowRequest.Cascades.size();
 
                 ShadowIndexCounter++;
             }
@@ -243,9 +248,6 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
     OutRTV = nullptr;
 
     ShaderBinding->ApplyFrameParameters(*Context->RenderBus);
-    // 만약 Shadow Pass 만 도는 경우 Light 첫 번째를 기준으로 시각화 용도
-    ShaderBinding->SetMatrix4("View", GShadowMaps[0].Views[0].LightView);
-    ShaderBinding->SetMatrix4("Projection", GShadowMaps[0].Views[0].LightProjection);
 
     return true;
 }
@@ -448,7 +450,7 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 	Desc.AllocationMode = EShadowAllocationMode::ArrayBased; // CSM
 	Desc.MapType = Req.Type != ELightType::LightType_Point ? EShadowMapType::Depth2D : EShadowMapType::DepthCube;
 	Desc.Resolution = Req.Resolution;
-	Desc.CascadeCount = 1; // 일단은 한 장씩만 사용
+	Desc.CascadeCount = Req.Cascades.size();
 
 	if (!AcquireResource(Context, Desc, &OutShadowMap.Resource))
 		return false;
@@ -477,8 +479,8 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
             const FVector CamRight = Context->RenderBus->GetCameraRight();
             const FVector CamUp = Context->RenderBus->GetCameraUp();
 
-            const float Near = Cam.NearZ;
-            const float Far = Cam.FarZ;
+            const float Near = Req.Cascades[i].Near;
+            const float Far = Req.Cascades[i].Far;
             const float HalfTan = tanf(Cam.FOV * 0.5f);
 
             const float NearH = 2.0f * Near * HalfTan;

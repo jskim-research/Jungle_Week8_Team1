@@ -44,15 +44,22 @@ cbuffer VisibleLightInfo : register(b4)
 // [복구] 기존 b6 단일 섀도우 버퍼를 삭제하고 b7 다중 섀도우 배열로 교체
 struct FShadowData
 {
-    row_major float4x4 ShadowLightView;
-    row_major float4x4 ShadowLightProjection;
+    // Cascade 최대 개수 3 가정
+    row_major float4x4 ShadowLightView[3];
+    row_major float4x4 ShadowLightProjection[3];
+    
     float2 UVScale;
     float2 UVOffset;
+    
     float3 ShadowLightPosition;
     float ShadowFar;
+    
     float ShadowBias;
     uint ShadowMapType;
-    uint SliceIndex;
+    uint SliceCount;
+    float Pad;
+    
+    float CascadeSplits[3];
     float _ShadowPad0;
 };
 
@@ -91,7 +98,7 @@ StructuredBuffer<uint> TilePointLightIndices : register(t11);
 StructuredBuffer<uint2> TileSpotLightGrid : register(t12);
 StructuredBuffer<uint> TileSpotLightIndices : register(t13);
 
-Texture2D ShadowMap2D : register(t14);
+Texture2DArray ShadowMap2D : register(t14);
 TextureCube ShadowMapCube : register(t15);
 SamplerState ShadowSampler : register(s1);
 
@@ -117,10 +124,20 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
         return 1.0f;
 
     FShadowData SData = ShadowDataArray[ShadowIndex];
+    
+    float ViewDepth = length(WorldPos - CameraPosition);
+
+    int SliceIndex = 0;
+
+    if (SliceIndex + 1 < SData.SliceCount && ViewDepth > 50)
+        SliceIndex = 1;
+
+    if (SliceIndex + 1 < SData.SliceCount && ViewDepth > 200)
+        SliceIndex = 2;
 
     if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTH2D)
     {
-        float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView), SData.ShadowLightProjection);
+        float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView[SliceIndex]), SData.ShadowLightProjection[SliceIndex]);
         float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
         float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
         float CurrentDepth = NDC.z;
@@ -132,7 +149,8 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
 
         uint ShadowMapWidth = 0;
         uint ShadowMapHeight = 0;
-        ShadowMap2D.GetDimensions(ShadowMapWidth, ShadowMapHeight);
+        uint ShadowMapLayers = 0;
+        ShadowMap2D.GetDimensions(ShadowMapWidth, ShadowMapHeight, ShadowMapLayers);
 
         float2 TexelSize = 1.0f / max(float2(ShadowMapWidth, ShadowMapHeight), float2(1.0f, 1.0f));
         float Shadow = 0.0f;
@@ -144,7 +162,7 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
             for (int Y = -1; Y <= 1; ++Y)
             {
                 float2 Offset = float2(X, Y) * TexelSize;
-                float SampleDepth = ShadowMap2D.Sample(ShadowSampler, ShadowUV + Offset).r;
+                float SampleDepth = ShadowMap2D.Sample(ShadowSampler, float3(ShadowUV + Offset, SliceIndex)).r;
                 Shadow += (SampleDepth + SData.ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
             }
         }
@@ -204,7 +222,6 @@ float ComputeDistanceAttenuation(float Distance, float Radius)
 void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3 LightContribution, int ShadowIndex, inout FLightingResult Result)
 {
     float ShadowMask = CalculateShadowFactor(WorldPos, ShadowIndex);
-
 #if defined(LIGHTING_MODEL_TOON)
     const float HalfLambert = dot(N, L) * 0.5f + 0.5f;
 
@@ -219,15 +236,15 @@ void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3
     // 그림자 적용
     Result.Diffuse += LightContribution * ToonDiffuse * ShadowMask;
 #else
-    const float NdotL = saturate(dot(N, L));
+        const float NdotL = saturate(dot(N, L));
     // 그림자 적용
-    Result.Diffuse += LightContribution * NdotL * ShadowMask;
+        Result.Diffuse += LightContribution * NdotL * ShadowMask;
 
 #if defined(LIGHTING_MODEL_GOURAUD) || defined(LIGHTING_MODEL_PHONG)
-    const float3 H = normalize(L + V);
-    const float SpecularPower = pow(saturate(dot(N, H)), max(Shininess, 1.0e-4f));
+        const float3 H = normalize(L + V);
+        const float SpecularPower = pow(saturate(dot(N, H)), max(Shininess, 1.0e-4f));
     // 그림자 적용
-    Result.Specular += SpecularColor * LightContribution * SpecularPower * ShadowMask;
+        Result.Specular += SpecularColor * LightContribution * SpecularPower * ShadowMask;
 #endif
 #endif
 }
