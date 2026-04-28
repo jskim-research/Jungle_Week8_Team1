@@ -2,9 +2,16 @@
 #include "Component/Light/LightComponent.h"
 #include "Render/Common/ShadowTypes.h"
 #include "Render/Scene/RenderCommand.h"
+#include "Component/CameraComponent.h"
 
 class UWorld;
 class UCameraComponent;
+
+struct FCascadeInfo
+{
+    float Near;
+    float Far;
+};
 
 struct FShadowRequest
 {
@@ -12,7 +19,7 @@ struct FShadowRequest
 	ELightType Type; // Directional / Point / Spot
 
 	int32 Resolution; // Shadow Map 해상도
-	uint32 CascadeCount;
+    TArray<FCascadeInfo> Cascades;
 
 	bool bUseVSM; // VSM 사용할지 여부
 
@@ -23,15 +30,12 @@ class IShadowLightSelector
 {
 public:
 	virtual TArray<FShadowRequest> 
-	SelectShadowLights(const TArray<FRenderLight>& SceneLights, const FVector& CameraPosition) = 0;
+	SelectShadowLights(const TArray<FRenderLight>& SceneLights, const FVector& CameraPosition, const FCameraState& CameraState) = 0;
 };
 
 class FShadowLightSelector : public IShadowLightSelector
 {
 public:
-	/*
-		아직은 세부 로직이 없어서 SceneLights 만 파라미터로 넣어둠
-	*/
 	TArray<FShadowRequest>
-	SelectShadowLights(const TArray<FRenderLight>& SceneLights, const FVector& CameraPosition) override;
+    SelectShadowLights(const TArray<FRenderLight>& SceneLights, const FVector& CameraPosition, const FCameraState& CameraState) override;
 };

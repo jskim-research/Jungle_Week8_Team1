@@ -1,4 +1,4 @@
-#include "ShadowLightSelector.h"
+﻿#include "ShadowLightSelector.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -76,7 +76,7 @@ namespace
 	}
 }
 
-TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRenderLight>& SceneLights, const FVector& CameraPosition)
+TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRenderLight>& SceneLights, const FVector& CameraPosition, const FCameraState& CameraState)
 {
 	TArray<FShadowRequest> SelectedLights;
 
@@ -137,8 +137,31 @@ TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRe
 			Req.Type = static_cast<ELightType>(Light.Type);
 			Req.Resolution = ComputeShadowResolution(Light);
 			Req.ProjectionMode = EShadowProjectionMode::Default;
-			Req.CascadeCount = 1;
 			Req.bUseVSM = false;
+
+			FCascadeInfo CascadeInfo;
+
+			if (Req.Type == ELightType::LightType_Directional)
+			{
+                CascadeInfo.Near = CameraState.NearZ;
+                CascadeInfo.Far = 50;
+                Req.Cascades.push_back(CascadeInfo);
+
+                CascadeInfo.Near = 50;
+                CascadeInfo.Far = 200;
+                Req.Cascades.push_back(CascadeInfo);
+
+                CascadeInfo.Near = 200;
+                CascadeInfo.Far = 400;
+                Req.Cascades.push_back(CascadeInfo);
+			}
+			else
+            {
+                CascadeInfo.Near = CameraState.NearZ;
+                CascadeInfo.Far = CameraState.FarZ;
+                Req.Cascades.push_back(CascadeInfo);
+			}
+
 			SelectedLights.push_back(Req);
 		}
 	};
