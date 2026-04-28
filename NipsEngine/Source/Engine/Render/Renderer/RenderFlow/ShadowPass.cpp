@@ -223,7 +223,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			++PointShadowTextureIndexCounter;
 			++ShadowIndexCounter;
 		}
-		else if (ShadowRequest.Type == ELightType::LightType_Spot)
+        else if (ShadowRequest.Type == ELightType::LightType_Spot)
 		{
 			// 1. 공간 할당 가능?
 			FAtlasAllocationResult AllocResult;

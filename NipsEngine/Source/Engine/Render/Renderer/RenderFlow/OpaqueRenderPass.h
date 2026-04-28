@@ -26,7 +26,8 @@ public:
         uint32 ShadowTextureIndex = 0;
         float Pad2;
 
-        bool isPSM;
+        uint32 isPSM;
+        FVector Pad3;
         FMatrix PSM;
 
         float CascadeSplits[3] = { 0.0f, 0.0f, 0.0f };

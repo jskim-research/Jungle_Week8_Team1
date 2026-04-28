@@ -63,7 +63,8 @@ struct FShadowData
     uint ShadowTextureIndex;
     float1 Pad2;
     
-    bool isPSM;
+    uint isPSM;
+    float3 Pad3;
     row_major float4x4 PSM;
     
     float3 CascadeSplits;
