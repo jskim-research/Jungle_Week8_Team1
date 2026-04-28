@@ -59,8 +59,7 @@ struct FShadowData
     uint SliceCount;
     float Pad;
     
-    float CascadeSplits[3];
-    float _ShadowPad0;
+    float4 CascadeSplits;
 };
 
 cbuffer ShadowLightViewInfo : register(b7)
@@ -129,12 +128,12 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
 
     int SliceIndex = 0;
 
-    if (SliceIndex + 1 < SData.SliceCount && ViewDepth > 50)
+    if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.x)
         SliceIndex = 1;
 
-    if (SliceIndex + 1 < SData.SliceCount && ViewDepth > 200)
-        SliceIndex = 2;
-
+    if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.y)
+        SliceIndex = 2;    
+    
     if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTH2D)
     {
         float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView[SliceIndex]), SData.ShadowLightProjection[SliceIndex]);

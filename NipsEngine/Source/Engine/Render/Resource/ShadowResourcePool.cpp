@@ -15,12 +15,17 @@ FShadowResource* FShadowResourcePool::Acquire(ID3D11Device* Device, const FShado
 	{
 		if (Desc.AllocationMode == EShadowAllocationMode::ArrayBased)
 		{
-            ShadowResource->BackingResource = FDepthStencilFactory::CreateDepthStencilViewCSMArray(Device, Desc.Resolution, Desc.Resolution, Desc.CascadeCount);
+            ShadowResource->BackingResource = FDepthStencilFactory::CreateDepthStencilViewArray(Device, Desc.Resolution, Desc.Resolution, Desc.CascadeCount);
+		}
+        else if (Desc.AllocationMode == EShadowAllocationMode::AtlasPacked)
+        {
+            ShadowResource->BackingResource =
+                FDepthStencilFactory::CreateDepthStencilViewArray(Device, Desc.Resolution, Desc.Resolution, 1);
 		}
 		else
         {
-            ShadowResource->BackingResource =
-                FDepthStencilFactory::CreateDepthStencilView(Device, Desc.Resolution, Desc.Resolution);
+			// Texture Array 만 현재 고려중
+            assert(false && "현재는 지원하지 않는 모드");
 		}
 	}
 

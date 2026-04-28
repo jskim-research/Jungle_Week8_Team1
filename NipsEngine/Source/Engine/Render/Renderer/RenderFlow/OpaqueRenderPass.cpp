@@ -156,8 +156,10 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 		ID3D11ShaderResourceView* ShadowSRVs[2] = { ShadowMap2DSRV, ShadowMapCubeSRV };
 		Context->DeviceContext->PSSetShaderResources(14, 2, ShadowSRVs);
 
-		ID3D11Buffer* RawShadowConstantBuffer = ShadowConstantBuffer.Get();
-		Context->DeviceContext->PSSetConstantBuffers(7, 1, &RawShadowConstantBuffer);
+        ID3D11Buffer* RawShadowConstantBuffer = ShadowConstantBuffer.Get();
+        Context->DeviceContext->PSSetConstantBuffers(7, 1, &RawShadowConstantBuffer);
+        // Shadow data is read in both pixel and vertex shaders (e.g. vertex lighting). Bind to VS as well.
+        Context->DeviceContext->VSSetConstantBuffers(7, 1, &RawShadowConstantBuffer);
 		Context->DeviceContext->PSSetSamplers(1, 1, &ShadowSampler);
 
 		CheckOverrideViewMode(Context);
@@ -192,8 +194,9 @@ bool FOpaqueRenderPass::End(const FRenderPassContext* Context)
 
 	ID3D11ShaderResourceView* NullSRVs[2] = { nullptr, nullptr };
 	Context->DeviceContext->PSSetShaderResources(14, 2, NullSRVs);
-	ID3D11Buffer* NullShadowCB = nullptr;
-	Context->DeviceContext->PSSetConstantBuffers(7, 1, &NullShadowCB);
+    ID3D11Buffer* NullShadowCB = nullptr;
+    Context->DeviceContext->PSSetConstantBuffers(7, 1, &NullShadowCB);
+    Context->DeviceContext->VSSetConstantBuffers(7, 1, &NullShadowCB);
 	ID3D11SamplerState* NullShadowSampler = nullptr;
 	Context->DeviceContext->PSSetSamplers(1, 1, &NullShadowSampler);
 	return true;
