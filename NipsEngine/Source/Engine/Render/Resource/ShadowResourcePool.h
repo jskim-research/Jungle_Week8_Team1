@@ -8,6 +8,7 @@ struct FShadowRequestDesc
 {
 	uint32 Resolution;
 	uint32 CascadeCount; // CSM only
+	uint32 CubeCount = 1;
 
 	// 동일한 설정의 Pool 에서 가져오기 위한 정보들
 	EShadowMapType MapType;

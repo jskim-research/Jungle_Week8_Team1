@@ -106,5 +106,7 @@ struct FShadowMap
 	EShadowMapType MapType = EShadowMapType::None; // Shader Sampling 방식
 	uint32 LightId = 0;
 	uint32 SourceLightSlotIndex = 0xFFFFFFFF;
+	uint32 ResourceSliceOffset = 0;
+	bool bOwnsResource = true;
 	ELightType LightType = ELightType::Max;
 };

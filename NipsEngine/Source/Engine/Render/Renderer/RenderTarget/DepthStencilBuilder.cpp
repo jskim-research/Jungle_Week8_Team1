@@ -26,7 +26,20 @@ FDepthStencilBuilder& FDepthStencilBuilder::AsCubemap()
 {
     TextureMode = ETextureMode::Cubemap;
     TextureArraySize = 6;
+    CubeCount = 1;
 	return *this;
+}
+
+FDepthStencilBuilder& FDepthStencilBuilder::AsCubemapArray(uint32 InCubeCount)
+{
+    assert(InCubeCount > 0 && InCubeCount * 6 <= MAX_TEXTURE_ARRAY_NUM);
+    if (InCubeCount == 0)
+        return *this;
+
+    TextureMode = ETextureMode::CubemapArray;
+    CubeCount = InCubeCount;
+    TextureArraySize = InCubeCount * 6;
+    return *this;
 }
 
 FDepthStencilBuilder& FDepthStencilBuilder::AsArray(uint32 InArraySize)
@@ -36,6 +49,7 @@ FDepthStencilBuilder& FDepthStencilBuilder::AsArray(uint32 InArraySize)
         return *this;
 
     TextureMode = ETextureMode::Array;
+    CubeCount = 1;
     TextureArraySize = InArraySize;
     return *this;
 }
@@ -55,7 +69,7 @@ FDepthStencilResource FDepthStencilBuilder::Build(ID3D11Device* Device)
 	DepthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 
 	DepthStencilDesc.MiscFlags = 0;
-	if (TextureMode == ETextureMode::Cubemap)
+	if (TextureMode == ETextureMode::Cubemap || TextureMode == ETextureMode::CubemapArray)
 		DepthStencilDesc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE; // ← 큐브 플래그
 
 	if (bCreateSRV)
@@ -64,7 +78,7 @@ FDepthStencilResource FDepthStencilBuilder::Build(ID3D11Device* Device)
 	Device->CreateTexture2D(&DepthStencilDesc, nullptr, &DSR.Texture);
 
 	// DSV: face 별로 6개
-	if (TextureMode == ETextureMode::Cubemap)
+	if (TextureMode == ETextureMode::Cubemap || TextureMode == ETextureMode::CubemapArray)
 	{
 		D3D11_DEPTH_STENCIL_VIEW_DESC DsvDesc = {};
 		DsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -72,9 +86,9 @@ FDepthStencilResource FDepthStencilBuilder::Build(ID3D11Device* Device)
 		DsvDesc.Texture2DArray.MipSlice = 0;
 		DsvDesc.Texture2DArray.ArraySize = 1; // face 1장씩
 
-		DSR.DSVs.resize(6);
-		DSR.DST = EDepthStencilResourceType::Cubemap;
-		for (int32 i = 0; i < 6; i++)
+		DSR.DSVs.resize(TextureArraySize);
+		DSR.DST = (TextureMode == ETextureMode::CubemapArray) ? EDepthStencilResourceType::CubemapArray : EDepthStencilResourceType::Cubemap;
+		for (uint32 i = 0; i < TextureArraySize; i++)
 		{
 			DsvDesc.Texture2DArray.FirstArraySlice = i;
 			Device->CreateDepthStencilView(DSR.Texture.Get(), &DsvDesc, &DSR.DSVs[i]);
@@ -120,6 +134,14 @@ FDepthStencilResource FDepthStencilBuilder::Build(ID3D11Device* Device)
             SrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
             SrvDesc.TextureCube.MostDetailedMip = 0;
             SrvDesc.TextureCube.MipLevels = 1;
+        }
+        else if (TextureMode == ETextureMode::CubemapArray)
+        {
+            SrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBEARRAY;
+            SrvDesc.TextureCubeArray.MostDetailedMip = 0;
+            SrvDesc.TextureCubeArray.MipLevels = 1;
+            SrvDesc.TextureCubeArray.First2DArrayFace = 0;
+            SrvDesc.TextureCubeArray.NumCubes = CubeCount;
         }
         else if (TextureMode == ETextureMode::Array)
         {

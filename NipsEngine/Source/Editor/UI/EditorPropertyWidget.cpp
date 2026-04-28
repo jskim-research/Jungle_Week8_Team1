@@ -866,7 +866,7 @@ void FEditorPropertyWidget::RenderLightPreview()
 
 	const UINT SourceArraySlice =
 		(SelectedShadowMap->LightType == ELightType::LightType_Point || SelectedShadowMap->LightType == ELightType::LightType_Directional)
-			? LightPreviewSliceIndex
+			? (SelectedShadowMap->ResourceSliceOffset + LightPreviewSliceIndex)
 			: 0;
 	const UINT SourceSubresource = D3D11CalcSubresource(0, SourceArraySlice, 1);
 	DeviceContext->CopySubresourceRegion(

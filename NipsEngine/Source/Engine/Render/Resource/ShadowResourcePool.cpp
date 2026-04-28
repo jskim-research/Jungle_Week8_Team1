@@ -1,5 +1,6 @@
 ﻿#include "ShadowResourcePool.h"
 #include "Render/Renderer/RenderTarget/DepthStencilFactory.h"
+#include <algorithm>
 
 FShadowResource* FShadowResourcePool::Acquire(ID3D11Device* Device, const FShadowRequestDesc& Desc)
 {
@@ -8,8 +9,16 @@ FShadowResource* FShadowResourcePool::Acquire(ID3D11Device* Device, const FShado
 
 	if (Desc.MapType == EShadowMapType::DepthCube)
 	{
-		ShadowResource->BackingResource =
-			FDepthStencilFactory::CreateDepthStencilViewCubemap(Device, Desc.Resolution, Desc.Resolution);
+		if (Desc.AllocationMode == EShadowAllocationMode::ArrayBased)
+		{
+			ShadowResource->BackingResource =
+				FDepthStencilFactory::CreateDepthStencilViewCubemapArray(Device, Desc.Resolution, Desc.Resolution, std::max(Desc.CubeCount, 1u));
+		}
+		else
+		{
+			ShadowResource->BackingResource =
+				FDepthStencilFactory::CreateDepthStencilViewCubemap(Device, Desc.Resolution, Desc.Resolution);
+		}
 	}
 	else
 	{
@@ -35,6 +44,14 @@ FShadowResource* FShadowResourcePool::Acquire(ID3D11Device* Device, const FShado
 	for (const TComPtr<ID3D11DepthStencilView>& DepthStencilView : ShadowResource->BackingResource.DSVs)
 	{
 		ShadowResource->DSVs.push_back(DepthStencilView.Get());
+	}
+
+	if (ShadowResource->BackingResource.Texture == nullptr ||
+		ShadowResource->SRV == nullptr ||
+		ShadowResource->DSVs.empty())
+	{
+		delete ShadowResource;
+		return nullptr;
 	}
 
 	return ShadowResource;

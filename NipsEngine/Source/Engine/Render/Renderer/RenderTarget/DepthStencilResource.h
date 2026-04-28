@@ -10,7 +10,8 @@ enum class EDepthStencilResourceType
 {
 	Default,	// DSV 1장
 	Cubemap,	// DSV 6장
-	Array		//
+	Array,		//
+	CubemapArray
 };
 
 struct FDepthStencilResource

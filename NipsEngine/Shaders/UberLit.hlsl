@@ -57,7 +57,7 @@ struct FShadowData
     float ShadowBias;
     uint ShadowMapType;
     uint SliceCount;
-    float Pad;
+    uint ShadowTextureIndex;
     
     float4 CascadeSplits;
 };
@@ -98,7 +98,7 @@ StructuredBuffer<uint2> TileSpotLightGrid : register(t12);
 StructuredBuffer<uint> TileSpotLightIndices : register(t13);
 
 Texture2DArray ShadowMap2D : register(t14);
-TextureCube ShadowMapCube : register(t15);
+TextureCubeArray ShadowMapCube : register(t15);
 SamplerState ShadowSampler : register(s1);
 
 static const uint LIGHT_TYPE_DIRECTIONAL = 0u;
@@ -167,8 +167,7 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
 
         return Shadow / 9.0f;
     }
-
-    if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTHCUBE)
+    else if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTHCUBE)
     {
         if (SData.ShadowFar <= 1.0e-4f)
         {
@@ -198,7 +197,7 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
             return 1.0f;
         }
 
-        const float StoredDepth = ShadowMapCube.Sample(ShadowSampler, SampleDir).r;
+        const float StoredDepth = ShadowMapCube.Sample(ShadowSampler, float4(SampleDir, SData.ShadowTextureIndex)).r;
         return (StoredDepth + SData.ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
     }
 

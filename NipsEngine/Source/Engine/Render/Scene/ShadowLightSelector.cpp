@@ -6,7 +6,8 @@
 namespace
 {
 	constexpr uint32 MaxAtlasShadowCount = 16;
-	constexpr uint32 MaxPointShadowCount = 1;
+	// Must stay within the shadow constant-buffer budget consumed by UberLit/OpaqueRenderPass.
+	constexpr uint32 MaxPointShadowCount = 32;
 	constexpr int32 PointBaseShadowResolution = 512;
 	constexpr int32 AtlasBaseShadowResolution = 1024;
 

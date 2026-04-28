@@ -66,7 +66,10 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 	{
 		for (FShadowMap& ShadowMap : GShadowMaps)
 		{
-			Context->ShadowResourcePool->Release(ShadowMap.Resource);
+			if (ShadowMap.bOwnsResource)
+			{
+				Context->ShadowResourcePool->Release(ShadowMap.Resource);
+			}
 		}
 		GShadowMaps.clear();
 	}
@@ -130,8 +133,40 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 	std::memset(&GShadowCBData, 0, sizeof(GShadowCBData));
 
 	uint32 ShadowIndexCounter = 0; // GPU 버퍼 배열에 들어갈 인덱스 (0 ~ 31)
+	uint32 PointShadowTextureIndexCounter = 0;
 
 	AtlasAllocator.Reset();
+
+	FShadowResource* SharedPointShadowResource = nullptr;
+	uint32 SharedPointShadowFaceOffset = 0;
+	uint32 PointShadowRequestCount = 0;
+	uint32 SharedPointShadowResolution = 0;
+
+	for (const FShadowRequest& ShadowRequest : ShadowRequests)
+	{
+		if (ShadowRequest.Type != ELightType::LightType_Point)
+		{
+			continue;
+		}
+
+		++PointShadowRequestCount;
+		SharedPointShadowResolution = std::max<uint32>(SharedPointShadowResolution, ShadowRequest.Resolution);
+	}
+
+	if (PointShadowRequestCount > 0)
+	{
+		FShadowRequestDesc PointArrayDesc = {};
+		PointArrayDesc.AllocationMode = EShadowAllocationMode::ArrayBased;
+		PointArrayDesc.MapType = EShadowMapType::DepthCube;
+		PointArrayDesc.Resolution = SharedPointShadowResolution;
+		PointArrayDesc.CubeCount = std::min<uint32>(PointShadowRequestCount, MAX_SHADOW_LIGHTS);
+
+		if (!AcquireResource(Context, PointArrayDesc, &SharedPointShadowResource))
+		{
+			SharedPointShadowResource = nullptr;
+			PointShadowRequestCount = 0;
+		}
+	}
 
 	// 기존의 범위 기반 for 문을 인덱스 기반으로 교체
 	for (int i = 0; i < ShadowRequests.size(); ++i)
@@ -142,7 +177,50 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		if (ShadowIndexCounter >= MAX_SHADOW_LIGHTS)
 			break;
 
-        if (ShadowRequest.Type == ELightType::LightType_Spot)
+        if (ShadowRequest.Type == ELightType::LightType_Point)
+        {
+			if (SharedPointShadowResource == nullptr)
+			{
+				continue;
+			}
+
+			FShadowMap ShadowMap;
+			ShadowMap.Resource = SharedPointShadowResource;
+			ShadowMap.MapType = EShadowMapType::DepthCube;
+			ShadowMap.LightId = ShadowRequest.LightId;
+			ShadowMap.SourceLightSlotIndex = ShadowLight.SourceLightSlotIndex;
+			ShadowMap.ResourceSliceOffset = SharedPointShadowFaceOffset;
+			ShadowMap.bOwnsResource = (PointShadowTextureIndexCounter == 0);
+			ShadowMap.LightType = ShadowRequest.Type;
+
+			if (!BuildViews(Context, ShadowRequest, ShadowMap.Views) ||
+				!BuildSlices(Context, ShadowRequest, ShadowMap.Slices))
+			{
+				if (ShadowMap.bOwnsResource)
+				{
+					Context->ShadowResourcePool->Release(SharedPointShadowResource);
+					SharedPointShadowResource = nullptr;
+				}
+				continue;
+			}
+
+			GShadowMaps.push_back(ShadowMap);
+			GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
+
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = FVector2(0, 0);
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = FVector2(1, 1);
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightPosition = ShadowLight.Position;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFar = std::max(ShadowLight.Radius, 0.1f);
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = PointShadowTextureIndexCounter;
+
+			SharedPointShadowFaceOffset += 6;
+			++PointShadowTextureIndexCounter;
+			++ShadowIndexCounter;
+		}
+        else if (ShadowRequest.Type == ELightType::LightType_Spot)
         {
             // 1. 공간 할당 가능?
             FAtlasAllocationResult AllocResult;
@@ -233,11 +311,19 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = ShadowRequest.Cascades.size();
+				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 0u;
 
 				ShadowIndexCounter++;
 			}
 		}
 	}
+
+	if (SharedPointShadowResource != nullptr && PointShadowTextureIndexCounter == 0)
+	{
+		Context->ShadowResourcePool->Release(SharedPointShadowResource);
+		SharedPointShadowResource = nullptr;
+	}
+
 	if (GShadowMaps.empty())
 	{
 		bSkip = true;
@@ -392,7 +478,7 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 		}
 
 		const uint32 DrawSliceCount = std::min<uint32>(
-			static_cast<uint32>(ShadowMap.Resource->DSVs.size()),
+			static_cast<uint32>(ShadowMap.Resource->DSVs.size() > ShadowMap.ResourceSliceOffset ? ShadowMap.Resource->DSVs.size() - ShadowMap.ResourceSliceOffset : 0),
 			static_cast<uint32>(ShadowMap.Views.size()));
 		if (DrawSliceCount == 0)
 		{
@@ -418,11 +504,11 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 			}
 
 			Context->DeviceContext->ClearDepthStencilView(
-				ShadowMap.Resource->DSVs[ViewIndex],
+				ShadowMap.Resource->DSVs[ShadowMap.ResourceSliceOffset + ViewIndex],
 				D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
 				1.0f,
 				0);
-			Context->DeviceContext->OMSetRenderTargets(0, nullptr, ShadowMap.Resource->DSVs[ViewIndex]);
+			Context->DeviceContext->OMSetRenderTargets(0, nullptr, ShadowMap.Resource->DSVs[ShadowMap.ResourceSliceOffset + ViewIndex]);
 
 			if (!DrawShadowCommands(ShadowMap.Views[ViewIndex], DrawShadowLight))
 			{
@@ -451,6 +537,7 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 	Desc.MapType = Req.Type != ELightType::LightType_Point ? EShadowMapType::Depth2D : EShadowMapType::DepthCube;
 	Desc.Resolution = Req.Resolution;
 	Desc.CascadeCount = Req.Cascades.size();
+	Desc.CubeCount = (Req.Type == ELightType::LightType_Point) ? 1u : 0u;
 
 	if (!AcquireResource(Context, Desc, &OutShadowMap.Resource))
 		return false;
@@ -705,5 +792,5 @@ bool FShadowPass::BuildSlices(const FRenderPassContext* Context, const FShadowRe
 bool FShadowPass::AcquireResource(const FRenderPassContext* Context, const FShadowRequestDesc& Desc, FShadowResource** OutShadowResource)
 {
 	*OutShadowResource = Context->ShadowResourcePool->Acquire(Context->Device, Desc);
-	return true;
+	return *OutShadowResource != nullptr;
 }

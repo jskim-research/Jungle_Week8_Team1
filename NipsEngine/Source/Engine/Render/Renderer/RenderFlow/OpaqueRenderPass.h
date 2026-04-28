@@ -20,7 +20,7 @@ public:
 		float ShadowBias = 0.005f;
 		uint32 ShadowMapType = 0; // 0: none, 1: Depth2D, 2: DepthCube
 		uint32 SliceCount = 0;
-        float Pad0;
+        uint32 ShadowTextureIndex = 0;
 
         float CascadeSplits[3];
 		float Padding0;
@@ -30,6 +30,8 @@ public:
 	{
 		FShadowCB ShadowDataArray[MAX_SHADOW_LIGHTS];
 	};
+
+	static_assert((sizeof(FShadowCB) % 16) == 0, "FShadowCB must remain 16-byte aligned for HLSL constant buffer packing.");
 
 	bool Initialize() override;
 	bool Release() override;
