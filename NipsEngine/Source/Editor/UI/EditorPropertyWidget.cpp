@@ -10,15 +10,77 @@
 #include "Editor/Utility/EditorComponentFactory.h"
 #include "Editor/Utility/EditorUIUtils.h"
 #include "GameFramework/PrimitiveActors.h"
+#include "Render/Renderer/RenderFlow/ShadowPass.h"
 
 #include <ImGui/imgui.h>
 
 #define SEPARATOR(); ImGui::Spacing(); ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing(); ImGui::Spacing();
 
+namespace
+{
+	constexpr const char* PointFaceLabels[6] = { "+X", "-X", "+Y", "-Y", "+Z", "-Z" };
+}
+
 void FEditorPropertyWidget::Initialize(UEditorEngine* InEditorEngine)
 {
 	FEditorWidget::Initialize(InEditorEngine);
 	SelectionManager = &EditorEngine->GetSelectionManager();
+}
+
+bool FEditorPropertyWidget::EnsureLightPreviewTexture(ID3D11Device* Device, uint32 Resolution)
+{
+	if (Device == nullptr || Resolution == 0)
+	{
+		return false;
+	}
+
+	if (LightPreviewTexture && LightPreviewSRV && LightPreviewResolution == Resolution)
+	{
+		return true;
+	}
+
+	LightPreviewTexture.Reset();
+	LightPreviewSRV.Reset();
+	LightPreviewResolution = 0;
+
+	D3D11_TEXTURE2D_DESC TextureDesc = {};
+	TextureDesc.Width = Resolution;
+	TextureDesc.Height = Resolution;
+	TextureDesc.MipLevels = 1;
+	TextureDesc.ArraySize = 1;
+	TextureDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+	TextureDesc.SampleDesc.Count = 1;
+	TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+	TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+	if (FAILED(Device->CreateTexture2D(&TextureDesc, nullptr, LightPreviewTexture.GetAddressOf())))
+	{
+		return false;
+	}
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+	SRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	SRVDesc.Texture2D.MostDetailedMip = 0;
+	SRVDesc.Texture2D.MipLevels = 1;
+
+	if (FAILED(Device->CreateShaderResourceView(LightPreviewTexture.Get(), &SRVDesc, LightPreviewSRV.GetAddressOf())))
+	{
+		LightPreviewTexture.Reset();
+		return false;
+	}
+
+	LightPreviewResolution = Resolution;
+	return true;
+}
+
+void FEditorPropertyWidget::ResetLightPreviewState()
+{
+	LightPreviewOwnerComponent = nullptr;
+	LightPreviewSliceIndex = 0;
+	LightPreviewResolution = 0;
+	LightPreviewTexture.Reset();
+	LightPreviewSRV.Reset();
 }
 
 // 현재 선택된 컴포넌트와 액터 정보를 초기화합니다.
@@ -27,6 +89,7 @@ void FEditorPropertyWidget::ResetSelection()
 	SelectedComponent = nullptr;
 	LastSelectedActor = nullptr;
 	bActorSelected = true;
+	ResetLightPreviewState();
 }
 
 // 전체 프로퍼티 윈도우의 레이아웃을 구성하고 그리는 메인 함수입니다.
@@ -43,6 +106,7 @@ void FEditorPropertyWidget::Render(float DeltaTime)
 		SelectedComponent = nullptr;
 		LastSelectedActor = nullptr;
 		bActorSelected = true;
+		ResetLightPreviewState();
 		ImGui::Text("No object selected.");
 		ImGui::End();
 		return;
@@ -87,6 +151,7 @@ void FEditorPropertyWidget::UpdateSelectionState(AActor* PrimaryActor)
 	{
 		SelectedComponent = nullptr;
 		LastSelectedActor = PrimaryActor;
+		ResetLightPreviewState();
 
 		USceneComponent* RootComp = PrimaryActor->GetRootComponent();
 		if (RootComp && RootComp->IsA<UStaticMeshComponent>())
@@ -146,6 +211,7 @@ void FEditorPropertyWidget::RenderMultiSelectionHeader(AActor* PrimaryActor, con
 		SelectionManager->ClearSelection();
 		SelectedComponent = nullptr;
 		LastSelectedActor = nullptr;
+		ResetLightPreviewState();
 	}
 }
 
@@ -174,6 +240,7 @@ void FEditorPropertyWidget::RenderSingleSelectionHeader(AActor* PrimaryActor)
 		SelectionManager->ClearSelection();
 		SelectedComponent = nullptr;
 		LastSelectedActor = nullptr;
+		ResetLightPreviewState();
 	}
 
 	ImGui::Spacing();
@@ -693,21 +760,126 @@ void FEditorPropertyWidget::RenderInterpControlPoints(UInterpToMovementComponent
 
 void FEditorPropertyWidget::RenderLightPreview()
 {
-	// Viewport 0번의 SceneColorSRV를 가져옴
-	auto& ViewportLayout = EditorEngine->GetViewportLayout();
-	auto& VP = ViewportLayout.GetSceneViewport(0);
-	const ID3D11ShaderResourceView* SRV = VP.GetShadowMap();
+	const ULightComponentBase* SelectedLight = Cast<ULightComponentBase>(SelectedComponent);
+	if (SelectedLight == nullptr)
+	{
+		ResetLightPreviewState();
+		return;
+	}
 
-	if (!SRV)
+	if (LightPreviewOwnerComponent != SelectedComponent)
+	{
+		LightPreviewOwnerComponent = SelectedComponent;
+		LightPreviewSliceIndex = 0;
+	}
+
+	const FLightHandle& LightHandle = SelectedLight->GetLightHandle();
+	if (!LightHandle.IsValid())
 		return;
 
-	ImGui::Text("Scene Preview");
+	const FShadowMap* SelectedShadowMap = nullptr;
+	for (const FShadowMap& ShadowMap : FShadowPass::GetShadowMaps())
+	{
+		if (ShadowMap.SourceLightSlotIndex == LightHandle.Index)
+		{
+			SelectedShadowMap = &ShadowMap;
+			break;
+		}
+	}
+
+	ImGui::Text("Shadow Map Preview");
 	ImGui::Separator();
 	ImGui::Spacing();
 
-	// ImGui::Image는 const를 받지 않으므로 캐스팅
-	ImTextureID TexID = reinterpret_cast<ImTextureID>(
-		const_cast<ID3D11ShaderResourceView*>(SRV));
+	if (SelectedShadowMap == nullptr || SelectedShadowMap->Resource == nullptr || !SelectedShadowMap->Resource->BackingResource.Texture)
+	{
+		ImGui::TextWrapped("Selected light does not have an active dedicated shadow map preview.");
+		ImGui::Spacing();
+		return;
+	}
+
+	uint32 SliceCount = 1;
+	FString PreviewSelectorLabel = "Shadow";
+	switch (SelectedShadowMap->LightType)
+	{
+	case ELightType::LightType_Directional:
+		SliceCount = static_cast<uint32>(SelectedShadowMap->Views.size());
+		PreviewSelectorLabel = "Cascade";
+		break;
+	case ELightType::LightType_Point:
+		SliceCount = 6;
+		PreviewSelectorLabel = "Face";
+		break;
+	default:
+		ImGui::TextWrapped("This preview currently supports Directional Light cascades and Point Light cubemap faces.");
+		ImGui::Spacing();
+		return;
+	}
+
+	if (SliceCount == 0)
+	{
+		ImGui::TextWrapped("No previewable shadow slices were generated for this light.");
+		ImGui::Spacing();
+		return;
+	}
+
+	LightPreviewSliceIndex = std::min(LightPreviewSliceIndex, SliceCount - 1);
+
+	FString CurrentPreviewLabel;
+	if (SelectedShadowMap->LightType == ELightType::LightType_Directional)
+	{
+		CurrentPreviewLabel = "Cascade " + std::to_string(LightPreviewSliceIndex);
+	}
+	else
+	{
+		CurrentPreviewLabel = PointFaceLabels[LightPreviewSliceIndex];
+	}
+
+	if (ImGui::BeginCombo(PreviewSelectorLabel.c_str(), CurrentPreviewLabel.c_str()))
+	{
+		for (uint32 SliceIndex = 0; SliceIndex < SliceCount; ++SliceIndex)
+		{
+			FString OptionLabel = (SelectedShadowMap->LightType == ELightType::LightType_Directional)
+				? ("Cascade " + std::to_string(SliceIndex))
+				: PointFaceLabels[SliceIndex];
+			const bool bSelected = (SliceIndex == LightPreviewSliceIndex);
+			if (ImGui::Selectable(OptionLabel.c_str(), bSelected))
+			{
+				LightPreviewSliceIndex = SliceIndex;
+			}
+			if (bSelected)
+			{
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	ID3D11Device* Device = EditorEngine->GetRenderer().GetFD3DDevice().GetDevice();
+	ID3D11DeviceContext* DeviceContext = EditorEngine->GetRenderer().GetFD3DDevice().GetDeviceContext();
+	if (!EnsureLightPreviewTexture(Device, SelectedShadowMap->Resource->Resolution) || DeviceContext == nullptr)
+	{
+		ImGui::TextWrapped("Failed to build preview texture for the selected shadow slice.");
+		ImGui::Spacing();
+		return;
+	}
+
+	const UINT SourceArraySlice =
+		(SelectedShadowMap->LightType == ELightType::LightType_Point || SelectedShadowMap->LightType == ELightType::LightType_Directional)
+			? LightPreviewSliceIndex
+			: 0;
+	const UINT SourceSubresource = D3D11CalcSubresource(0, SourceArraySlice, 1);
+	DeviceContext->CopySubresourceRegion(
+		LightPreviewTexture.Get(),
+		0,
+		0,
+		0,
+		0,
+		SelectedShadowMap->Resource->BackingResource.Texture.Get(),
+		SourceSubresource,
+		nullptr);
+
+	ImTextureID TexID = reinterpret_cast<ImTextureID>(LightPreviewSRV.Get());
 
 	float PanelWidth = ImGui::GetContentRegionAvail().x;
 	ImGui::Image(TexID, ImVec2(PanelWidth, PanelWidth));
@@ -741,6 +913,7 @@ void FEditorPropertyWidget::AttachAndSelectNewComponent(AActor* PrimaryActor, UA
 
 	SelectedComponent = NewComp;
 	bActorSelected = false;
+	ResetLightPreviewState();
 }
 
 // 액터나 컴포넌트의 이름을 입력 창을 통해 실시간으로 수정할 수 있게 합니다.

@@ -280,6 +280,7 @@ void FRenderCollector::CollectLight(UWorld* World, const FShowFlags& ShowFlags, 
 
 		FRenderLight RenderLight = {};
 		RenderLight.Type = static_cast<uint32>(LightComponent->GetLightType());
+		RenderLight.SourceLightSlotIndex = LightComponent->GetLightHandle().Index;
 		RenderLight.Color = MakeLightColorVector(LightComponent);
 		RenderLight.Intensity = LightComponent->GetIntensity();
 		RenderLight.bCastShadows = LightComponent->IsCastShadows();

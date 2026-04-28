@@ -24,7 +24,15 @@
 static const float kFloatMax = 3.402823466e+38f;
 static const float kEpsilon = 1.0e-5f;
 
-struct FPointLightInfo { float3 Position; float Radius; float3 Color; float Intensity; };
+struct FPointLightInfo
+{
+    float3 Position;
+    float Radius;
+    float3 Color;
+    float Intensity;
+    int ShadowIndex;
+    float3 PointLightInfoPadding;
+};
 struct FSpotLightInfo { float3 Position; float Radius; float3 Color; float Intensity; float3 Direction; float InnerConeCos; float OuterConeCos; float3 Padding; };
 struct FTileFrustum { float3 LeftNormal; float3 RightNormal; float3 TopNormal; float3 BottomNormal; };
 struct FSpotConeBounds { float3 ApexVS; float Height; float3 AxisVS; float BaseRadius; float3 BaseCenterVS; float BroadPhaseRadius; float3 BroadPhaseCenterVS; float Padding; };

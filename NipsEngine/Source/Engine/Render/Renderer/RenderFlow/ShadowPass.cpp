@@ -460,6 +460,7 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 		return false;
 	OutShadowMap.MapType = Desc.MapType;
 	OutShadowMap.LightId = Req.LightId;
+	OutShadowMap.SourceLightSlotIndex = Context->RenderBus->GetLights()[Req.LightId].SourceLightSlotIndex;
 	OutShadowMap.LightType = Req.Type;
 
 	return true;

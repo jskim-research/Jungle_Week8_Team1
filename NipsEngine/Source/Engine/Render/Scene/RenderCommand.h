@@ -207,6 +207,7 @@ static_assert(sizeof(FGPULight) == 64, "FGPULight layout must match the HLSL str
 
 struct FRenderLight : public FGPULight
 {
+	uint32 SourceLightSlotIndex = 0xFFFFFFFF;
 	bool bCastShadows = true;
 	float ShadowResolutionScale = 1.0f;
 	float ShadowBias = 0.5f;

@@ -2,10 +2,14 @@
 #pragma once
 #include "Editor/UI/EditorWidget.h"
 #include "Object/Object.h"
+#include "Render/Common/ComPtr.h"
 
 class FSelectionManager;
 class UActorComponent;
 class AActor;
+struct ID3D11Device;
+struct ID3D11ShaderResourceView;
+struct ID3D11Texture2D;
 
 class FEditorPropertyWidget : public FEditorWidget
 {
@@ -19,6 +23,9 @@ public:
 	void ResetSelection();
 
 private:
+	bool EnsureLightPreviewTexture(ID3D11Device* Device, uint32 Resolution);
+	void ResetLightPreviewState();
+
 	// 선택 상태 관리
 	void UpdateSelectionState(AActor* PrimaryActor);
 
@@ -51,6 +58,11 @@ private:
 	// 멤버 변수
 	FSelectionManager* SelectionManager  = nullptr;
 	UActorComponent* SelectedComponent = nullptr;
+	UActorComponent* LightPreviewOwnerComponent = nullptr;
 	AActor* LastSelectedActor = nullptr;
 	bool bActorSelected   = true; // true: Actor details, false: Component details
+	uint32 LightPreviewSliceIndex = 0;
+	uint32 LightPreviewResolution = 0;
+	TComPtr<ID3D11Texture2D> LightPreviewTexture;
+	TComPtr<ID3D11ShaderResourceView> LightPreviewSRV;
 };
