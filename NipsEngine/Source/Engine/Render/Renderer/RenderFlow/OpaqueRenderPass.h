@@ -18,12 +18,15 @@ public:
 		float ShadowFar = 0.0f;
 
 		float ShadowBias = 0.005f;
+        float ShadowSlopeBias = 0.f;
+        FVector2 Pad0;
+
 		uint32 ShadowMapType = 0; // 0: none, 1: Depth2D, 2: DepthCube
 		uint32 SliceCount = 0;
-        float Pad0;
+        FVector2 Pad1;
 
         float CascadeSplits[3];
-		float Padding0;
+		float Pad2;
 	};
 
 	struct FShadowArrayCB

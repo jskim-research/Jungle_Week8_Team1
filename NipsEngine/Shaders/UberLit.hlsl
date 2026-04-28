@@ -55,9 +55,12 @@ struct FShadowData
     float ShadowFar;
     
     float ShadowBias;
+    float ShadowSlopeBias;
+    float2 Pad;
+    
     uint ShadowMapType;
     uint SliceCount;
-    float Pad;
+    float2 Pad2;
     
     float4 CascadeSplits;
 };
@@ -117,16 +120,20 @@ struct FLightingResult
 };
 
 // [복구] 다중 섀도우 판별 함수
-float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
+float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex)
 {
     if (ShadowIndex < 0)
         return 1.0f;
 
     FShadowData SData = ShadowDataArray[ShadowIndex];
+    
+    float CosTheta = saturate(dot(N, L));
+    float Slope = sqrt(1 - CosTheta * CosTheta) / max(CosTheta, 1e-4);
+    float FinalBias = SData.ShadowBias + Slope * SData.ShadowSlopeBias;
         
     if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTH2D)
     {
-        float ViewDepth = length(WorldPos - CameraPosition);
+        float ViewDepth = mul(float4(WorldPos, 1), View).x;
         int SliceIndex = 0;
 
         if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.x)
@@ -161,7 +168,7 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
             {
                 float2 Offset = float2(X, Y) * TexelSize;
                 float SampleDepth = ShadowMap2D.Sample(ShadowSampler, float3(ShadowUV + Offset, SliceIndex)).r;
-                Shadow += (SampleDepth + SData.ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
+                Shadow += (SampleDepth + FinalBias >= CurrentDepth) ? 1.0f : 0.0f;
             }
         }
 
@@ -219,7 +226,7 @@ float ComputeDistanceAttenuation(float Distance, float Radius)
 // [복구] ShadowIndex 파라미터 추가 및 ShadowMask 계산
 void AccumulateDirectLight(float3 WorldPos, float3 N, float3 V, float3 L, float3 LightContribution, int ShadowIndex, inout FLightingResult Result)
 {
-    float ShadowMask = CalculateShadowFactor(WorldPos, ShadowIndex);
+    float ShadowMask = CalculateShadowFactor(WorldPos, N, L, ShadowIndex);
 #if defined(LIGHTING_MODEL_TOON)
     const float HalfLambert = dot(N, L) * 0.5f + 0.5f;
 

@@ -80,6 +80,6 @@ private:
 
 	float ShadowResolutionScale = 1.0f;
 	float ShadowBias = 0.5f;
-	float ShadowSlopeBias = 0.5f;
+	float ShadowSlopeBias = 0.001f;
 	float ShadowSharpen = 0.0f; 
 };
