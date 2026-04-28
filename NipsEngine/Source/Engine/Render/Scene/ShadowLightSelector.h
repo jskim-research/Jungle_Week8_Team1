@@ -23,7 +23,7 @@ class IShadowLightSelector
 {
 public:
 	virtual TArray<FShadowRequest> 
-	SelectShadowLights(const TArray<FRenderLight>& SceneLights) = 0;
+	SelectShadowLights(const TArray<FRenderLight>& SceneLights, const FVector& CameraPosition) = 0;
 };
 
 class FShadowLightSelector : public IShadowLightSelector
@@ -33,5 +33,5 @@ public:
 		아직은 세부 로직이 없어서 SceneLights 만 파라미터로 넣어둠
 	*/
 	TArray<FShadowRequest>
-	SelectShadowLights(const TArray<FRenderLight>& SceneLights) override;
+	SelectShadowLights(const TArray<FRenderLight>& SceneLights, const FVector& CameraPosition) override;
 };

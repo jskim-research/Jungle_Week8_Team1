@@ -20,20 +20,29 @@ enum class EShadowSliceType
 };
 
 // 그림자를 “어떤 방식(알고리즘/샘플링 구조)”으로 계산할지 정의
+// 주의: 값은 HLSL shadow map type 상수(UberLit.hlsl)와 반드시 일치해야 함.
 enum class EShadowMapType
 {
-	Depth2D, // 일반 2D depth shadow map.
+	None = 0,
+
+	Depth2D = 1, // 일반 2D depth shadow map.
 			 // Spot light, Directional light (CSM 각 slice), planar shadow 등에서 사용.
 			 // 가장 기본적인 shadow sampling (depth 비교 기반).
 
-	DepthCube, // Point light용 cube shadow map.
+	DepthCube = 2, // Point light용 cube shadow map.
 			   // 6개 face (±X, ±Y, ±Z)로 구성되며 방향 벡터 기반으로 샘플링.
 			   // omnidirectional shadow에 사용.
 
-	VSM2D // Variance Shadow Map (2nd moment 포함).
+	VSM2D = 3 // Variance Shadow Map (2nd moment 포함).
 		  // depth + depth^2를 저장하여 soft shadow/PCF 근사 가능.
 		  // light bleeding 발생 가능성이 있음.
 };
+
+static_assert(
+	static_cast<uint32>(EShadowMapType::None) == 0 &&
+	static_cast<uint32>(EShadowMapType::Depth2D) == 1 &&
+	static_cast<uint32>(EShadowMapType::DepthCube) == 2,
+	"EShadowMapType values must match the shadow map constants in UberLit.hlsl.");
 
 // 그림자를 “GPU 리소스에 어떻게 배치/공유할지” 정의
 enum class EShadowAllocationMode
@@ -90,11 +99,11 @@ struct FShadowMap
 	TArray<FShadowViewInfo> Views;
 
 	// 소유권은 Renderer Resource Pool 이 가짐
-	FShadowResource* Resource;
+	FShadowResource* Resource = nullptr;
 
 	TArray<FShadowSlice> Slices;
 
-	EShadowMapType MapType; // Shader Sampling 방식
+	EShadowMapType MapType = EShadowMapType::None; // Shader Sampling 방식
 	uint32 LightId = 0;
 	ELightType LightType = ELightType::Max;
 };

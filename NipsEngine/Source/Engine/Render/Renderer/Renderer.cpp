@@ -207,7 +207,7 @@ void FRenderer::InvalidateSceneFinalTargets()
 
 void FRenderer::UpdateSceneLightBuffer(const FRenderBus& InRenderBus)
 {
-	TArray<FRenderLight> GlobalLights;
+	TArray<FGPULight> GlobalLights;
 	const TArray<FRenderLight>& SceneLights = InRenderBus.GetLights();
 	const TArray<int32>& LightToShadowIndices = FShadowPass::GetLightToShadowIndices();
 	GlobalLights.reserve(SceneLights.size());
@@ -225,7 +225,7 @@ void FRenderer::UpdateSceneLightBuffer(const FRenderBus& InRenderBus)
 			Light.Type != (uint32)ELightType::LightType_Directional)
 			continue;
 
-		FRenderLight GlobalLight = {};
+		FGPULight GlobalLight = {};
 		GlobalLight.Position = Light.Position;
 		GlobalLight.Radius = Light.Radius;
 		GlobalLight.Color = Light.Color;

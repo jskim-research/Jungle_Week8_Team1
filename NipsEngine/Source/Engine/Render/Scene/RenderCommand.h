@@ -7,6 +7,7 @@
 */
 
 #include "Core/ResourceTypes.h"
+#include "Engine/Geometry/AABB.h"
 #include "Math/Matrix.h"
 #include "Math/Vector.h"
 #include "Math/Vector2.h"
@@ -202,13 +203,20 @@ struct alignas(16) FGPULight
     int ShadowIndex = -1;
 };
 
-using FRenderLight = FGPULight;
-
 static_assert(sizeof(FGPULight) == 64, "FGPULight layout must match the HLSL structured buffer layout.");
+
+struct FRenderLight : public FGPULight
+{
+	bool bCastShadows = true;
+	float ShadowResolutionScale = 1.0f;
+	float ShadowBias = 0.5f;
+	float ShadowSlopeBias = 0.5f;
+};
 
 struct FRenderCommand
 {
 	FPerObjectConstants PerObjectConstants = {};
+	FAABB WorldBounds = {};
 
 	//	VB, IB 모두 담고 있는 MB
 	FMeshBuffer* MeshBuffer = nullptr;

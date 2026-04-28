@@ -1,9 +1,8 @@
-﻿#pragma once
+#pragma once
 #include "Core/CoreTypes.h"
 struct ID3D11Device;
 #include "ShadowResource.h"
 #include "Render/Common/ShadowTypes.h"
-#include "Render/Renderer/RenderTarget/DepthStencilResource.h"
 
 struct FShadowRequestDesc
 {
@@ -36,9 +35,4 @@ public:
 	FShadowResource* Acquire(ID3D11Device* Device, const FShadowRequestDesc& Desc) override;
 	void Release(FShadowResource* Resource) override;
 	void BeginFrame() override;
-
-private:
-	// 자원 해제 안되도록 테스트용도
-	FDepthStencilResource DSR;
 };
-

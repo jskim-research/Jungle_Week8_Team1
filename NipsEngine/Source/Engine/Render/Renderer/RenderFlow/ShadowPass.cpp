@@ -15,6 +15,12 @@ TArray<int32> GLightToShadowIndices;
 // 2. OpaquePass에 넘겨줄 상수 버퍼 데이터
 FOpaqueRenderPass::FShadowArrayCB GShadowCBData;
 
+float ComputeShadowCompareBias(const FRenderLight& Light)
+{
+	const float UserBias = std::clamp(Light.ShadowBias, 0.0f, 1.0f);
+	return 0.005f * std::max(UserBias * 2.0f, 0.1f);
+}
+
 } // namespace
 
 bool FShadowPass::Initialize()
@@ -70,7 +76,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
     /***************/
     /*  Selection  */
     /***************/
-    std::vector<FShadowRequest> ShadowRequests = ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights());
+    std::vector<FShadowRequest> ShadowRequests =
+        ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights(), Context->RenderBus->GetCameraPosition());
 
     if (ShadowRequests.empty())
     {
@@ -130,6 +137,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
     for (int i = 0; i < ShadowRequests.size(); ++i)
     {
         const FShadowRequest& ShadowRequest = ShadowRequests[i];
+        const FRenderLight& ShadowLight = Context->RenderBus->GetLights()[ShadowRequest.LightId];
 
         if (ShadowIndexCounter >= MAX_SHADOW_LIGHTS)
             break;
@@ -195,7 +203,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection = CurrentAtlasMap.Views[CurrentViewIndex].LightProjection;
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = AllocResult.UVOffset;
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = AllocResult.UVScale;
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = 0.005f;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(CurrentAtlasMap.MapType);
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceIndex = 0;
 
@@ -214,11 +222,10 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection = ShadowMap.Views[0].LightProjection;
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = FVector2(0, 0);
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = FVector2(1, 1);
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightPosition =
-                    Context->RenderBus->GetLights()[ShadowRequest.LightId].Position;
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightPosition = ShadowLight.Position;
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFar =
-                    std::max(Context->RenderBus->GetLights()[ShadowRequest.LightId].Radius, 0.1f);
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = 0.005f;
+                    std::max(ShadowLight.Radius, 0.1f);
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
                 GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceIndex = 0;
 
@@ -260,7 +267,7 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 	Context->DeviceContext->RSGetViewports(&OldVPCount, OldVP);
 	Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	auto DrawShadowCommands = [&](const FShadowViewInfo& ViewInfo) -> bool
+	auto DrawShadowCommands = [&](const FShadowViewInfo& ViewInfo, const FRenderLight* ShadowLight = nullptr) -> bool
 	{
 		ShaderBinding->SetMatrix4("View", ViewInfo.LightView);
 		ShaderBinding->SetMatrix4("Projection", ViewInfo.LightProjection);
@@ -270,6 +277,16 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 			if (Cmd.Type == ERenderCommandType::PostProcessOutline)
 			{
 				continue;
+			}
+
+			if (ShadowLight != nullptr && Cmd.WorldBounds.IsValid())
+			{
+				const FVector BoundsCenter = Cmd.WorldBounds.GetCenter();
+				const float BoundsRadius = Cmd.WorldBounds.GetExtent().Size();
+				if (FVector::Dist(BoundsCenter, ShadowLight->Position) - BoundsRadius > ShadowLight->Radius)
+				{
+					continue;
+				}
 			}
 
 			if (Cmd.MeshBuffer == nullptr || !Cmd.MeshBuffer->IsValid())
@@ -391,6 +408,13 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 
 		for (uint32 ViewIndex = 0; ViewIndex < DrawSliceCount; ++ViewIndex)
 		{
+			const FRenderLight* DrawShadowLight = nullptr;
+			if (ShadowMap.LightType == ELightType::LightType_Point &&
+				ShadowMap.LightId < static_cast<uint32>(Context->RenderBus->GetLights().size()))
+			{
+				DrawShadowLight = &Context->RenderBus->GetLights()[ShadowMap.LightId];
+			}
+
 			Context->DeviceContext->ClearDepthStencilView(
 				ShadowMap.Resource->DSVs[ViewIndex],
 				D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
@@ -398,7 +422,7 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 				0);
 			Context->DeviceContext->OMSetRenderTargets(0, nullptr, ShadowMap.Resource->DSVs[ViewIndex]);
 
-			if (!DrawShadowCommands(ShadowMap.Views[ViewIndex]))
+			if (!DrawShadowCommands(ShadowMap.Views[ViewIndex], DrawShadowLight))
 			{
 				Context->DeviceContext->RSSetViewports(OldVPCount, OldVP);
 				return false;
@@ -571,6 +595,8 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 
 	case ELightType::LightType_Point:
 	{
+		// Engine basis: +X forward, +Y right, +Z up.
+		// Cube face up vectors must follow that basis or TextureCube sampling becomes mirrored.
 		static const FVector CubeDirs[6] = {
 			FVector::ForwardVector,
 			-FVector::ForwardVector,
@@ -580,12 +606,12 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowReq
 			-FVector::UpVector
 		};
 		static const FVector CubeUps[6] = {
-			FVector::RightVector,
-			FVector::RightVector,
-			-FVector::UpVector,
 			FVector::UpVector,
-			FVector::RightVector,
-			FVector::RightVector
+			FVector::UpVector,
+			FVector::UpVector,
+			FVector::UpVector,
+			-FVector::ForwardVector,
+			FVector::ForwardVector
 		};
 
 		for (uint32 i = 0; i < 6; i++)

@@ -1,6 +1,7 @@
-﻿#pragma once
+#pragma once
 #include "Core/Containers/Array.h"
 #include "Core/CoreTypes.h"
+#include "Render/Renderer/RenderTarget/DepthStencilResource.h"
 struct ID3D11DepthStencilView;
 struct ID3D11ShaderResourceView;
 
@@ -19,8 +20,8 @@ DSV 6개 face view
 */
 struct FShadowResource
 {
-	ID3D11ShaderResourceView* SRV;
+	FDepthStencilResource BackingResource;
+	ID3D11ShaderResourceView* SRV = nullptr;
 	TArray<ID3D11DepthStencilView*> DSVs;
-	uint32 Resolution;
+	uint32 Resolution = 0;
 };
-

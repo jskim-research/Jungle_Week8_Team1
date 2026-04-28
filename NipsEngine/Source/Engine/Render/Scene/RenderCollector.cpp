@@ -282,6 +282,10 @@ void FRenderCollector::CollectLight(UWorld* World, const FShowFlags& ShowFlags, 
 		RenderLight.Type = static_cast<uint32>(LightComponent->GetLightType());
 		RenderLight.Color = MakeLightColorVector(LightComponent);
 		RenderLight.Intensity = LightComponent->GetIntensity();
+		RenderLight.bCastShadows = LightComponent->IsCastShadows();
+		RenderLight.ShadowResolutionScale = LightComponent->GetShadowResolutionScale();
+		RenderLight.ShadowBias = LightComponent->GetShadowBias();
+		RenderLight.ShadowSlopeBias = LightComponent->GetShadowSlopeBias();
 
 		switch (LightComponent->GetLightType())
 		{
@@ -679,6 +683,7 @@ void FRenderCollector::CollectFromComponent(UPrimitiveComponent* Primitive, cons
 
 			FRenderCommand Cmd = {};
 			Cmd.PerObjectConstants = FPerObjectConstants{ Primitive->GetWorldMatrix(), FColor::White().ToVector4() };
+			Cmd.WorldBounds = Bounds;
 			Cmd.Type = ERenderCommandType::StaticMesh;
 			Cmd.MeshBuffer = MeshBuffer;
 
