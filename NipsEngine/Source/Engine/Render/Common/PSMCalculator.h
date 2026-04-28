@@ -96,7 +96,7 @@ void GeneratePostPerspectiveViewProjection(FVector LightDir,
     float FarPP = 0.0f;
 
     // Camera 공간의 LightDir 구함
-    FVector EyeLightDir = InView.TransformVector4(FVector4(-LightDir, 0.0f)).ToVector3();
+    FVector EyeLightDir = InView.TransformVector4(FVector4(LightDir, 0.0f)).ToVector3();
 
     // Camera 공간의 LightDir을 PP 공간으로 이동시킴
     FVector4 LightPP = InProj.TransformVector4(FVector4(EyeLightDir, 0.0f));
