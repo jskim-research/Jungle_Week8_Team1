@@ -4,7 +4,7 @@
 #include "Editor/UI/EditorConsoleWidget.h"
 #include "Render/Common/PSMCalculator.h"
 #include <algorithm>
-
+#define Sloped_Back 3
 #define ATLAS_SIZE 4096
 namespace
 {
@@ -301,12 +301,12 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
             PSM::GetCameraFitNearZ(Context->RenderBus->GetCommands(ERenderPass::Opaque), Camera); // camera fit
                                                       // virtual Camera
             FMatrix Camview, CamProj;
-            PSM::GenerateVirtualCameraViewProjection(100, Camera, CamProj, Camview);
+            PSM::GenerateVirtualCameraViewProjection(Sloped_Back, Camera, CamProj, Camview);
             // PostPerspective
             FMatrix PPview, PPProj;
             PSM::GeneratePostPerspectiveViewProjection(ShadowLight.Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
             GShadowCBData.ShadowDataArray[ShadowIndexCounter].PSM = Camview * CamProj * PPview * PPProj;
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].isPSM = false;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].isPSM = true;
             ShadowIndexCounter++;
         }
         else
@@ -336,7 +336,23 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = ShadowRequest.Cascades.size();
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 0u;
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
-
+                // PSM 계산하기
+                FCamera Camera = {};
+                Camera.Forward = Context->RenderBus->GetCameraForward();
+                Camera.Up = Context->RenderBus->GetCameraUp();
+                Camera.Right = Context->RenderBus->GetCameraRight();
+                Camera.Position = Context->RenderBus->GetCameraPosition();
+                Camera.CameraState = Context->RenderBus->GetCameraState();
+                // CameraFit이면
+                PSM::GetCameraFitNearZ(Context->RenderBus->GetCommands(ERenderPass::Opaque), Camera); // camera fit
+                                                                                                      // virtual Camera
+                FMatrix Camview, CamProj;
+                PSM::GenerateVirtualCameraViewProjection(Sloped_Back, Camera, CamProj, Camview);
+                // PostPerspective
+                FMatrix PPview, PPProj;
+                PSM::GeneratePostPerspectiveViewProjection(ShadowLight.Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].PSM = Camview * CamProj * PPview * PPProj;
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].isPSM = true;
 				ShadowIndexCounter++;
 			}
 		}
@@ -393,16 +409,17 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
         Camera.Position = Context->RenderBus->GetCameraPosition();
         Camera.CameraState = Context->RenderBus->GetCameraState();
 		//CameraFit이면
-        PSM::GetCameraFitNearZ(Commands, Camera); // camera fit
+        PSM::GetCameraFitNearZ(Context->RenderBus->GetCommands(ERenderPass::Opaque), Camera); // camera fit
+
 		//virtual Camera
         FMatrix Camview, CamProj;
-        PSM::GenerateVirtualCameraViewProjection(100, Camera, CamProj,Camview);
+        PSM::GenerateVirtualCameraViewProjection(Sloped_Back, Camera, CamProj, Camview);
 		//PostPerspective
         FMatrix PPview, PPProj;
         PSM::GeneratePostPerspectiveViewProjection(ShadowLight->Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
 
 		ShaderBinding->SetMatrix4("PSM", Camview * CamProj * PPview * PPProj);
-        ShaderBinding->SetBool("isPSM", 0);
+        ShaderBinding->SetBool("isPSM", 1);
 
 		for (const FRenderCommand& Cmd : Commands)
 		{
@@ -547,7 +564,8 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 		for (uint32 ViewIndex = 0; ViewIndex < DrawSliceCount; ++ViewIndex)
 		{
 			const FRenderLight* DrawShadowLight = nullptr;
-			if (ShadowMap.LightType == ELightType::LightType_Point &&
+			if ( (ShadowMap.LightType == ELightType::LightType_Point || 
+				ShadowMap.LightType == ELightType::LightType_Directional)&&
 				ShadowMap.LightId < static_cast<uint32>(Context->RenderBus->GetLights().size()))
 			{
 				DrawShadowLight = &Context->RenderBus->GetLights()[ShadowMap.LightId];

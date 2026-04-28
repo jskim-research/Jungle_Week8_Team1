@@ -27,12 +27,12 @@ FAABB GenerateShadowCasterAABB(const TArray<FRenderCommand>& Commands)
     return ShadowReceiverAABB;
 }
 
-    // 카메라 뒤로 빼기
+// 카메라 뒤로 빼기
 void GetCameraFitNearZ(const TArray<FRenderCommand>& Commands, FCamera& outCamera)
 {
     FAABB LightWolrdBound = GenerateShadowCasterAABB(Commands);
 
-	
+
     float MinZ = FLT_MAX;
     float MaxZ = -FLT_MAX;
 
@@ -50,7 +50,11 @@ void GetCameraFitNearZ(const TArray<FRenderCommand>& Commands, FCamera& outCamer
     }
 
     if (outCamera.CameraState.NearZ < MinZ)
-        outCamera.CameraState.NearZ = MinZ;
+        outCamera.CameraState.NearZ = std::max(0.1f, MinZ);
+
+    // FarZ도 맞춰줘야 오브젝트가 안 잘림
+    if (outCamera.CameraState.FarZ < MaxZ)
+        outCamera.CameraState.FarZ = MaxZ * 1.1f; // 약간 여유
 }
 
 bool GenerateVirtualCameraViewProjection(float VirtualSliderBack, FCamera inCamera, FMatrix& OutProj, FMatrix& OutView)
@@ -72,9 +76,9 @@ bool GenerateVirtualCameraViewProjection(float VirtualSliderBack, FCamera inCame
     // float Radius = Light.Radius;
     // float FarZ = std::max(Radius, NearZ + 0.1f);
     OutProj = FMatrix::MakePerspectiveFovLH(inCamera.CameraState.FOV, 1.0f,
-                                                          inCamera.CameraState.NearZ + VirtualSliderBack, inCamera.CameraState.FarZ); // Far = 라이트반경)
+                                            inCamera.CameraState.NearZ + VirtualSliderBack, inCamera.CameraState.FarZ); // Far = 라이트반경)
 
-	return true;
+    return true;
 }
 
 
@@ -145,11 +149,11 @@ void GeneratePostPerspectiveViewProjection(FVector LightDir,
         float DistLookAtCubePP = LookAtCubePP.Size();
         LookAtCubePP /= DistLookAtCubePP;
 
-        if (LightIsBehindOfEye)
+         if (LightIsBehindOfEye)
         {
-            FVector ToBSphereDirection = CubeCenterPP - LightPosPP;
-            const float DistToBSphereDirection = ToBSphereDirection.Size();
-            ToBSphereDirection = ToBSphereDirection.GetSafeNormal();
+             FVector ToBSphereDirection = CubeCenterPP - LightPosPP;
+             const float DistToBSphereDirection = ToBSphereDirection.Size();
+             ToBSphereDirection = ToBSphereDirection.GetSafeNormal();
 
             NearPP = DistToBSphereDirection - CubeRadiusPPz;
             FovPP = 2.0f * atanf(CubeRadiusPPz / DistToBSphereDirection);
@@ -160,7 +164,7 @@ void GeneratePostPerspectiveViewProjection(FVector LightDir,
             NearPP = -NearPP;
 
             // PostPerspective 공간에서 사용할 Projection 을 계산
-            OutProjPP = FMatrix::MakePerspectiveFovLH(FovPP, WidthPP / HeightPP, FarPP, NearPP);
+            OutProjPP = FMatrix::MakePerspectiveFovLH(FovPP, WidthPP / HeightPP,NearPP, FarPP);
         }
         else
         {
@@ -172,7 +176,7 @@ void GeneratePostPerspectiveViewProjection(FVector LightDir,
             FarPP = DistLookAtCubePP + CubeRadiusPPz;
 
             // PostPerspective 공간에서 사용할 Projection 을 계산
-            OutProjPP = FMatrix::MakePerspectiveFovLH(FovPP, 1.0f, FarPP, NearPP);
+            OutProjPP = FMatrix::MakePerspectiveFovLH(FovPP, 1.0f, NearPP, FarPP);
         }
 
         FVector UpVector = FVector::UpVector;
@@ -189,6 +193,5 @@ void GeneratePostPerspectiveViewProjection(FVector LightDir,
         //    OutPPCamera->UpdateCamera();
         //}
     }
-
 }
 } // namespace PSM
