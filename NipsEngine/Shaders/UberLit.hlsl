@@ -55,6 +55,7 @@ struct FShadowData
 cbuffer ShadowLightViewInfo : register(b7)
 {
     FShadowData ShadowDataArray[32]; // 최대 32개의 그림자 정보 전달
+
 }
 
 struct FPointLightData
@@ -105,27 +106,45 @@ struct FLightingResult
 // [복구] 다중 섀도우 판별 함수
 float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
 {
-
     if (ShadowIndex < 0)
-        return 1.0f; // 그림자 없는 빛은 온전히 밝음
+        return 1.0f;
 
     FShadowData SData = ShadowDataArray[ShadowIndex];
 
     float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView), SData.ShadowLightProjection);
     float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
+
     float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
     float CurrentDepth = NDC.z;
 
-    if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 || ShadowUV.y < 0.0 || ShadowUV.y > 1.0 || CurrentDepth < 0.0 || CurrentDepth > 1.0)
-        return 1.0f; // 빛의 범위를 벗어나면 그림자 없음
+    if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 ||
+        ShadowUV.y < 0.0 || ShadowUV.y > 1.0 ||
+        CurrentDepth < 0.0 || CurrentDepth > 1.0)
+        return 1.0f;
 
-    // 분기문 없이 아틀라스 UV 오프셋/스케일 적용
     ShadowUV = (ShadowUV * SData.UVScale) + SData.UVOffset;
+
+    float Bias = 0.001f;
     
-    float Bias = 0.005f;
-    float ShadowLightDepth = ShadowMap.Sample(ShadowSampler, ShadowUV).r;
+    float2 ShadowMapSize = float2(4096, 4096);
+    float2 TexelSize = float2(1.0 / ShadowMapSize.x, 1.0 / ShadowMapSize.y);
+
+    float shadow = 0.0f;
     
-    return (ShadowLightDepth + Bias >= CurrentDepth) ? 1.0f : 0.0f;
+    // 3x3 PCF
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            float2 offset = float2(x, y) * TexelSize;
+
+            float sampleDepth = ShadowMap.Sample(ShadowSampler, ShadowUV + offset).r;
+
+            shadow += (sampleDepth + Bias >= CurrentDepth) ? 1.0f : 0.0f;
+        }
+    }
+
+    return shadow / 9.0f;
 }
 
 float ComputeDistanceAttenuation(float Distance, float Radius)
