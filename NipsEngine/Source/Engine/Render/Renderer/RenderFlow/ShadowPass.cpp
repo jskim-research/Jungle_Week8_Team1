@@ -76,11 +76,11 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
 	bSkip = false;
 
-    /***************/
-    /*  Selection  */
-    /***************/
-    std::vector<FShadowRequest> ShadowRequests =
-        ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights(), Context->RenderBus->GetCameraPosition(), Context->RenderBus->GetCameraState());
+	/***************/
+	/*  Selection  */
+	/***************/
+	std::vector<FShadowRequest> ShadowRequests =
+		ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights(), Context->RenderBus->GetCameraPosition(), Context->RenderBus->GetCameraState());
 
 	if (ShadowRequests.empty())
 	{
@@ -177,8 +177,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		if (ShadowIndexCounter >= MAX_SHADOW_LIGHTS)
 			break;
 
-        if (ShadowRequest.Type == ELightType::LightType_Point)
-        {
+		if (ShadowRequest.Type == ELightType::LightType_Point)
+		{
 			if (SharedPointShadowResource == nullptr)
 			{
 				continue;
@@ -215,23 +215,25 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = PointShadowTextureIndexCounter;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize =
+				2.0f / std::max<float>(static_cast<float>(SharedPointShadowResource->Resolution), 1.0f);
 
 			SharedPointShadowFaceOffset += 6;
 			++PointShadowTextureIndexCounter;
 			++ShadowIndexCounter;
 		}
-        else if (ShadowRequest.Type == ELightType::LightType_Spot)
-        {
-            // 1. 공간 할당 가능?
-            FAtlasAllocationResult AllocResult;
-            if (!AtlasAllocator.Allocate(ShadowRequest.Resolution, AllocResult))
-            {
-                // 공간 부족 시 새 아틀라스 생성 후 재할당
-                FShadowRequestDesc Desc;
-                Desc.AllocationMode = EShadowAllocationMode::AtlasPacked;
-                Desc.MapType = EShadowMapType::Depth2D;
-                Desc.Resolution = ATLAS_SIZE;
-                Desc.CascadeCount = ShadowRequest.Cascades.size();
+		else if (ShadowRequest.Type == ELightType::LightType_Spot)
+		{
+			// 1. 공간 할당 가능?
+			FAtlasAllocationResult AllocResult;
+			if (!AtlasAllocator.Allocate(ShadowRequest.Resolution, AllocResult))
+			{
+				// 공간 부족 시 새 아틀라스 생성 후 재할당
+				FShadowRequestDesc Desc;
+				Desc.AllocationMode = EShadowAllocationMode::AtlasPacked;
+				Desc.MapType = EShadowMapType::Depth2D;
+				Desc.Resolution = ATLAS_SIZE;
+				Desc.CascadeCount = ShadowRequest.Cascades.size();
 
 				FShadowResource* NewAtlasRes = nullptr;
 				if (AcquireResource(Context, Desc, &NewAtlasRes))
@@ -275,15 +277,16 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			// 현재 LightId가 몇 번째 ShadowIndex를 쓰는지 기록
 			GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
 
-            // ★ 2. GPU에 넘길 상수 버퍼 데이터를 여기서 싹 다 채워버림!
-            // [수정됨] Views[0] 대신 방금 추가된 Views[CurrentViewIndex]를 참조합니다!
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView[0] = CurrentAtlasMap.Views[CurrentViewIndex].LightView;
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection[0] = CurrentAtlasMap.Views[CurrentViewIndex].LightProjection;
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = AllocResult.UVOffset;
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = AllocResult.UVScale;
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(CurrentAtlasMap.MapType);
-            GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
+			// ★ 2. GPU에 넘길 상수 버퍼 데이터를 여기서 싹 다 채워버림!
+			// [수정됨] Views[0] 대신 방금 추가된 Views[CurrentViewIndex]를 참조합니다!
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView[0] = CurrentAtlasMap.Views[CurrentViewIndex].LightView;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection[0] = CurrentAtlasMap.Views[CurrentViewIndex].LightProjection;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = AllocResult.UVOffset;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = AllocResult.UVScale;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(CurrentAtlasMap.MapType);
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
 
 			ShadowIndexCounter++;
 		}
@@ -298,20 +301,21 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
 				for (size_t i = 0; i < ShadowRequest.Cascades.size(); i++)
 				{
-                    GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView[i] = ShadowMap.Views[i].LightView;
-                    GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection[i] = ShadowMap.Views[i].LightProjection;
-                    GShadowCBData.ShadowDataArray[ShadowIndexCounter].CascadeSplits[i] = ShadowRequest.Cascades[i].Far;
+					GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView[i] = ShadowMap.Views[i].LightView;
+					GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection[i] = ShadowMap.Views[i].LightProjection;
+					GShadowCBData.ShadowDataArray[ShadowIndexCounter].CascadeSplits[i] = ShadowRequest.Cascades[i].Far;
 				}
 
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = FVector2(0, 0);
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = FVector2(1, 1);
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightPosition = ShadowLight.Position;
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFar =
-                    std::max(ShadowLight.Radius, 0.1f);
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = ShadowRequest.Cascades.size();
+				GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = FVector2(0, 0);
+				GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = FVector2(1, 1);
+				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightPosition = ShadowLight.Position;
+				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFar =
+					std::max(ShadowLight.Radius, 0.1f);
+				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
+				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
+				GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = ShadowRequest.Cascades.size();
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 0u;
+				GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
 
 				ShadowIndexCounter++;
 			}
@@ -333,7 +337,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 	OutSRV = GShadowMaps[0].Resource->SRV;
 	OutRTV = nullptr;
 
-    ShaderBinding->ApplyFrameParameters(*Context->RenderBus);
+	ShaderBinding->ApplyFrameParameters(*Context->RenderBus);
 
 	return true;
 }
@@ -555,21 +559,21 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 
 bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowViewInfo>& OutViewInfoArray)
 {
-    switch (Req.Type)
-    {
-    case ELightType::LightType_Directional:
-        for (uint32 i = 0; i < Req.Cascades.size(); ++i)
-        {
-            // gather camera frustum corners in world space
-            const FCameraState& Cam = Context->RenderBus->GetCameraState();
-            const FVector CamPos = Context->RenderBus->GetCameraPosition();
-            const FVector CamForward = Context->RenderBus->GetCameraForward();
-            const FVector CamRight = Context->RenderBus->GetCameraRight();
-            const FVector CamUp = Context->RenderBus->GetCameraUp();
+	switch (Req.Type)
+	{
+	case ELightType::LightType_Directional:
+		for (uint32 i = 0; i < Req.Cascades.size(); ++i)
+		{
+			// gather camera frustum corners in world space
+			const FCameraState& Cam = Context->RenderBus->GetCameraState();
+			const FVector CamPos = Context->RenderBus->GetCameraPosition();
+			const FVector CamForward = Context->RenderBus->GetCameraForward();
+			const FVector CamRight = Context->RenderBus->GetCameraRight();
+			const FVector CamUp = Context->RenderBus->GetCameraUp();
 
-            const float Near = Req.Cascades[i].Near;
-            const float Far = Req.Cascades[i].Far;
-            const float HalfTan = tanf(Cam.FOV * 0.5f);
+			const float Near = Req.Cascades[i].Near;
+			const float Far = Req.Cascades[i].Far;
+			const float HalfTan = tanf(Cam.FOV * 0.5f);
 
 			const float NearH = 2.0f * Near * HalfTan;
 			const float NearW = NearH * Cam.AspectRatio;

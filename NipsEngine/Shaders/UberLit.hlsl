@@ -59,7 +59,8 @@ struct FShadowData
     uint SliceCount;
     uint ShadowTextureIndex;
     
-    float4 CascadeSplits;
+    float3 CascadeSplits;
+    float PointShadowTexelSize;
 };
 
 cbuffer ShadowLightViewInfo : register(b7)
@@ -116,7 +117,31 @@ struct FLightingResult
     float3 Specular;
 };
 
-// [복구] 다중 섀도우 판별 함수
+float SamplePointShadowPCF(float3 SampleDir, float CurrentDepth, FShadowData SData)
+{
+    const float FilterRadius = max(SData.PointShadowTexelSize, 1.0e-4f);
+    const float3 UpRef = (abs(SampleDir.z) < 0.99f) ? float3(0.0f, 0.0f, 1.0f) : float3(1.0f, 0.0f, 0.0f);
+    const float3 Tangent = normalize(cross(UpRef, SampleDir));
+    const float3 Bitangent = cross(SampleDir, Tangent);
+
+    float Shadow = 0.0f;
+
+    [unroll]
+    for (int Y = -1; Y <= 1; ++Y)
+    {
+        [unroll]
+        for (int X = -1; X <= 1; ++X)
+        {
+            const float2 Offset = float2(X, Y) * FilterRadius;
+            const float3 OffsetDir = normalize(SampleDir + Tangent * Offset.x + Bitangent * Offset.y);
+            const float StoredDepth = ShadowMapCube.Sample(ShadowSampler, float4(OffsetDir, SData.ShadowTextureIndex)).r;
+            Shadow += (StoredDepth + SData.ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
+        }
+    }
+
+    return Shadow / 9.0f;
+}
+
 float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
 {
     if (ShadowIndex < 0)
@@ -197,8 +222,7 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
             return 1.0f;
         }
 
-        const float StoredDepth = ShadowMapCube.Sample(ShadowSampler, float4(SampleDir, SData.ShadowTextureIndex)).r;
-        return (StoredDepth + SData.ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
+        return SamplePointShadowPCF(SampleDir, CurrentDepth, SData);
     }
 
     return 1.0f;

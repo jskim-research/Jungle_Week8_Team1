@@ -22,8 +22,8 @@ public:
 		uint32 SliceCount = 0;
         uint32 ShadowTextureIndex = 0;
 
-        float CascadeSplits[3];
-		float Padding0;
+        float CascadeSplits[3] = { 0.0f, 0.0f, 0.0f };
+		float PointShadowTexelSize = 0.0f;
 	};
 
 	struct FShadowArrayCB
