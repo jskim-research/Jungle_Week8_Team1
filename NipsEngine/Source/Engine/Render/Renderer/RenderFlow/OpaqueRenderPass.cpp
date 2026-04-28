@@ -33,6 +33,11 @@ bool FOpaqueRenderPass::Initialize()
 
 bool FOpaqueRenderPass::Begin(const FRenderPassContext* Context)
 {
+	if (!Context || !Context->RenderTargets || !Context->DeviceContext)
+	{
+		return false;
+	}
+
 	const FRenderTargetSet* RenderTargets = Context->RenderTargets;
 	ID3D11RenderTargetView* RTVs[3] = {
 		RenderTargets->SceneColorRTV,
@@ -41,7 +46,9 @@ bool FOpaqueRenderPass::Begin(const FRenderPassContext* Context)
 	};
 	ID3D11DepthStencilView* DSV = RenderTargets->DepthStencilView;
 
+	// Re-bind targets here to ensure we are not affected by previous pass's unbinding
 	Context->DeviceContext->OMSetRenderTargets(ARRAYSIZE(RTVs), RTVs, DSV);
+	
 	OutSRV = RenderTargets->SceneColorSRV;
 	OutRTV = RenderTargets->SceneColorRTV;
 
@@ -58,15 +65,19 @@ bool FOpaqueRenderPass::Begin(const FRenderPassContext* Context)
 bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 {
 	const FRenderBus* RenderBus = Context->RenderBus;
-
 	const TArray<FRenderCommand>& Commands = RenderBus->GetCommands(ERenderPass::Opaque);
 
 	if (Commands.empty())
 		return true;
 
-	UShader* ShaderOverride = ResolveOpaqueShaderOverride(Context);
+    UShader* ShaderOverride = ResolveOpaqueShaderOverride(Context);
+    ID3D11DepthStencilState* ReadOnlyDepthStencilState =
+        FResourceManager::Get().GetOrCreateDepthStencilState(EDepthStencilType::DepthReadOnly);
 
 	SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
+	
+	// Initial state setup before loop
+	Context->DeviceContext->OMSetDepthStencilState(ReadOnlyDepthStencilState, 0);
 
 	for (const FRenderCommand& Cmd : Commands)
 	{
@@ -97,6 +108,10 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 		if (Cmd.Material)
 		{
 			Cmd.Material->Bind(Context->DeviceContext, Context->RenderBus, &Cmd.PerObjectConstants, ShaderOverride, Context);
+			
+			// VERY IMPORTANT: Material::Bind might have its own DS state (e.g. for translucent or special materials).
+			// We MUST force ReadOnly (LESS_EQUAL) for Opaque pass to work with Depth Prepass.
+			Context->DeviceContext->OMSetDepthStencilState(ReadOnlyDepthStencilState, 0);
 		}
 
 		SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);

@@ -513,6 +513,7 @@ void FShaderBindingInstance::ApplyFrameParameters(const FRenderBus& RenderBus, I
 	SetMatrix4("View", RenderBus.GetView());
 	SetMatrix4("Projection", RenderBus.GetProj());
 	SetMatrix4("InverseViewProjection", ViewProjection.GetInverse());
+	SetMatrix4("InverseProjection", RenderBus.GetProj().GetInverse());
 	SetVector3("CameraPosition", RenderBus.GetCameraPosition());
 	SetFloat("bIsWireframe", RenderBus.GetViewMode() == EViewMode::Wireframe ? 1.0f : 0.0f);
 	SetFloat("bLightingEnabled", RenderBus.GetViewMode() == EViewMode::Lit ? 1.0f : 0.0f);

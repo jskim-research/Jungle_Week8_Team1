@@ -34,12 +34,16 @@ struct FShowFlags
 	bool bGrid = true;
 	bool bAxis = true;
 	bool bGizmo = true;
+	bool bDirectionalLightDebug = false;
+	bool bPointLightDebug = false;
+	bool bSpotLightDebug = false;
 	bool bBillboardText = false;
 	bool bBoundingVolume = false;
 	bool bBVHBoundingVolume = false;
 	bool bEnableLOD = true;
 	bool bDecals = true;
 	bool bFog = true;
+	bool bShowLightHitmapOverlay = false;
 };
 
 struct FGridRenderSettings

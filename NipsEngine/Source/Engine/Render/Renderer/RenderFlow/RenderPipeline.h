@@ -22,9 +22,11 @@ class FSelectionMaskRenderPass;
 class FGridRenderPass;
 class FEditorRenderPass;
 class FDepthLessRenderPass;
+class FDepthPrepassRenderPass;
 class FPostProcessOutlineRenderPass;
 class FOpaqueRenderPass;
 class FLightCullingPass;
+class FHitMapRenderPass;
 class FBaseRenderPass;
 
 class FRenderPipeline
@@ -38,6 +40,7 @@ public:
 
 private:
 	std::shared_ptr<FLightCullingPass> LightCullingPass;
+	std::shared_ptr<FHitMapRenderPass> HitMapRenderPass;
 	std::shared_ptr<FSkyRenderPass> SkyRenderPass;
 	std::shared_ptr<FOpaqueRenderPass> OpaqueRenderPass;
 	std::shared_ptr<FDecalRenderPass> DecalRenderPass;
@@ -52,6 +55,7 @@ private:
 	std::shared_ptr<FGridRenderPass> GridRenderPass;
 	std::shared_ptr<FEditorRenderPass> EditorRenderPass;
 	std::shared_ptr<FDepthLessRenderPass> DepthLessRenderPass;
+	std::shared_ptr<FDepthPrepassRenderPass> DepthPrepassRenderPass;
 	std::shared_ptr<FPostProcessOutlineRenderPass> PostProcessOutlineRenderPass;
 	std::shared_ptr<FToonOutlineRenderPass> ToonOutlineRenderPass;
 	std::shared_ptr<FShadowPass> ShadowPass;
