@@ -152,7 +152,7 @@ TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRe
                 Req.Cascades.push_back(CascadeInfo);
 
                 CascadeInfo.Near = 200;
-                CascadeInfo.Far = 1000;
+                CascadeInfo.Far = 400;
                 Req.Cascades.push_back(CascadeInfo);
 			}
 			else

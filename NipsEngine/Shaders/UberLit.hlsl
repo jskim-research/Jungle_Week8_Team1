@@ -123,19 +123,18 @@ float CalculateShadowFactor(float3 WorldPos, int ShadowIndex)
         return 1.0f;
 
     FShadowData SData = ShadowDataArray[ShadowIndex];
-    
-    float ViewDepth = length(WorldPos - CameraPosition);
-
-    int SliceIndex = 0;
-
-    if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.x)
-        SliceIndex = 1;
-
-    if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.y)
-        SliceIndex = 2;    
-    
+        
     if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTH2D)
     {
+        float ViewDepth = length(WorldPos - CameraPosition);
+        int SliceIndex = 0;
+
+        if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.x)
+            SliceIndex = 1;
+
+        if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.y)
+            SliceIndex = 2;
+
         float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView[SliceIndex]), SData.ShadowLightProjection[SliceIndex]);
         float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
         float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;

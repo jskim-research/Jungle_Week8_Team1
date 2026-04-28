@@ -27,6 +27,8 @@ FShadowResource* FShadowResourcePool::Acquire(ID3D11Device* Device, const FShado
 			// Texture Array 만 현재 고려중
             assert(false && "현재는 지원하지 않는 모드");
 		}
+
+
 	}
 
 	ShadowResource->SRV = ShadowResource->BackingResource.SRV.Get();
