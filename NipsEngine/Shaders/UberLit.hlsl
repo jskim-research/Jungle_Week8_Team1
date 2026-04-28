@@ -61,7 +61,10 @@ struct FShadowData
     uint ShadowMapType;
     uint SliceCount;
     uint ShadowTextureIndex;
-    float Pad2;
+    float1 Pad2;
+    
+    bool isPSM;
+    row_major float4x4 PSM;
     
     float3 CascadeSplits;
     float PointShadowTexelSize;

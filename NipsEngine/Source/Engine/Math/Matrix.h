@@ -515,6 +515,19 @@ struct FMatrix
 		return FVector4(DirectX::XMVectorGetX(T), DirectX::XMVectorGetY(T), DirectX::XMVectorGetZ(T), DirectX::XMVectorGetW(T));
 	}
 
+	// 현재 행렬을 사용하여 4차원 벡터를 변환함
+    FVector4 TransformVector4(const FVector4& V) const noexcept
+    {
+        // ToXMMatrix()를 호출하여 자기 자신(this)의 행렬을 사용
+        XMVector T = DirectX::XMVector4Transform(V.ToXMVector(), ToXMMatrix());
+
+        return FVector4(
+            DirectX::XMVectorGetX(T),
+            DirectX::XMVectorGetY(T),
+            DirectX::XMVectorGetZ(T),
+            DirectX::XMVectorGetW(T));
+    }
+
 	// 현재 행렬의 이동(Translation) 성분을 반환함
 	FVector GetOrigin() const noexcept { return FVector(M[3][0], M[3][1], M[3][2]); }
 

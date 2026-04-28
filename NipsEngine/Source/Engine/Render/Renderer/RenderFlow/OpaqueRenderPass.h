@@ -24,7 +24,10 @@ public:
 		uint32 ShadowMapType = 0; // 0: none, 1: Depth2D, 2: DepthCube
 		uint32 SliceCount = 0;
         uint32 ShadowTextureIndex = 0;
-		float Pad1;
+        float Pad2;
+
+        bool isPSM;
+        FMatrix PSM;
 
         float CascadeSplits[3] = { 0.0f, 0.0f, 0.0f };
 		float PointShadowTexelSize = 0.0f;

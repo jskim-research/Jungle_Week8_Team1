@@ -2,6 +2,7 @@
 #include "Render/Scene/ShadowLightSelector.h"
 #include "Core/ResourceManager.h"
 #include "Editor/UI/EditorConsoleWidget.h"
+#include "Render/Common/PSMCalculator.h"
 #include <algorithm>
 
 #define ATLAS_SIZE 4096
@@ -50,7 +51,7 @@ const FOpaqueRenderPass::FShadowArrayCB& FShadowPass::GetShadowCBData()
 
 bool FShadowPass::Begin(const FRenderPassContext* Context)
 {
-	UShader* Shader = FResourceManager::Get().GetShader("Shaders/Primitive.hlsl");
+	UShader* Shader = FResourceManager::Get().GetShader("Shaders/ShadowMap.hlsl");
 	if (!ShaderBinding || ShaderBinding->GetShader() != Shader)
 	{
 		ShaderBinding = Shader->CreateBindingInstance(Context->Device);
@@ -289,14 +290,31 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
 
-			ShadowIndexCounter++;
-		}
-		else
-		{
-			FShadowMap ShadowMap;
-			if (MakeShadowMap(Context, ShadowRequest, ShadowMap))
-			{
-				GShadowMaps.push_back(ShadowMap);
+            // PSM 계산하기
+            FCamera Camera = {};
+            Camera.Forward = Context->RenderBus->GetCameraForward();
+            Camera.Up = Context->RenderBus->GetCameraUp();
+            Camera.Right = Context->RenderBus->GetCameraRight();
+            Camera.Position = Context->RenderBus->GetCameraPosition();
+            Camera.CameraState = Context->RenderBus->GetCameraState();
+            // CameraFit이면
+            PSM::GetCameraFitNearZ(Context->RenderBus->GetCommands(ERenderPass::Opaque), Camera); // camera fit
+                                                      // virtual Camera
+            FMatrix Camview, CamProj;
+            PSM::GenerateVirtualCameraViewProjection(100, Camera, CamProj, Camview);
+            // PostPerspective
+            FMatrix PPview, PPProj;
+            PSM::GeneratePostPerspectiveViewProjection(ShadowLight.Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].PSM = Camview * CamProj * PPview * PPProj;
+            GShadowCBData.ShadowDataArray[ShadowIndexCounter].isPSM = false;
+            ShadowIndexCounter++;
+        }
+        else
+        {
+            FShadowMap ShadowMap;
+            if (MakeShadowMap(Context, ShadowRequest, ShadowMap))
+            {
+                GShadowMaps.push_back(ShadowMap);
 
 				GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
 
@@ -365,6 +383,26 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 	{
 		ShaderBinding->SetMatrix4("View", ViewInfo.LightView);
 		ShaderBinding->SetMatrix4("Projection", ViewInfo.LightProjection);
+
+
+		//PSM 계산하기
+        FCamera Camera = {};
+        Camera.Forward = Context->RenderBus->GetCameraForward();
+        Camera.Up = Context->RenderBus->GetCameraUp();
+        Camera.Right = Context->RenderBus->GetCameraRight();
+        Camera.Position = Context->RenderBus->GetCameraPosition();
+        Camera.CameraState = Context->RenderBus->GetCameraState();
+		//CameraFit이면
+        PSM::GetCameraFitNearZ(Commands, Camera); // camera fit
+		//virtual Camera
+        FMatrix Camview, CamProj;
+        PSM::GenerateVirtualCameraViewProjection(100, Camera, CamProj,Camview);
+		//PostPerspective
+        FMatrix PPview, PPProj;
+        PSM::GeneratePostPerspectiveViewProjection(ShadowLight->Direction.GetSafeNormal(), PPProj, PPview, Camview, CamProj);
+
+		ShaderBinding->SetMatrix4("PSM", Camview * CamProj * PPview * PPProj);
+        ShaderBinding->SetBool("isPSM", 0);
 
 		for (const FRenderCommand& Cmd : Commands)
 		{
@@ -473,7 +511,13 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 				ShadowViewport.MaxDepth = 1.0f;
 				Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
 
-				if (!DrawShadowCommands(ShadowMap.Views[SliceIndex]))
+				const FRenderLight* DrawShadowLight = nullptr;
+                if ( ShadowMap.LightId < static_cast<uint32>(Context->RenderBus->GetLights().size()))
+                {
+                    DrawShadowLight = &Context->RenderBus->GetLights()[ShadowMap.LightId];
+                }
+
+				if (!DrawShadowCommands(ShadowMap.Views[SliceIndex], DrawShadowLight))
 				{
 					Context->DeviceContext->RSSetViewports(OldVPCount, OldVP);
 					return false;

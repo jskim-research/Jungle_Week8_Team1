@@ -76,10 +76,33 @@ struct FShadowSlice
 	FVector2 UVScale;
 };
 
+/*추후에 unio으로 묶어도 됨
+union
+{
+    // 1번 그룹: 일반 섀도우 (Uniform / CSM 등) 용도
+    struct
+    {
+        FMatrix LightView;
+        FMatrix LightProjection;
+    };
+
+    // 2번 그룹: PSM 전용 용도
+    struct
+    {
+        FMatrix PostPerspectiveViewProjection;
+        FMatrix VirtualCameraViewProjection;
+    };
+}; 
+*/
 struct FShadowViewInfo
 {
 	FMatrix LightView;
 	FMatrix LightProjection;
+
+	//PSM용 데이터
+	FMatrix PostPerspectiveViewProjection;
+    FMatrix VirtualCameraViewProjection;
+
 	// viewspace z (linearlized)
 	/*
 	if (depth < split[0]) use cascade 0;
