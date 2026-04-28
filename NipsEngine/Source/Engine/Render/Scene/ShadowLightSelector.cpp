@@ -23,7 +23,7 @@ TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRe
         FShadowRequest Req;
         Req.LightId = i;
         Req.Type = (ELightType)SceneLights[i].Type;
-        Req.Resolution = i==0? 1024 : 512;
+        Req.Resolution = 1024;
         Req.ProjectionMode = EShadowProjectionMode::Default;
         Req.CascadeCount = 1;
         Req.bUseVSM = false;
