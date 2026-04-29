@@ -26,7 +26,9 @@ public:
 	void SetViewProjection(const FMatrix& InView, const FMatrix& InProj);
 	void SetRenderSettings(const EViewMode NewViewMode, const FShowFlags NewShowFlags);
 	void SetCameraState(const FCameraState& InCameraState) { CameraState = InCameraState; }
+    void SetIsCameraOverridenByLight(bool bOverride) { bIsCameraOverrideByLight = bOverride; }
 
+	bool GetIsCameraOverridenByLight() const { return bIsCameraOverrideByLight; }
 	const FMatrix& GetView() const { return View; }
 	const FMatrix& GetProj() const { return Proj; }
 	const FCameraState& GetCameraState() const { return CameraState; }
@@ -66,4 +68,5 @@ private:
 	bool bFXAAEnabled = true;
 
 	FCameraState CameraState;
+    bool bIsCameraOverrideByLight = false;
 };

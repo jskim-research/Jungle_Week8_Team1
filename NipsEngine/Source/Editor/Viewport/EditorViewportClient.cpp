@@ -125,13 +125,14 @@ void FEditorViewportClient::BuildSceneView(FSceneView& OutView) const
     if (!Camera.IsOrthographic() && LightHandle && LightHandle->IsValid() && World->GetWorldLightSlots()[LightHandle->Index].bAlive)
 	{
         ULightComponentBase* Light = World->GetWorldLightSlots()[LightHandle->Index].LightData;
-        if (Light)
-	        Light->BuildShadowView(0, OutView.ViewMatrix, OutView.ProjectionMatrix);
+        Light->BuildShadowView(0, OutView.ViewMatrix, OutView.ProjectionMatrix);
+        OutView.bIsCameraOverridenByLight = true;
 	}
 	else
     {
         OutView.ViewMatrix = Camera.GetViewMatrix();
         OutView.ProjectionMatrix = Camera.GetProjectionMatrix();
+        OutView.bIsCameraOverridenByLight = false;
 	}
 	OutView.ViewProjectionMatrix = OutView.ViewMatrix * OutView.ProjectionMatrix;
 
