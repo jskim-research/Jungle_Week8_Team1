@@ -778,8 +778,31 @@ void FEditorPropertyWidget::RenderLightPreview()
 		return;
 
 	const FShadowMap* SelectedShadowMap = nullptr;
+	uint32 SelectedShadowSliceIndex = 0;
+	bool bHasSelectedShadowSlice = false;
 	for (const FShadowMap& ShadowMap : FShadowPass::GetShadowMaps())
 	{
+		if (ShadowMap.LightType == ELightType::LightType_Spot)
+		{
+			for (uint32 SliceIndex = 0; SliceIndex < static_cast<uint32>(ShadowMap.Slices.size()); ++SliceIndex)
+			{
+				if (ShadowMap.Slices[SliceIndex].SourceLightSlotIndex == LightHandle.Index)
+				{
+					SelectedShadowMap = &ShadowMap;
+					SelectedShadowSliceIndex = SliceIndex;
+					bHasSelectedShadowSlice = true;
+					break;
+				}
+			}
+
+			if (SelectedShadowMap != nullptr)
+			{
+				break;
+			}
+
+			continue;
+		}
+
 		if (ShadowMap.SourceLightSlotIndex == LightHandle.Index)
 		{
 			SelectedShadowMap = &ShadowMap;
@@ -793,7 +816,7 @@ void FEditorPropertyWidget::RenderLightPreview()
 
 	if (SelectedShadowMap == nullptr || SelectedShadowMap->Resource == nullptr || !SelectedShadowMap->Resource->BackingResource.Texture)
 	{
-		ImGui::TextWrapped("Selected light does not have an active dedicated shadow map preview.");
+		ImGui::TextWrapped("Selected light does not have an active shadow map preview.");
 		ImGui::Spacing();
 		return;
 	}
@@ -810,8 +833,12 @@ void FEditorPropertyWidget::RenderLightPreview()
 		SliceCount = 6;
 		PreviewSelectorLabel = "Face";
 		break;
+	case ELightType::LightType_Spot:
+		SliceCount = 1;
+		PreviewSelectorLabel = "Atlas Slot";
+		break;
 	default:
-		ImGui::TextWrapped("This preview currently supports Directional Light cascades and Point Light cubemap faces.");
+		ImGui::TextWrapped("This preview currently supports Directional Light cascades, Point Light cubemap faces, and Spot Light atlas slots.");
 		ImGui::Spacing();
 		return;
 	}
@@ -830,12 +857,16 @@ void FEditorPropertyWidget::RenderLightPreview()
 	{
 		CurrentPreviewLabel = "Cascade " + std::to_string(LightPreviewSliceIndex);
 	}
-	else
+	else if (SelectedShadowMap->LightType == ELightType::LightType_Point)
 	{
 		CurrentPreviewLabel = PointFaceLabels[LightPreviewSliceIndex];
 	}
+	else
+	{
+		CurrentPreviewLabel = "Atlas Slice";
+	}
 
-	if (ImGui::BeginCombo(PreviewSelectorLabel.c_str(), CurrentPreviewLabel.c_str()))
+	if (SliceCount > 1 && ImGui::BeginCombo(PreviewSelectorLabel.c_str(), CurrentPreviewLabel.c_str()))
 	{
 		for (uint32 SliceIndex = 0; SliceIndex < SliceCount; ++SliceIndex)
 		{
@@ -854,20 +885,57 @@ void FEditorPropertyWidget::RenderLightPreview()
 		}
 		ImGui::EndCombo();
 	}
+	else if (SliceCount == 1)
+	{
+		ImGui::Text("%s: %s", PreviewSelectorLabel.c_str(), CurrentPreviewLabel.c_str());
+	}
 
 	ID3D11Device* Device = EditorEngine->GetRenderer().GetFD3DDevice().GetDevice();
 	ID3D11DeviceContext* DeviceContext = EditorEngine->GetRenderer().GetFD3DDevice().GetDeviceContext();
-	if (!EnsureLightPreviewTexture(Device, SelectedShadowMap->Resource->Resolution) || DeviceContext == nullptr)
+
+	UINT SourceArraySlice = 0;
+	uint32 PreviewResolution = SelectedShadowMap->Resource->Resolution;
+	ImVec2 PreviewUV0(0.0f, 0.0f);
+	ImVec2 PreviewUV1(1.0f, 1.0f);
+
+	if (SelectedShadowMap->LightType == ELightType::LightType_Point ||
+		SelectedShadowMap->LightType == ELightType::LightType_Directional)
+	{
+		SourceArraySlice = SelectedShadowMap->ResourceSliceOffset + LightPreviewSliceIndex;
+	}
+	else if (SelectedShadowMap->LightType == ELightType::LightType_Spot)
+	{
+		if (!bHasSelectedShadowSlice || SelectedShadowSliceIndex >= static_cast<uint32>(SelectedShadowMap->Slices.size()))
+		{
+			ImGui::TextWrapped("Selected spot light does not have a valid shadow atlas slice.");
+			ImGui::Spacing();
+			return;
+		}
+
+		const FShadowSlice& AtlasSlice = SelectedShadowMap->Slices[SelectedShadowSliceIndex];
+		const uint32 AtlasResolution = SelectedShadowMap->Resource->Resolution;
+		if (AtlasResolution == 0)
+		{
+			ImGui::TextWrapped("Selected spot light uses an invalid shadow atlas resource.");
+			ImGui::Spacing();
+			return;
+		}
+
+		SourceArraySlice = 0;
+		PreviewResolution = AtlasResolution;
+		PreviewUV0 = ImVec2(AtlasSlice.UVOffset.X, AtlasSlice.UVOffset.Y);
+		PreviewUV1 = ImVec2(
+			AtlasSlice.UVOffset.X + AtlasSlice.UVScale.X,
+			AtlasSlice.UVOffset.Y + AtlasSlice.UVScale.Y);
+	}
+
+	if (!EnsureLightPreviewTexture(Device, PreviewResolution) || DeviceContext == nullptr)
 	{
 		ImGui::TextWrapped("Failed to build preview texture for the selected shadow slice.");
 		ImGui::Spacing();
 		return;
 	}
 
-	const UINT SourceArraySlice =
-		(SelectedShadowMap->LightType == ELightType::LightType_Point || SelectedShadowMap->LightType == ELightType::LightType_Directional)
-			? (SelectedShadowMap->ResourceSliceOffset + LightPreviewSliceIndex)
-			: 0;
 	const UINT SourceSubresource = D3D11CalcSubresource(0, SourceArraySlice, 1);
 	DeviceContext->CopySubresourceRegion(
 		LightPreviewTexture.Get(),
@@ -882,7 +950,7 @@ void FEditorPropertyWidget::RenderLightPreview()
 	ImTextureID TexID = reinterpret_cast<ImTextureID>(LightPreviewSRV.Get());
 
 	float PanelWidth = ImGui::GetContentRegionAvail().x;
-	ImGui::Image(TexID, ImVec2(PanelWidth, PanelWidth));
+	ImGui::Image(TexID, ImVec2(PanelWidth, PanelWidth), PreviewUV0, PreviewUV1);
 	ImGui::Spacing();
 }
 
