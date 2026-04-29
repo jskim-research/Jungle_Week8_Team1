@@ -28,6 +28,11 @@ struct FLightHandle
 	uint32 Generation = 0;
 
 	bool IsValid() const { return Index != 0xFFFFFFFF; }
+
+	bool operator==(const FLightHandle& Rhs)
+	{
+        return Index == Rhs.Index && Generation == Rhs.Generation;
+	}
 };
 
 class UWorld : public UObject {
@@ -117,12 +122,27 @@ public:
 	void UnregisterLight(ULightComponentBase* Comp);
 	const TArray<FLightSlot>& GetWorldLightSlots() const { return WorldLightSlots; }
 
+	void SetOverridenLight(const FLightHandle* InLightHandle) 
+	{
+        if (InLightHandle && InLightHandle->IsValid())
+            OverridenLight = InLightHandle;
+        else
+            OverridenLight = nullptr;
+	}
+    const FLightHandle* GetOverridenLight() const 
+	{
+        if (OverridenLight && OverridenLight->IsValid())
+			return OverridenLight; 
+		return nullptr;
+	}
+
 private:
 	EWorldType WorldType = EWorldType::Editor;
 	ULevel* PersistentLevel = nullptr;
 	FViewportCamera* ActiveCamera = nullptr;
 	FWorldSpatialIndex SpatialIndex;
 	bool bHasBegunPlay = false;
+    const FLightHandle* OverridenLight = nullptr;
 
 	TArray<FLightSlot> WorldLightSlots;
 	TArray<uint32> FreeLightSlotList;  // 삭제된 Light 의 Index 만 Free 로 등록

@@ -1,5 +1,4 @@
 ﻿#pragma once
-#include "Component/Light/LightComponent.h"
 #include "Render/Common/ShadowTypes.h"
 #include "Render/Scene/RenderCommand.h"
 #include "Component/CameraComponent.h"

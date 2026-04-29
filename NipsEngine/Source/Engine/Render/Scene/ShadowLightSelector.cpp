@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include "Component/Light/LightComponent.h"
 
 namespace
 {

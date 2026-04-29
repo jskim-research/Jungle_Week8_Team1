@@ -102,9 +102,8 @@ bool FRenderPipeline::Initialize()
 	// SceneColor를 만든 뒤 fog/fxaa 전에 덮어쓸 수 있는 view mode 확장 지점이다.
 	RenderPasses.push_back(BufferVisualizationRenderPass);
 	RenderPasses.push_back(HitMapRenderPass);
-
 	RenderPasses.push_back(FogRenderPass);
-	RenderPasses.push_back(FXAARenderPass); 
+    RenderPasses.push_back(FXAARenderPass);
 	RenderPasses.push_back(FontRenderPass);
 	RenderPasses.push_back(SubUVRenderPass);
 	RenderPasses.push_back(BillboardRenderPass);
