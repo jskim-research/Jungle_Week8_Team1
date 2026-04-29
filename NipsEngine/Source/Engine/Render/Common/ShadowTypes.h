@@ -4,11 +4,10 @@
 #include "Render/Common/RenderTypes.h"
 #include "Render/Resource/ShadowResource.h"
 
-enum class EShadowProjectionMode
+enum class EShadowProjectionMode : uint8
 {
-	Default,      // Light 기반 자동 결정 (Directional->Ortho, Point/Spot->Perspective)
-	Orthographic, // 강제 Ortho
-	Perspective   // 강제 Perspective
+	Standard = 0,
+	PSM = 1
 };
 
 // 각 Shadow DepthMap Texture 형태
@@ -82,10 +81,33 @@ struct FShadowSlice
 	uint32 SourceLightSlotIndex = 0xFFFFFFFF;
 };
 
+/*추후에 unio으로 묶어도 됨
+union
+{
+    // 1번 그룹: 일반 섀도우 (Uniform / CSM 등) 용도
+    struct
+    {
+        FMatrix LightView;
+        FMatrix LightProjection;
+    };
+
+    // 2번 그룹: PSM 전용 용도
+    struct
+    {
+        FMatrix PostPerspectiveViewProjection;
+        FMatrix VirtualCameraViewProjection;
+    };
+};
+*/
 struct FShadowViewInfo
 {
 	FMatrix LightView;
 	FMatrix LightProjection;
+
+	//PSM용 데이터
+	FMatrix PostPerspectiveViewProjection;
+    FMatrix VirtualCameraViewProjection;
+
 	// viewspace z (linearlized)
 	/*
 	if (depth < split[0]) use cascade 0;

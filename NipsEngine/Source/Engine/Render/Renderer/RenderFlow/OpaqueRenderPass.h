@@ -28,13 +28,17 @@ public:
         uint32 ShadowTextureIndex = 0;
 		uint32 ShadowFilterMode = static_cast<uint32>(EShadowFilterMode::SSM_PCF); // 0: SSM, 1: SSM+PCF, 2: VSM
 
+		uint32 isPSM = 0;
+		float ProjectionPad[3] = { 0.0f, 0.0f, 0.0f };
+		FMatrix PSM = FMatrix::Identity;
+
         float CascadeSplits[3] = { 0.0f, 0.0f, 0.0f };
 		float PointShadowTexelSize = 0.0f;
 
 		float VSMDepthBias = 5.0e-4f;
 		float VSMMinVariance = 2.0e-5f;
 		float VSMLightBleedingReduction = 0.2f;
-		float Pad2 = 0.0f;
+		float VSMPad = 0.0f;
 	};
 
 	struct FShadowArrayCB
@@ -43,7 +47,7 @@ public:
 	};
 
 	static_assert((sizeof(FShadowCB) % 16) == 0, "FShadowCB must remain 16-byte aligned for HLSL constant buffer packing.");
-	static_assert(sizeof(FShadowCB) == 480, "FShadowCB layout must stay in sync with UberLit.hlsl / BufferVisualizationPass.hlsl.");
+	static_assert(sizeof(FShadowCB) == 560, "FShadowCB layout must stay in sync with UberLit.hlsl.");
 
 	bool Initialize() override;
 	bool Release() override;

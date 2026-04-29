@@ -4,6 +4,12 @@
 #include "Render/Common/RenderTypes.h"
 #include "GameFramework/World.h"
 #include "Core/PropertyTypes.h"
+#include "Render/Scene/ShadowLightSelector.h"
+#include "Render/Scene/RenderBus.h"
+#include "Render/Common/ShadowTypes.h"
+#include "Math/Matrix.h"
+
+struct FRenderPassContext;
 
 class ULightComponentBase : public USceneComponent
 {
@@ -39,6 +45,9 @@ public:
 	const FLightHandle& GetLightHandle() const { return LightHandle; }
 	void SetLightHandle(const FLightHandle& InLightHandle) { LightHandle = InLightHandle; }
 
+    // 라이트별 Shadow View/Projection 생성 (캐스케이드 인덱스 -> View/Projection 반환)
+    virtual bool BuildShadowView(uint32 CascadeIndex, FMatrix& OutView, FMatrix& OutProjection) const { return false; }
+
 private:
 	FColor LightColor = FColor(1.0f, 1.0f, 1.0f, 1.0f);
 	float Intensity = 1.0f;
@@ -68,12 +77,17 @@ public:
 	float GetShadowBias() const { return ShadowBias; }
 	float GetShadowSlopeBias() const { return ShadowSlopeBias; }
 	float GetShadowSharpen() const { return ShadowSharpen; }
+    bool GetIsPSM() const{  return bPSM;  }
+    float GetCameraSliderBack() const { return CameraSliderBack; }
 
-public:
+
+    public:
 	ELightType GetLightType() const { return LightType; }
 
 protected:
 	void SetLightType(ELightType InLightType) { LightType = InLightType; }
+    bool bPSM = false;
+    float CameraSliderBack = 100;
 
 private:
 	ELightType LightType = ELightType::Max;
@@ -82,4 +96,5 @@ private:
 	float ShadowBias = 0.5f;
 	float ShadowSlopeBias = 0.001f;
 	float ShadowSharpen = 0.0f; 
+
 };

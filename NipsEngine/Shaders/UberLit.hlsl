@@ -57,12 +57,16 @@ struct FShadowData
     float ShadowBias;
     float ShadowSlopeBias;
     float ShadowFilterScale;
-    float Pad;
+    float Pad0;
     
     uint ShadowMapType;
     uint SliceCount;
     uint ShadowTextureIndex;
     uint ShadowFilterMode;
+
+    uint isPSM;
+    float3 ProjectionPadding;
+    row_major float4x4 PSM;
     
     float3 CascadeSplits;
     float PointShadowTexelSize;
@@ -70,7 +74,7 @@ struct FShadowData
     float VSMDepthBias;
     float VSMMinVariance;
     float VSMLightBleedingReduction;
-    float Pad3;
+    float VSMPadding;
 };
 
 cbuffer ShadowLightViewInfo : register(b7)
@@ -220,6 +224,36 @@ float ComputeVSMShadowFactor(float2 Moments, float CurrentDepth, float DepthBias
     return ReduceLightBleeding(LitProbability, LightBleedReduction);
 }
 
+bool ComputeShadowCoords2D(FShadowData SData, float3 WorldPos, out int SliceIndex, out float2 ShadowUV, out float CurrentDepth)
+{
+    float ViewDepth = mul(float4(WorldPos, 1.0f), View).x;
+    SliceIndex = 0;
+
+    if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.x)
+        SliceIndex = 1;
+
+    if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.y)
+        SliceIndex = 2;
+
+    float4 ShadowLightPos =
+        (SData.isPSM != 0u)
+            ? mul(float4(WorldPos, 1.0f), SData.PSM)
+            : mul(mul(float4(WorldPos, 1.0f), SData.ShadowLightView[SliceIndex]), SData.ShadowLightProjection[SliceIndex]);
+
+    if (abs(ShadowLightPos.w) <= 1.0e-5f)
+        return false;
+
+    float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
+    ShadowUV = NDC.xy * float2(0.5f, -0.5f) + 0.5f;
+    CurrentDepth = NDC.z;
+
+    if (ShadowUV.x < 0.0f || ShadowUV.x > 1.0f || ShadowUV.y < 0.0f || ShadowUV.y > 1.0f || CurrentDepth < 0.0f || CurrentDepth > 1.0f)
+        return false;
+
+    ShadowUV = (ShadowUV * SData.UVScale) + SData.UVOffset;
+    return true;
+}
+
 float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex)
 {
     if (ShadowIndex < 0)
@@ -233,26 +267,13 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
         
     if (SData.ShadowMapType == SHADOW_MAP_TYPE_VSM2D)
     {
-        float ViewDepth = mul(float4(WorldPos, 1), View).x;
         int SliceIndex = 0;
-
-        if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.x)
-            SliceIndex = 1;
-
-        if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.y)
-            SliceIndex = 2;
-
-        float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView[SliceIndex]), SData.ShadowLightProjection[SliceIndex]);
-        float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
-        float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
-        float CurrentDepth = NDC.z;
-
-        if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 || ShadowUV.y < 0.0 || ShadowUV.y > 1.0 || CurrentDepth < 0.0 || CurrentDepth > 1.0)
+        float2 ShadowUV = 0.0f.xx;
+        float CurrentDepth = 0.0f;
+        if (!ComputeShadowCoords2D(SData, WorldPos, SliceIndex, ShadowUV, CurrentDepth))
             return 1.0f;
 
-        ShadowUV = (ShadowUV * SData.UVScale) + SData.UVOffset;
         const float2 Moments = ShadowMoments2D.Sample(ShadowLinearSampler, float3(ShadowUV, SliceIndex)).rg;
-        // VSM compares the receiver depth against stored moments, so it uses its own bias and variance floor.
         return ComputeVSMShadowFactor(
             Moments,
             CurrentDepth,
@@ -300,24 +321,12 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
     }
     else if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTH2D)
     {
-        float ViewDepth = mul(float4(WorldPos, 1), View).x;
         int SliceIndex = 0;
+        float2 ShadowUV = 0.0f.xx;
+        float CurrentDepth = 0.0f;
+        if (!ComputeShadowCoords2D(SData, WorldPos, SliceIndex, ShadowUV, CurrentDepth))
+            return 1.0f;
 
-        if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.x)
-            SliceIndex = 1;
-
-        if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.y)
-            SliceIndex = 2;
-
-        float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView[SliceIndex]), SData.ShadowLightProjection[SliceIndex]);
-        float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
-        float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
-        float CurrentDepth = NDC.z;
-
-        if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 || ShadowUV.y < 0.0 || ShadowUV.y > 1.0 || CurrentDepth < 0.0 || CurrentDepth > 1.0)
-            return 1.0f; // 빛의 범위를 벗어나면 그림자 없음
-
-        ShadowUV = (ShadowUV * SData.UVScale) + SData.UVOffset;
         const bool bUseAtlasShadowMap = (SData.ShadowTextureIndex == 1u);
         if (SData.ShadowFilterMode == SHADOW_FILTER_MODE_SSM)
         {

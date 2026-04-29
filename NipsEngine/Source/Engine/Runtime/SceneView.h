@@ -28,6 +28,7 @@ struct FSceneView
 	EViewMode ViewMode = EViewMode::Lit;
 
 	bool bOrthographic = false;
+    bool bIsCameraOverridenByLight = false;
 };
 
 

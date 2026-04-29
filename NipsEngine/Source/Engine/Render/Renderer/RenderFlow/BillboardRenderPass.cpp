@@ -14,18 +14,27 @@ bool FBillboardRenderPass::Release()
 
 bool FBillboardRenderPass::Begin(const FRenderPassContext* Context)
 {
+    OutSRV = PrevPassSRV;
+    OutRTV = PrevPassRTV;
+	// 카메라가 Light 에 의해 Override 상태일 때 빌보드 출력 X
+	if (Context->RenderBus->GetIsCameraOverridenByLight())
+	{
+        return true;
+	}
 	ID3D11RenderTargetView* RTV = PrevPassRTV;
 	ID3D11DepthStencilView* DSV = Context->RenderTargets->DepthStencilView;
 	Context->DeviceContext->OMSetRenderTargets(1, &RTV, DSV);
 	Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	OutSRV = PrevPassSRV;
-	OutRTV = PrevPassRTV;
 	return true;
 }
 
 bool FBillboardRenderPass::DrawCommand(const FRenderPassContext* Context)
 {
+    if (Context->RenderBus->GetIsCameraOverridenByLight())
+    {
+        return true;
+    }
 	const TArray<FRenderCommand>& Commands = Context->RenderBus->GetCommands(ERenderPass::Billboard);
 	if (Commands.empty())
 	{
@@ -72,5 +81,6 @@ bool FBillboardRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 bool FBillboardRenderPass::End(const FRenderPassContext* Context)
 {
+
 	return true;
 }

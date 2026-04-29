@@ -152,15 +152,23 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
 
 	if (BeginSettingsSection("Shadow Settings", false))
 	{
+		int32 ShadowProjectionMode = static_cast<int32>(Settings.ShowFlags.ShadowProjection);
+		ImGui::SetNextItemWidth(ItemWidth);
+		if (ImGui::Combo("Projection Mode", &ShadowProjectionMode, "Standard\0PSM\0"))
+		{
+			Settings.ShowFlags.ShadowProjection = SanitizeShadowProjectionMode(ShadowProjectionMode);
+		}
+
 		int32 ShadowFilterMode = static_cast<int32>(Settings.ShowFlags.ShadowFilter);
 		ImGui::SetNextItemWidth(ItemWidth);
-		if (ImGui::Combo("Shadow Mode", &ShadowFilterMode, "SSM\0SSM + PCF\0VSM\0"))
+		if (ImGui::Combo("Filter Mode", &ShadowFilterMode, "SSM\0SSM + PCF\0VSM\0"))
 		{
 			Settings.ShowFlags.ShadowFilter = SanitizeShadowFilterMode(ShadowFilterMode);
 		}
 
-		ImGui::Text("Active Mode: %s", GetShadowFilterModeDisplayName(Settings.ShowFlags.ShadowFilter));
-		ImGui::TextWrapped("SSM uses one hard depth compare, SSM + PCF reuses the depth map with filtered comparisons, and VSM switches directional/point lights to moment textures. Spot lights still use the depth atlas, so they fall back to PCF when VSM is selected.");
+		ImGui::Text("Active Projection: %s", GetShadowProjectionModeDisplayName(Settings.ShowFlags.ShadowProjection));
+		ImGui::Text("Active Filter: %s", GetShadowFilterModeDisplayName(Settings.ShowFlags.ShadowFilter));
+		ImGui::TextWrapped("Standard/PSM selects the shadow projection build. SSM uses one hard depth compare, SSM + PCF reuses the depth map with filtered comparisons, and VSM switches directional/point lights to moment textures. Spot lights still use the depth atlas, so they fall back to PCF when VSM is selected.");
 	}
 
 	// Camera Sensitivity

@@ -1,14 +1,20 @@
-﻿#include "ShadowPass.h"
+#include "ShadowPass.h"
 #include "Render/Scene/ShadowLightSelector.h"
 #include "Core/ResourceManager.h"
 #include "Editor/UI/EditorConsoleWidget.h"
+#include "Render/Common/PSMCalculator.h"
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <vector>
 
-#define ATLAS_SIZE 4096
+static constexpr uint32 kAtlasSize = 4096;
+static constexpr float kDefaultPsmSliderBack = 10.0f;
+
 namespace
 {
-	// 현재 Pass 간 Input, Output 연결 구조가 아니어서 전역으로 놓았는데, 나중에 바꿔야 함
 	TArray<FShadowMap> GShadowMaps;
+
 	struct FShadowVSMResource
 	{
 		TComPtr<ID3D11Texture2D> MomentsTexture;
@@ -24,14 +30,18 @@ namespace
 
 		TComPtr<ID3D11ShaderResourceView> DepthArraySRV;
 	};
-	TArray<FShadowVSMResource> GVSMResources;
 
-	// 1. LightId -> ShadowDataArray Index (0~31) 매핑 테이블
+	TArray<FShadowVSMResource> GVSMResources;
 	TArray<int32> GLightToShadowIndices;
-	// 2. OpaquePass에 넘겨줄 상수 버퍼 데이터
 	FOpaqueRenderPass::FShadowArrayCB GShadowCBData;
 
 	constexpr DXGI_FORMAT GVSMMomentsFormat = DXGI_FORMAT_R32G32_FLOAT;
+
+	bool SupportsPSMProjection(ELightType LightType)
+	{
+		return LightType == ELightType::LightType_Directional ||
+			   LightType == ELightType::LightType_Spot;
+	}
 
 	float ComputeShadowCompareBias(const FRenderLight& Light)
 	{
@@ -43,6 +53,66 @@ namespace
 	{
 		const float UserSharpen = std::clamp(Light.ShadowSharpen, 0.0f, 1.0f);
 		return std::max(0.25f, 1.0f - (UserSharpen * 0.75f));
+	}
+
+	EShadowProjectionMode ResolveShadowProjectionMode(const FShowFlags& ShowFlags, const FRenderLight& Light)
+	{
+		const ELightType LightType = static_cast<ELightType>(Light.Type);
+		if (!ShowFlags.UsesPSMShadowProjection() || !Light.bPSM || !SupportsPSMProjection(LightType))
+		{
+			return EShadowProjectionMode::Standard;
+		}
+
+		return EShadowProjectionMode::PSM;
+	}
+
+	FMatrix ComputePSMMatrix(const FRenderPassContext* Context, const FRenderLight& Light)
+	{
+		if (Context == nullptr || Context->RenderBus == nullptr)
+		{
+			return FMatrix::Identity;
+		}
+
+		FCamera Camera = {};
+		Camera.Forward = Context->RenderBus->GetCameraForward();
+		Camera.Up = Context->RenderBus->GetCameraUp();
+		Camera.Right = Context->RenderBus->GetCameraRight();
+		Camera.Position = Context->RenderBus->GetCameraPosition();
+		Camera.CameraState = Context->RenderBus->GetCameraState();
+
+		PSM::GetCameraFitNearZ(Context->RenderBus->GetCommands(ERenderPass::Opaque), Camera);
+
+		const float SliderBack = (Light.CameraSliderBack > 0.0f) ? Light.CameraSliderBack : kDefaultPsmSliderBack;
+		FMatrix VirtualCameraView;
+		FMatrix VirtualCameraProjection;
+		PSM::GenerateVirtualCameraViewProjection(SliderBack, Camera, VirtualCameraProjection, VirtualCameraView);
+
+		const bool bDirectional = Light.Type == static_cast<uint32>(ELightType::LightType_Directional);
+		const FVector LightDir = bDirectional
+			? -Light.Direction.GetSafeNormal()
+			: Light.Direction.GetSafeNormal();
+
+		FMatrix PostPerspectiveView;
+		FMatrix PostPerspectiveProjection;
+		PSM::GeneratePostPerspectiveViewProjection(
+			LightDir,
+			PostPerspectiveProjection,
+			PostPerspectiveView,
+			VirtualCameraView,
+			VirtualCameraProjection);
+
+		return VirtualCameraView * VirtualCameraProjection * PostPerspectiveView * PostPerspectiveProjection;
+	}
+
+	void ApplyShadowProjectionMode(
+		FOpaqueRenderPass::FShadowCB& ShadowData,
+		const FRenderPassContext* Context,
+		const FRenderLight& Light,
+		EShadowProjectionMode ProjectionMode)
+	{
+		const bool bUsePSM = ProjectionMode == EShadowProjectionMode::PSM;
+		ShadowData.isPSM = bUsePSM ? 1u : 0u;
+		ShadowData.PSM = bUsePSM ? ComputePSMMatrix(Context, Light) : FMatrix::Identity;
 	}
 
 	float ComputeVSMDepthBias(const FRenderLight& Light, EShadowMapType MapType)
@@ -107,8 +177,7 @@ namespace
 		TArray<TComPtr<ID3D11RenderTargetView>>& OutRTVOwners,
 		TArray<ID3D11RenderTargetView*>& OutRTVs)
 	{
-		if (Device == nullptr || Resolution == 0 || SliceCount == 0 ||
-			(bCreateCubeSRV && (SliceCount % 6u) != 0u))
+		if (Device == nullptr || Resolution == 0 || SliceCount == 0 || (bCreateCubeSRV && (SliceCount % 6u) != 0u))
 		{
 			return false;
 		}
@@ -265,7 +334,6 @@ namespace
 			   !Resource.MomentRTVs.empty() &&
 			   !Resource.TempRTVs.empty();
 	}
-
 } // namespace
 
 bool FShadowPass::Initialize()
@@ -281,6 +349,11 @@ bool FShadowPass::Release()
 	PointVSMShaderBinding.reset();
 	GShadowMaps.clear();
 	GVSMResources.clear();
+	GLightToShadowIndices.clear();
+	GShadowCBData = FOpaqueRenderPass::FShadowArrayCB{};
+	bSkip = false;
+	OutSRV = nullptr;
+	OutRTV = nullptr;
 	return true;
 }
 
@@ -293,6 +366,7 @@ const TArray<int32>& FShadowPass::GetLightToShadowIndices()
 {
 	return GLightToShadowIndices;
 }
+
 const FOpaqueRenderPass::FShadowArrayCB& FShadowPass::GetShadowCBData()
 {
 	return GShadowCBData;
@@ -361,10 +435,10 @@ bool FShadowPass::EnsureVSMBindings(const FRenderPassContext* Context)
 
 bool FShadowPass::Begin(const FRenderPassContext* Context)
 {
-	UShader* Shader = FResourceManager::Get().GetShader("Shaders/Primitive.hlsl");
+	UShader* Shader = FResourceManager::Get().GetShader("Shaders/ShadowMap.hlsl");
 	if (!ShaderBinding || ShaderBinding->GetShader() != Shader)
 	{
-		ShaderBinding = Shader->CreateBindingInstance(Context->Device);
+		ShaderBinding = (Shader != nullptr) ? Shader->CreateBindingInstance(Context->Device) : nullptr;
 	}
 
 	if (!ShaderBinding)
@@ -373,26 +447,30 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		return true;
 	}
 
-	if (!GShadowMaps.empty())
+	for (FShadowMap& ShadowMap : GShadowMaps)
 	{
-		for (FShadowMap& ShadowMap : GShadowMaps)
+		if (ShadowMap.bOwnsResource && ShadowMap.Resource != nullptr)
 		{
-			if (ShadowMap.bOwnsResource)
-			{
-				Context->ShadowResourcePool->Release(ShadowMap.Resource);
-			}
+			Context->ShadowResourcePool->Release(ShadowMap.Resource);
 		}
-		GShadowMaps.clear();
 	}
-	GVSMResources.clear();
 
+	GShadowMaps.clear();
+	GVSMResources.clear();
+	GLightToShadowIndices.clear();
+	GShadowCBData = FOpaqueRenderPass::FShadowArrayCB{};
+	OutSRV = nullptr;
+	OutRTV = nullptr;
 	bSkip = false;
 
-	/***************/
-	/*  Selection  */
-	/***************/
+	const TArray<FRenderLight>& Lights = Context->RenderBus->GetLights();
+	GLightToShadowIndices.assign(Lights.size(), -1);
+
 	std::vector<FShadowRequest> ShadowRequests =
-		ShadowLightSelector.SelectShadowLights(Context->RenderBus->GetLights(), Context->RenderBus->GetCameraPosition(), Context->RenderBus->GetCameraState());
+		ShadowLightSelector.SelectShadowLights(
+			Lights,
+			Context->RenderBus->GetCameraPosition(),
+			Context->RenderBus->GetCameraState());
 
 	if (ShadowRequests.empty())
 	{
@@ -400,38 +478,35 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		return true;
 	}
 
-	/****************/
-	/*  Allocation  */
-	/****************/
-
-	// LightType별로 모아두기 (atlas용)
-	std::array<std::vector<FShadowRequest>, static_cast<size_t>(ELightType::Max)> buckets;
-
-	for (auto& req : ShadowRequests)
+	std::array<std::vector<FShadowRequest>, static_cast<size_t>(ELightType::Max)> Buckets;
+	for (const FShadowRequest& Req : ShadowRequests)
 	{
-		buckets[static_cast<int>(req.Type)].push_back(req);
+		Buckets[static_cast<size_t>(Req.Type)].push_back(Req);
 	}
-	// 버킷별로 내림차순 정렬
-	for (int t = 0; t < static_cast<size_t>(ELightType::Max); ++t)
+
+	for (std::vector<FShadowRequest>& Bucket : Buckets)
 	{
-		std::sort(buckets[t].begin(), buckets[t].end(),
-				  [](const FShadowRequest& a, const FShadowRequest& b)
-				  {
-					  return a.Resolution > b.Resolution; // 무조건 큰 놈부터!
-				  });
+		std::sort(
+			Bucket.begin(),
+			Bucket.end(),
+			[](const FShadowRequest& A, const FShadowRequest& B)
+			{
+				return A.Resolution > B.Resolution;
+			});
 	}
-	// 정렬이 완료된 버킷들을 다시 하나의 순차 배열로 합치기
+
 	ShadowRequests.clear();
-	for (int t = 0; t < static_cast<size_t>(ELightType::Max); ++t)
+	for (const std::vector<FShadowRequest>& Bucket : Buckets)
 	{
-		for (const auto& req : buckets[t])
+		for (const FShadowRequest& Req : Bucket)
 		{
-			ShadowRequests.push_back(req);
+			ShadowRequests.push_back(Req);
 		}
 	}
 
-	const EShadowFilterMode RequestedShadowFilter = Context->RenderBus->GetShowFlags().ShadowFilter;
-	bool bUseVSMFilter = Context->RenderBus->GetShowFlags().UsesVSMShadowFilter();
+	const FShowFlags ShowFlags = Context->RenderBus->GetShowFlags();
+	const EShadowFilterMode RequestedShadowFilter = ShowFlags.ShadowFilter;
+	bool bUseVSMFilter = ShowFlags.UsesVSMShadowFilter();
 	if (bUseVSMFilter && !EnsureVSMBindings(Context))
 	{
 		bUseVSMFilter = false;
@@ -439,27 +514,16 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
 	for (FShadowRequest& ShadowRequest : ShadowRequests)
 	{
+		const FRenderLight& ShadowLight = Lights[ShadowRequest.LightId];
+		ShadowRequest.ProjectionMode = ResolveShadowProjectionMode(ShowFlags, ShadowLight);
+		ShadowRequest.bPSM = ShadowRequest.ProjectionMode == EShadowProjectionMode::PSM;
 		ShadowRequest.bUseVSM =
 			bUseVSMFilter &&
 			(ShadowRequest.Type == ELightType::LightType_Directional ||
 			 ShadowRequest.Type == ELightType::LightType_Point);
 	}
 
-	// 원본 인덱스 저장한 룩업테이블
-	struct FLightShadowMappingInfo
-	{
-		bool bHasShadow = false;
-		uint32 ShadowMapIndex = 0; // GShadowMaps 배열에서의 인덱스
-		uint32 SliceIndex = 0;     // 해당 ShadowMap 내부 Slices 배열에서의 인덱스
-	};
-
-	// 원본 라이트 개수만큼 매핑 테이블 할당
-	TArray<FLightShadowMappingInfo> ShadowLookupTable(Context->RenderBus->GetLights().size());
-
-	GLightToShadowIndices.assign(Context->RenderBus->GetLights().size(), -1);
-	std::memset(&GShadowCBData, 0, sizeof(GShadowCBData));
-
-	uint32 ShadowIndexCounter = 0; // GPU 버퍼 배열에 들어갈 인덱스 (0 ~ 31)
+	uint32 ShadowIndexCounter = 0;
 	uint32 PointShadowTextureIndexCounter = 0;
 
 	AtlasAllocator.Reset();
@@ -509,14 +573,14 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		}
 	}
 
-	// 기존의 범위 기반 for 문을 인덱스 기반으로 교체
-	for (int i = 0; i < ShadowRequests.size(); ++i)
+	for (const FShadowRequest& ShadowRequest : ShadowRequests)
 	{
-		const FShadowRequest& ShadowRequest = ShadowRequests[i];
-		const FRenderLight& ShadowLight = Context->RenderBus->GetLights()[ShadowRequest.LightId];
-
 		if (ShadowIndexCounter >= MAX_SHADOW_LIGHTS)
+		{
 			break;
+		}
+
+		const FRenderLight& ShadowLight = Lights[ShadowRequest.LightId];
 
 		if (ShadowRequest.Type == ELightType::LightType_Point)
 		{
@@ -552,64 +616,73 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GVSMResources.push_back(ShadowMap.MapType == EShadowMapType::VSMCube ? SharedPointVSMResource : FShadowVSMResource{});
 			GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
 
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = FVector2(0, 0);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = FVector2(1, 1);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightPosition = ShadowLight.Position;
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFar = std::max(ShadowLight.Radius, 0.1f);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = PointShadowTextureIndexCounter;
-			ApplyShadowFilterMode(GShadowCBData.ShadowDataArray[ShadowIndexCounter], RequestedShadowFilter, ShadowMap.MapType);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize =
+			FOpaqueRenderPass::FShadowCB& CB = GShadowCBData.ShadowDataArray[ShadowIndexCounter];
+			CB.UVOffset = FVector2(0.0f, 0.0f);
+			CB.UVScale = FVector2(1.0f, 1.0f);
+			CB.ShadowLightPosition = ShadowLight.Position;
+			CB.ShadowFar = std::max(ShadowLight.Radius, 0.1f);
+			CB.ShadowBias = ComputeShadowCompareBias(ShadowLight);
+			CB.ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
+			CB.ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
+			CB.ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
+			CB.SliceCount = 1;
+			CB.ShadowTextureIndex = PointShadowTextureIndexCounter;
+			ApplyShadowFilterMode(CB, RequestedShadowFilter, ShadowMap.MapType);
+			CB.PointShadowTexelSize =
 				2.0f / std::max<float>(static_cast<float>(SharedPointShadowResource->Resolution), 1.0f);
-			ApplyVSMParameters(GShadowCBData.ShadowDataArray[ShadowIndexCounter], ShadowLight, ShadowMap.MapType);
+			ApplyVSMParameters(CB, ShadowLight, ShadowMap.MapType);
+			ApplyShadowProjectionMode(CB, Context, ShadowLight, EShadowProjectionMode::Standard);
 
 			SharedPointShadowFaceOffset += 6;
 			++PointShadowTextureIndexCounter;
 			++ShadowIndexCounter;
+			continue;
 		}
-		else if (ShadowRequest.Type == ELightType::LightType_Spot)
+
+		if (ShadowRequest.Type == ELightType::LightType_Spot)
 		{
-			// 1. 공간 할당 가능?
 			FAtlasAllocationResult AllocResult;
 			if (!AtlasAllocator.Allocate(ShadowRequest.Resolution, AllocResult))
 			{
-				// 공간 부족 시 새 아틀라스 생성 후 재할당
-				FShadowRequestDesc Desc;
+				FShadowRequestDesc Desc = {};
 				Desc.AllocationMode = EShadowAllocationMode::AtlasPacked;
 				Desc.MapType = EShadowMapType::Depth2D;
-				Desc.Resolution = ATLAS_SIZE;
+				Desc.Resolution = kAtlasSize;
 				Desc.CascadeCount = static_cast<uint32>(ShadowRequest.Cascades.size());
 
 				FShadowResource* NewAtlasRes = nullptr;
-				if (AcquireResource(Context, Desc, &NewAtlasRes))
+				if (!AcquireResource(Context, Desc, &NewAtlasRes))
 				{
-					AtlasAllocator.AddNewAtlasResource(NewAtlasRes);
+					continue;
+				}
 
-					FShadowMap NewAtlasMap;
-					NewAtlasMap.Resource = NewAtlasRes;
-					NewAtlasMap.MapType = EShadowMapType::Depth2D;
-					NewAtlasMap.LightType = ELightType::LightType_Spot;
-					GShadowMaps.push_back(NewAtlasMap);
-					GVSMResources.emplace_back();
+				AtlasAllocator.AddNewAtlasResource(NewAtlasRes);
 
-					uint32 NewAtlasIndex = static_cast<uint32>(GShadowMaps.size() - 1);
-					AtlasAllocator.SetCurrentAtlasIndex(NewAtlasIndex);
-					AtlasAllocator.Allocate(ShadowRequest.Resolution, AllocResult);
+				FShadowMap NewAtlasMap;
+				NewAtlasMap.Resource = NewAtlasRes;
+				NewAtlasMap.MapType = EShadowMapType::Depth2D;
+				NewAtlasMap.LightType = ELightType::LightType_Spot;
+				NewAtlasMap.bOwnsResource = true;
+				GShadowMaps.push_back(NewAtlasMap);
+				GVSMResources.emplace_back();
+
+				const uint32 NewAtlasIndex = static_cast<uint32>(GShadowMaps.size() - 1);
+				AtlasAllocator.SetCurrentAtlasIndex(NewAtlasIndex);
+				if (!AtlasAllocator.Allocate(ShadowRequest.Resolution, AllocResult))
+				{
+					continue;
 				}
 			}
-			uint32 AtlasIndex = AtlasAllocator.GetCurrentAtlasIndex();
+
+			const uint32 AtlasIndex = AtlasAllocator.GetCurrentAtlasIndex();
 			FShadowMap& CurrentAtlasMap = GShadowMaps[AtlasIndex];
+			if (!BuildViews(Context, ShadowRequest, CurrentAtlasMap.Views))
+			{
+				continue;
+			}
 
-			// 뷰 추가 (배열 맨 뒤에 push_back 됨)
-			BuildViews(Context, ShadowRequest, CurrentAtlasMap.Views);
-
-			// 아틀라스 전용 UV 슬라이스 추가
 			FShadowSlice Slice;
-			Slice.Index = 0;
+			Slice.Index = static_cast<uint32>(CurrentAtlasMap.Slices.size());
 			Slice.Type = EShadowSliceType::Atlas;
 			Slice.UVOffset = AllocResult.UVOffset;
 			Slice.UVScale = AllocResult.UVScale;
@@ -617,87 +690,78 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			Slice.SourceLightSlotIndex = ShadowLight.SourceLightSlotIndex;
 			CurrentAtlasMap.Slices.push_back(Slice);
 
-			// ★ 방금 추가된 View와 Slice의 실제 인덱스 추출 (맨 마지막 위치)
-            uint32 CurrentViewIndex = static_cast<uint32>(CurrentAtlasMap.Views.size() - 1);
-            uint32 CurrentSliceIndex = static_cast<uint32>(CurrentAtlasMap.Slices.size() - 1);
-
-			// 매핑 테이블 기록
-			FLightShadowMappingInfo& MappingInfo = ShadowLookupTable[ShadowRequest.LightId];
-			MappingInfo.bHasShadow = true;
-			MappingInfo.ShadowMapIndex = AtlasIndex;
-			MappingInfo.SliceIndex = CurrentSliceIndex; // 계산된 슬라이스 인덱스 사용
-
-			// 현재 LightId가 몇 번째 ShadowIndex를 쓰는지 기록
+			const uint32 ViewIndex = static_cast<uint32>(CurrentAtlasMap.Views.size() - 1);
 			GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
 
-			// ★ 2. GPU에 넘길 상수 버퍼 데이터를 여기서 싹 다 채워버림!
-			// [수정됨] Views[0] 대신 방금 추가된 Views[CurrentViewIndex]를 참조합니다!
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView[0] = CurrentAtlasMap.Views[CurrentViewIndex].LightView;
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection[0] = CurrentAtlasMap.Views[CurrentViewIndex].LightProjection;
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = AllocResult.UVOffset;
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = AllocResult.UVScale;
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(CurrentAtlasMap.MapType);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 1u;
-			ApplyShadowFilterMode(GShadowCBData.ShadowDataArray[ShadowIndexCounter], RequestedShadowFilter, CurrentAtlasMap.MapType);
-			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
-			ApplyVSMParameters(GShadowCBData.ShadowDataArray[ShadowIndexCounter], ShadowLight, CurrentAtlasMap.MapType);
+			FOpaqueRenderPass::FShadowCB& CB = GShadowCBData.ShadowDataArray[ShadowIndexCounter];
+			CB.ShadowLightView[0] = CurrentAtlasMap.Views[ViewIndex].LightView;
+			CB.ShadowLightProjection[0] = CurrentAtlasMap.Views[ViewIndex].LightProjection;
+			CB.UVOffset = AllocResult.UVOffset;
+			CB.UVScale = AllocResult.UVScale;
+			CB.ShadowBias = ComputeShadowCompareBias(ShadowLight);
+			CB.ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
+			CB.ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
+			CB.ShadowMapType = static_cast<uint32>(CurrentAtlasMap.MapType);
+			CB.SliceCount = 1;
+			CB.ShadowTextureIndex = 1u;
+			ApplyShadowFilterMode(CB, RequestedShadowFilter, CurrentAtlasMap.MapType);
+			CB.PointShadowTexelSize = 0.0f;
+			ApplyVSMParameters(CB, ShadowLight, CurrentAtlasMap.MapType);
+			ApplyShadowProjectionMode(CB, Context, ShadowLight, ShadowRequest.ProjectionMode);
 
-			ShadowIndexCounter++;
+			++ShadowIndexCounter;
+			continue;
 		}
-		else
+
+		FShadowMap ShadowMap;
+		if (!MakeShadowMap(Context, ShadowRequest, ShadowMap))
 		{
-			FShadowMap ShadowMap;
-			if (MakeShadowMap(Context, ShadowRequest, ShadowMap))
+			continue;
+		}
+
+		FShadowVSMResource VSMResource = {};
+		if (ShadowRequest.bUseVSM)
+		{
+			const uint32 SliceCount = static_cast<uint32>(ShadowMap.Views.size());
+			if (!CreateVSMResources(
+					Context->Device,
+					ShadowMap.Resource ? ShadowMap.Resource->Resolution : 0u,
+					SliceCount,
+					VSMResource))
 			{
-				FShadowVSMResource VSMResource;
-				if (ShadowRequest.bUseVSM)
-				{
-					const uint32 SliceCount = static_cast<uint32>(ShadowMap.Views.size());
-					if (!CreateVSMResources(
-							Context->Device,
-							ShadowMap.Resource ? ShadowMap.Resource->Resolution : 0u,
-							SliceCount,
-							VSMResource))
-					{
-						ShadowMap.MapType = EShadowMapType::Depth2D;
-						VSMResource = FShadowVSMResource{};
-					}
-				}
-
-				GShadowMaps.push_back(ShadowMap);
-				GVSMResources.push_back(std::move(VSMResource));
-
-				GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
-
-				for (size_t i = 0; i < ShadowRequest.Cascades.size(); i++)
-				{
-					GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightView[i] = ShadowMap.Views[i].LightView;
-					GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightProjection[i] = ShadowMap.Views[i].LightProjection;
-					GShadowCBData.ShadowDataArray[ShadowIndexCounter].CascadeSplits[i] = ShadowRequest.Cascades[i].Far;
-				}
-
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = FVector2(0, 0);
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = FVector2(1, 1);
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightPosition = ShadowLight.Position;
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFar =
-					std::max(ShadowLight.Radius, 0.1f);
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
-                GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = static_cast<uint32>(ShadowRequest.Cascades.size());
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 0u;
-				ApplyShadowFilterMode(GShadowCBData.ShadowDataArray[ShadowIndexCounter], RequestedShadowFilter, ShadowMap.MapType);
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
-				ApplyVSMParameters(GShadowCBData.ShadowDataArray[ShadowIndexCounter], ShadowLight, ShadowMap.MapType);
-
-				ShadowIndexCounter++;
+				ShadowMap.MapType = EShadowMapType::Depth2D;
+				VSMResource = FShadowVSMResource{};
 			}
 		}
+
+		GShadowMaps.push_back(ShadowMap);
+		GVSMResources.push_back(std::move(VSMResource));
+		GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
+
+		FOpaqueRenderPass::FShadowCB& CB = GShadowCBData.ShadowDataArray[ShadowIndexCounter];
+		for (size_t CascadeIndex = 0; CascadeIndex < ShadowRequest.Cascades.size(); ++CascadeIndex)
+		{
+			CB.ShadowLightView[CascadeIndex] = ShadowMap.Views[CascadeIndex].LightView;
+			CB.ShadowLightProjection[CascadeIndex] = ShadowMap.Views[CascadeIndex].LightProjection;
+			CB.CascadeSplits[CascadeIndex] = ShadowRequest.Cascades[CascadeIndex].Far;
+		}
+
+		CB.UVOffset = FVector2(0.0f, 0.0f);
+		CB.UVScale = FVector2(1.0f, 1.0f);
+		CB.ShadowLightPosition = ShadowLight.Position;
+		CB.ShadowFar = std::max(ShadowLight.Radius, 0.1f);
+		CB.ShadowBias = ComputeShadowCompareBias(ShadowLight);
+		CB.ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
+		CB.ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
+		CB.ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
+		CB.SliceCount = static_cast<uint32>(ShadowRequest.Cascades.size());
+		CB.ShadowTextureIndex = 0u;
+		ApplyShadowFilterMode(CB, RequestedShadowFilter, ShadowMap.MapType);
+		CB.PointShadowTexelSize = 0.0f;
+		ApplyVSMParameters(CB, ShadowLight, ShadowMap.MapType);
+		ApplyShadowProjectionMode(CB, Context, ShadowLight, ShadowRequest.ProjectionMode);
+
+		++ShadowIndexCounter;
 	}
 
 	if (SharedPointShadowResource != nullptr && PointShadowTextureIndexCounter == 0)
@@ -712,25 +776,25 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		return true;
 	}
 
-	OutSRV = GShadowMaps[0].Resource->SRV;
+	OutSRV = (GShadowMaps[0].Resource != nullptr) ? GShadowMaps[0].Resource->SRV : nullptr;
 	OutRTV = nullptr;
-
 	ShaderBinding->ApplyFrameParameters(*Context->RenderBus);
-
 	return true;
 }
 
 bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 {
 	if (bSkip || !ShaderBinding)
+	{
 		return true;
+	}
 
 	const FRenderBus* RenderBus = Context->RenderBus;
-
 	const TArray<FRenderCommand>& Commands = RenderBus->GetCommands(ERenderPass::Opaque);
-
 	if (Commands.empty())
+	{
 		return true;
+	}
 
 	D3D11_VIEWPORT OldVP[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
 	UINT OldVPCount = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
@@ -747,14 +811,33 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 		return false;
 	}
 
-	// Shadow rendering must not inherit read-only depth or translucent blend state from the previous frame.
+	ID3D11ShaderResourceView* NullShadowSRVs[5] = { nullptr, nullptr, nullptr, nullptr, nullptr };
+	Context->DeviceContext->PSSetShaderResources(14, 5, NullShadowSRVs);
 	Context->DeviceContext->OMSetDepthStencilState(DefaultDepthStencilState, 0);
 	Context->DeviceContext->OMSetBlendState(OpaqueBlendState, nullptr, 0xFFFFFFFF);
 
-	auto DrawShadowCommands = [&](const FShadowViewInfo& ViewInfo, const FRenderLight* ShadowLight = nullptr) -> bool
+	const auto& Lights = RenderBus->GetLights();
+	const FShowFlags ShowFlags = RenderBus->GetShowFlags();
+
+	auto GetLight = [&](uint32 LightId) -> const FRenderLight*
 	{
+		return (LightId < static_cast<uint32>(Lights.size())) ? &Lights[LightId] : nullptr;
+	};
+
+	auto DrawShadowCommands = [&](const FShadowViewInfo& ViewInfo, const FRenderLight* ShadowLight) -> bool
+	{
+		if (ShadowLight == nullptr)
+		{
+			return true;
+		}
+
 		ShaderBinding->SetMatrix4("View", ViewInfo.LightView);
 		ShaderBinding->SetMatrix4("Projection", ViewInfo.LightProjection);
+
+		const EShadowProjectionMode ProjectionMode = ResolveShadowProjectionMode(ShowFlags, *ShadowLight);
+		const bool bUsePSM = ProjectionMode == EShadowProjectionMode::PSM;
+		ShaderBinding->SetMatrix4("PSM", bUsePSM ? ComputePSMMatrix(Context, *ShadowLight) : FMatrix::Identity);
+		ShaderBinding->SetUInt("isPSM", bUsePSM ? 1u : 0u);
 
 		for (const FRenderCommand& Cmd : Commands)
 		{
@@ -763,7 +846,8 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 				continue;
 			}
 
-			if (ShadowLight != nullptr && Cmd.WorldBounds.IsValid())
+			if (Cmd.WorldBounds.IsValid() &&
+				ShadowLight->Type != static_cast<uint32>(ELightType::LightType_Directional))
 			{
 				const FVector BoundsCenter = Cmd.WorldBounds.GetCenter();
 				const float BoundsRadius = Cmd.WorldBounds.GetExtent().Size();
@@ -778,16 +862,10 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 				return false;
 			}
 
-			uint32 Offset = 0;
 			ID3D11Buffer* VertexBuffer = Cmd.MeshBuffer->GetVertexBuffer().GetBuffer();
-			if (VertexBuffer == nullptr)
-			{
-				return false;
-			}
-
-			const uint32 VertexCount = Cmd.MeshBuffer->GetVertexBuffer().GetVertexCount();
 			const uint32 Stride = Cmd.MeshBuffer->GetVertexBuffer().GetStride();
-			if (VertexCount == 0 || Stride == 0)
+			const uint32 VertexCount = Cmd.MeshBuffer->GetVertexBuffer().GetVertexCount();
+			if (VertexBuffer == nullptr || VertexCount == 0 || Stride == 0)
 			{
 				return false;
 			}
@@ -801,15 +879,14 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 
 			CheckOverrideViewMode(Context);
 
+			uint32 Offset = 0;
 			Context->DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
 
 			ID3D11Buffer* IndexBuffer = Cmd.MeshBuffer->GetIndexBuffer().GetBuffer();
 			if (IndexBuffer != nullptr)
 			{
-				const uint32 IndexStart = Cmd.SectionIndexStart;
-				const uint32 IndexCount = Cmd.SectionIndexCount;
 				Context->DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-				Context->DeviceContext->DrawIndexed(IndexCount, IndexStart, 0);
+				Context->DeviceContext->DrawIndexed(Cmd.SectionIndexCount, Cmd.SectionIndexStart, 0);
 			}
 			else
 			{
@@ -837,10 +914,7 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 		if (bPointVSM)
 		{
 			FShadowVSMResource& VSMResource = GVSMResources[ShadowMapIndex];
-			const FRenderLight* DrawShadowLight =
-				ShadowMap.LightId < static_cast<uint32>(Context->RenderBus->GetLights().size())
-					? &Context->RenderBus->GetLights()[ShadowMap.LightId]
-					: nullptr;
+			const FRenderLight* DrawShadowLight = GetLight(ShadowMap.LightId);
 			if (DrawShadowLight == nullptr)
 			{
 				continue;
@@ -849,8 +923,14 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 			const uint32 DrawSliceCount = std::min<uint32>(
 				static_cast<uint32>(ShadowMap.Views.size()),
 				std::min<uint32>(
-					static_cast<uint32>(ShadowMap.Resource->DSVs.size() > ShadowMap.ResourceSliceOffset ? ShadowMap.Resource->DSVs.size() - ShadowMap.ResourceSliceOffset : 0),
-					static_cast<uint32>(VSMResource.MomentRTVs.size() > ShadowMap.ResourceSliceOffset ? VSMResource.MomentRTVs.size() - ShadowMap.ResourceSliceOffset : 0)));
+					static_cast<uint32>(
+						ShadowMap.Resource->DSVs.size() > ShadowMap.ResourceSliceOffset
+							? ShadowMap.Resource->DSVs.size() - ShadowMap.ResourceSliceOffset
+							: 0),
+					static_cast<uint32>(
+						VSMResource.MomentRTVs.size() > ShadowMap.ResourceSliceOffset
+							? VSMResource.MomentRTVs.size() - ShadowMap.ResourceSliceOffset
+							: 0)));
 			if (DrawSliceCount == 0)
 			{
 				continue;
@@ -883,7 +963,7 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 				Context->DeviceContext->OMSetBlendState(OpaqueBlendState, nullptr, 0xFFFFFFFF);
 				Context->DeviceContext->OMSetRenderTargets(1, &MomentRTV, DepthDSV);
 
-				PointVSMShaderBinding->ApplyFrameParameters(*Context->RenderBus);
+				PointVSMShaderBinding->ApplyFrameParameters(*RenderBus);
 				PointVSMShaderBinding->SetMatrix4("View", ShadowMap.Views[ViewIndex].LightView);
 				PointVSMShaderBinding->SetMatrix4("Projection", ShadowMap.Views[ViewIndex].LightProjection);
 				PointVSMShaderBinding->SetFloat("ShadowFar", ShadowFar);
@@ -974,7 +1054,6 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 			for (uint32 SliceIndex = 0; SliceIndex < DrawSliceCount; ++SliceIndex)
 			{
 				const FShadowSlice& Slice = ShadowMap.Slices[SliceIndex];
-
 				D3D11_VIEWPORT ShadowViewport = {};
 				ShadowViewport.TopLeftX = Slice.UVOffset.X * ShadowMap.Resource->Resolution;
 				ShadowViewport.TopLeftY = Slice.UVOffset.Y * ShadowMap.Resource->Resolution;
@@ -984,7 +1063,7 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 				ShadowViewport.MaxDepth = 1.0f;
 				Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
 
-				if (!DrawShadowCommands(ShadowMap.Views[SliceIndex]))
+				if (!DrawShadowCommands(ShadowMap.Views[SliceIndex], GetLight(Slice.LightId)))
 				{
 					Context->DeviceContext->RSSetViewports(OldVPCount, OldVP);
 					return false;
@@ -995,7 +1074,10 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 		}
 
 		const uint32 DrawSliceCount = std::min<uint32>(
-			static_cast<uint32>(ShadowMap.Resource->DSVs.size() > ShadowMap.ResourceSliceOffset ? ShadowMap.Resource->DSVs.size() - ShadowMap.ResourceSliceOffset : 0),
+			static_cast<uint32>(
+				ShadowMap.Resource->DSVs.size() > ShadowMap.ResourceSliceOffset
+					? ShadowMap.Resource->DSVs.size() - ShadowMap.ResourceSliceOffset
+					: 0),
 			static_cast<uint32>(ShadowMap.Views.size()));
 		if (DrawSliceCount == 0)
 		{
@@ -1011,15 +1093,9 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 		ShadowViewport.MaxDepth = 1.0f;
 		Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
 
+		const FRenderLight* DrawShadowLight = GetLight(ShadowMap.LightId);
 		for (uint32 ViewIndex = 0; ViewIndex < DrawSliceCount; ++ViewIndex)
 		{
-			const FRenderLight* DrawShadowLight = nullptr;
-			if (ShadowMap.LightType == ELightType::LightType_Point &&
-				ShadowMap.LightId < static_cast<uint32>(Context->RenderBus->GetLights().size()))
-			{
-				DrawShadowLight = &Context->RenderBus->GetLights()[ShadowMap.LightId];
-			}
-
 			Context->DeviceContext->ClearDepthStencilView(
 				ShadowMap.Resource->DSVs[ShadowMap.ResourceSliceOffset + ViewIndex],
 				D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
@@ -1039,11 +1115,12 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 	return true;
 }
 
-
 bool FShadowPass::End(const FRenderPassContext* Context)
 {
 	if (bSkip)
+	{
 		return true;
+	}
 
 	bool bHasVSMWork = false;
 	for (size_t ShadowMapIndex = 0; ShadowMapIndex < GShadowMaps.size() && ShadowMapIndex < GVSMResources.size(); ++ShadowMapIndex)
@@ -1119,9 +1196,7 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 				: 0u);
 		const uint32 DrawSliceCount = std::min<uint32>(
 			static_cast<uint32>(ShadowMap.Views.size()),
-			std::min<uint32>(
-				AvailableMomentSlices,
-				AvailableTempSlices));
+			std::min<uint32>(AvailableMomentSlices, AvailableTempSlices));
 		if (DrawSliceCount == 0)
 		{
 			continue;
@@ -1151,7 +1226,6 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 			if (!bPointVSM)
 			{
 				UnbindPixelShaderInput();
-				// The moments texture is filterable color data, so these fullscreen writes must be pure overwrites.
 				Context->DeviceContext->OMSetBlendState(OpaqueBlendState, nullptr, 0xFFFFFFFF);
 				Context->DeviceContext->OMSetRenderTargets(1, &MomentRTV, nullptr);
 				VSMConvertShaderBinding->ApplyFrameParameters(*Context->RenderBus);
@@ -1205,18 +1279,21 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 
 bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadowRequest& Req, FShadowMap& OutShadowMap)
 {
-	FShadowRequestDesc Desc;
-	Desc.AllocationMode = EShadowAllocationMode::ArrayBased; // CSM
+	FShadowRequestDesc Desc = {};
+	Desc.AllocationMode = EShadowAllocationMode::ArrayBased;
 	Desc.MapType =
 		Req.Type == ELightType::LightType_Point
 			? (Req.bUseVSM ? EShadowMapType::VSMCube : EShadowMapType::DepthCube)
 			: (Req.bUseVSM ? EShadowMapType::VSM2D : EShadowMapType::Depth2D);
 	Desc.Resolution = Req.Resolution;
-    Desc.CascadeCount = static_cast<uint32>(Req.Cascades.size());
+	Desc.CascadeCount = static_cast<uint32>(Req.Cascades.size());
 	Desc.CubeCount = (Req.Type == ELightType::LightType_Point) ? 1u : 0u;
 
 	if (!AcquireResource(Context, Desc, &OutShadowMap.Resource))
+	{
 		return false;
+	}
+
 	if (!BuildViews(Context, Req, OutShadowMap.Views))
 	{
 		if (OutShadowMap.Resource != nullptr)
@@ -1226,6 +1303,7 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 		}
 		return false;
 	}
+
 	if (!BuildSlices(Context, Req, OutShadowMap.Slices))
 	{
 		if (OutShadowMap.Resource != nullptr)
@@ -1235,252 +1313,219 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 		}
 		return false;
 	}
+
+	OutShadowMap.bOwnsResource = true;
 	OutShadowMap.MapType = Desc.MapType;
 	OutShadowMap.LightId = Req.LightId;
 	OutShadowMap.SourceLightSlotIndex = Context->RenderBus->GetLights()[Req.LightId].SourceLightSlotIndex;
 	OutShadowMap.LightType = Req.Type;
-
 	return true;
 }
 
-bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowViewInfo>& OutViewInfoArray)
+bool FShadowPass::BuildViews(const FRenderPassContext* Context,
+                             const FShadowRequest& Req,
+                             TArray<FShadowViewInfo>& OutViewInfoArray)
 {
-	switch (Req.Type)
-	{
-	case ELightType::LightType_Directional:
-		for (uint32 i = 0; i < Req.Cascades.size(); ++i)
-		{
-			// gather camera frustum corners in world space
-			const FCameraState& Cam = Context->RenderBus->GetCameraState();
-			const FVector CamPos = Context->RenderBus->GetCameraPosition();
-			const FVector CamForward = Context->RenderBus->GetCameraForward();
-			const FVector CamRight = Context->RenderBus->GetCameraRight();
-			const FVector CamUp = Context->RenderBus->GetCameraUp();
+    const auto& Lights = Context->RenderBus->GetLights();
 
-			const float Near = Req.Cascades[i].Near;
-			const float Far = Req.Cascades[i].Far;
-			const float HalfTan = tanf(Cam.FOV * 0.5f);
+    switch (Req.Type)
+    {
+    case ELightType::LightType_Directional:
+    {
+        const FCameraState& Cam = Context->RenderBus->GetCameraState();
+        const FVector CamPos = Context->RenderBus->GetCameraPosition();
+        const FVector CamFwd = Context->RenderBus->GetCameraForward();
+        const FVector CamRight = Context->RenderBus->GetCameraRight();
+        const FVector CamUp = Context->RenderBus->GetCameraUp();
+        const FVector LightDir = Lights[Req.LightId].Direction.GetSafeNormal();
 
-			const float NearH = 2.0f * Near * HalfTan;
-			const float NearW = NearH * Cam.AspectRatio;
-			const float FarH = 2.0f * Far * HalfTan;
-			const float FarW = FarH * Cam.AspectRatio;
+        FVector LightUp = FVector::UpVector;
+        if (std::abs(FVector::DotProduct(LightDir, LightUp)) > 0.99f)
+            LightUp = FVector::RightVector;
 
-			const FVector NearCenter = CamPos + CamForward * Near;
-			const FVector FarCenter = CamPos + CamForward * Far;
+        const float HalfTan = tanf(Cam.FOV * 0.5f);
 
-			FVector FrustumCorners[8] = {
-				NearCenter + CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f),
-				NearCenter + CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f),
-				NearCenter - CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f),
-				NearCenter - CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f),
-				FarCenter + CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f),
-				FarCenter + CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f),
-				FarCenter - CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f),
-				FarCenter - CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f)
-			};
+        for (uint32 i = 0; i < static_cast<uint32>(Req.Cascades.size()); ++i)
+        {
+            const float Near = Req.Cascades[i].Near;
+            const float Far = Req.Cascades[i].Far;
 
-			// compute frustum center and radius
-			FVector FrustumCenter = FVector::ZeroVector;
-			for (int j = 0; j < 8; ++j) FrustumCenter += FrustumCorners[j];
-			FrustumCenter *= (1.0f / 8.0f);
+            const float NearH = 2.0f * Near * HalfTan;
+            const float NearW = NearH * Cam.AspectRatio;
+            const float FarH = 2.0f * Far * HalfTan;
+            const float FarW = FarH * Cam.AspectRatio;
 
-			float AABBRadius = 0.0f;
-			for (int j = 0; j < 8; ++j) AABBRadius = std::max(AABBRadius, (FrustumCorners[j] - FrustumCenter).Size());
+            const FVector NC = CamPos + CamFwd * Near;
+            const FVector FC = CamPos + CamFwd * Far;
 
-			// light basis
-			FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
-			const FVector LightDir = Light.Direction.GetSafeNormal();
-			FVector Up = FVector::UpVector;
-			if (std::abs(FVector::DotProduct(LightDir, Up)) > 0.99f) Up = FVector::RightVector;
+            FVector Corners[8] = {
+                NC + CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f),
+                NC + CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f),
+                NC - CamUp * (NearH * 0.5f) - CamRight * (NearW * 0.5f),
+                NC - CamUp * (NearH * 0.5f) + CamRight * (NearW * 0.5f),
+                FC + CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f),
+                FC + CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f),
+                FC - CamUp * (FarH * 0.5f) - CamRight * (FarW * 0.5f),
+                FC - CamUp * (FarH * 0.5f) + CamRight * (FarW * 0.5f),
+            };
 
-			// place light-eye and build view
-			const FVector Eye = FrustumCenter + LightDir * AABBRadius;
-			FMatrix LightView = FMatrix::MakeViewLookAtLH(Eye, FrustumCenter, Up);
+            FVector Center = FVector::ZeroVector;
+            for (const auto& C : Corners)
+                Center += C;
+            Center *= (1.0f / 8.0f);
 
-			// transform frustum into light space and compute AABB
-			FVector FrustumLS[8];
-			for (int j = 0; j < 8; ++j) FrustumLS[j] = LightView.TransformPosition(FrustumCorners[j]);
+            float Radius = 0.0f;
+            for (const auto& C : Corners)
+                Radius = std::max(Radius, (C - Center).Size());
 
-			FVector Min = FrustumLS[0];
-			FVector Max = FrustumLS[0];
-			for (int j = 1; j < 8; ++j)
-			{
-				Min.X = std::min(Min.X, FrustumLS[j].X);
-				Min.Y = std::min(Min.Y, FrustumLS[j].Y);
-				Min.Z = std::min(Min.Z, FrustumLS[j].Z);
-				Max.X = std::max(Max.X, FrustumLS[j].X);
-				Max.Y = std::max(Max.Y, FrustumLS[j].Y);
-				Max.Z = std::max(Max.Z, FrustumLS[j].Z);
-			}
+            const FVector Eye = Center + LightDir * Radius;
+            const FMatrix LightView = FMatrix::MakeViewLookAtLH(Eye, Center, LightUp);
 
-			// Near/Far from light-space Z extents with padding and safety fallback
-			float NearZ = Min.Z;
-			float FarZ = Max.Z;
-			const float Padding = std::max(50.0f, (FarZ - NearZ) * 0.1f);
-			NearZ -= Padding; FarZ += Padding;
-			if (FarZ - NearZ < 1.0f)
-			{
-				float center = (NearZ + FarZ) * 0.5f;
-				NearZ = center - 0.5f; FarZ = center + 0.5f;
-			}
-			const float FallbackFar = AABBRadius + 1000.0f;
-			if (FarZ < FallbackFar) FarZ = FallbackFar;
+            FVector LS[8];
+            for (int j = 0; j < 8; ++j)
+                LS[j] = LightView.TransformPosition(Corners[j]);
 
-			// build projection
-			FShadowViewInfo ViewInfo;
-			ViewInfo.LightView = LightView;
-			ViewInfo.LightProjection = FMatrix::MakeOrthographicLH(Max.X - Min.X, Max.Y - Min.Y, NearZ, FarZ);
-			ViewInfo.SplitDepth = Far;
-			OutViewInfoArray.push_back(ViewInfo);
-		}
-		break;
+            FVector LSMin = LS[0], LSMax = LS[0];
+            for (int j = 1; j < 8; ++j)
+            {
+                LSMin.X = std::min(LSMin.X, LS[j].X);
+                LSMax.X = std::max(LSMax.X, LS[j].X);
+                LSMin.Y = std::min(LSMin.Y, LS[j].Y);
+                LSMax.Y = std::max(LSMax.Y, LS[j].Y);
+                LSMin.Z = std::min(LSMin.Z, LS[j].Z);
+                LSMax.Z = std::max(LSMax.Z, LS[j].Z);
+            }
 
-	case ELightType::LightType_Spot:
-		for (uint32 i = 0; i < Req.Cascades.size(); i++)
-		{
-			FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
-			FShadowViewInfo ViewInfo;
+            float NearZ = LSMin.Z;
+            float FarZ = LSMax.Z;
+            const float Padding = std::max(50.0f, (FarZ - NearZ) * 0.1f);
+            NearZ -= Padding;
+            FarZ += Padding;
+            FarZ = std::max(FarZ, Radius + 1000.0f);
+            if (FarZ - NearZ < 1.0f)
+            {
+                NearZ -= 0.5f;
+                FarZ += 0.5f;
+            }
 
-			FVector LightDir = Light.Direction; // normalize 되어 있어야 함
+            FShadowViewInfo View;
+            View.LightView = LightView;
+            View.LightProjection = FMatrix::MakeOrthographicLH(LSMax.X - LSMin.X, LSMax.Y - LSMin.Y, NearZ, FarZ);
+            View.SplitDepth = Far;
+            OutViewInfoArray.push_back(View);
+        }
+        break;
+    }
 
-			FVector Eye = Light.Position;
-			FVector Target = Eye + Light.Direction;
-			FVector Up = FVector(0, 0, 1);
+    case ELightType::LightType_Spot:
+    {
+        const FRenderLight& Light = Lights[Req.LightId];
+        const FVector LightDir = Light.Direction.GetSafeNormal();
 
-			if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
-			{
-				Up = FVector(1, 0, 0); // X-Forward니까 X로 대체
-			}
+        FVector Up = FVector(0.0f, 0.0f, 1.0f);
+        if (std::abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
+            Up = FVector(1.0f, 0.0f, 0.0f);
 
-			ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
-			ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
+        const float FovRad = std::acos(Light.SpotOuterCos) * 2.0f;
+        const float NearZ = 0.1f;
+        const float FarZ = std::max(Light.Radius, NearZ + 0.1f);
 
-			float OuterAngleRad = acos(Light.SpotOuterCos); // 반각(half angle)
-			float FovRad = OuterAngleRad * 2.0f;            // 전체 FOV
+        for (uint32 i = 0; i < static_cast<uint32>(Req.Cascades.size()); ++i)
+        {
+            FShadowViewInfo View;
+            View.LightView = FMatrix::MakeViewLookAtLH(Light.Position, Light.Position + LightDir, Up);
+            View.LightProjection = FMatrix::MakePerspectiveFovLH(FovRad, 1.0f, NearZ, FarZ);
+            View.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
+            OutViewInfoArray.push_back(View);
+        }
+        break;
+    }
 
-			float NearZ = 0.1f;
-			float FarZ = std::max(Light.Radius, NearZ + 0.1f);
+    case ELightType::LightType_Point:
+    {
+        static const FVector CubeDirs[6] = {
+            FVector::ForwardVector,
+            -FVector::ForwardVector,
+            FVector::RightVector,
+            -FVector::RightVector,
+            FVector::UpVector,
+            -FVector::UpVector,
+        };
+        static const FVector CubeUps[6] = {
+            FVector::RightVector,
+            FVector::RightVector,
+            -FVector::UpVector,
+            FVector::UpVector,
+            FVector::RightVector,
+            FVector::RightVector,
+        };
 
-			ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
-				FovRad,
-				1.0f,        // 정사각형 섀도우 맵
-				NearZ,        // Near
-				FarZ // Far = 라이트 반경
-			);
+        const FRenderLight& Light = Lights[Req.LightId];
+        const float NearZ = 0.1f;
+        const float FarZ = std::max(Light.Radius, NearZ + 0.1f);
+        const float FovRad = 90.0f * (3.141592f / 180.0f);
 
-			OutViewInfoArray.push_back(ViewInfo);
-		}
-		break;
+        for (uint32 i = 0; i < 6; ++i)
+        {
+            FShadowViewInfo View;
+            View.LightView = FMatrix::MakeViewLookAtLH(Light.Position, Light.Position + CubeDirs[i], CubeUps[i]);
+            View.LightProjection = FMatrix::MakePerspectiveFovLH(FovRad, 1.0f, NearZ, FarZ);
+            View.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
+            OutViewInfoArray.push_back(View);
+        }
+        break;
+    }
 
-	case ELightType::LightType_Point:
-	{
-		// Engine basis: +X forward, +Y right, +Z up.
-		// These up vectors must match D3D TextureCube face orientation.
-		// Using world-up for the lateral faces mirrors the sampled cubemap shadow onto the wrong side.
-		static const FVector CubeDirs[6] = {
-			FVector::ForwardVector,
-			-FVector::ForwardVector,
-			FVector::RightVector,
-			-FVector::RightVector,
-			FVector::UpVector,
-			-FVector::UpVector
-		};
-		static const FVector CubeUps[6] = {
-			FVector::RightVector,
-			FVector::RightVector,
-			-FVector::UpVector,
-			FVector::UpVector,
-			FVector::RightVector,
-			FVector::RightVector
-		};
+    default:
+        return false;
+    }
 
-		for (uint32 i = 0; i < 6; i++)
-		{
-			FRenderLight Light = Context->RenderBus->GetLights()[Req.LightId];
-			FShadowViewInfo ViewInfo;
-
-			FVector LightDir = CubeDirs[i];
-
-			FVector Eye = Light.Position;
-			FVector Target = Eye + LightDir;
-			FVector Up = CubeUps[i];
-
-			ViewInfo.LightView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
-			ViewInfo.SplitDepth = Context->RenderBus->GetCameraState().FarZ;
-
-			float FovRad = (90.0f * (3.141592f / 180.0f)); // 전체 FOV
-
-			float NearZ = 0.1f;
-			float FarZ = std::max(Light.Radius, NearZ + 0.1f);
-
-			ViewInfo.LightProjection = FMatrix::MakePerspectiveFovLH(
-				FovRad,
-				1.0f,        // 정사각형 섀도우 맵
-				NearZ,        // Near
-				FarZ // Far = 라이트 반경
-			);
-
-			OutViewInfoArray.push_back(ViewInfo);
-		}
-		break;
-	}
-		
-	default:
-		return false;
-	}
-	
-	return true;
+    return true;
 }
 
-bool FShadowPass::BuildSlices(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowSlice>& OutShadowSlices)
+bool FShadowPass::BuildSlices(const FRenderPassContext* Context,
+                              const FShadowRequest& Req,
+                              TArray<FShadowSlice>& OutShadowSlices)
 {
-	switch (Req.Type)
-	{
-	case ELightType::LightType_Directional:
-		for (uint32 i = 0; i < Req.Cascades.size(); i++)
-		{
-			FShadowSlice ShadowSlice;
-			ShadowSlice.Index = i;
-			ShadowSlice.Type = EShadowSliceType::CSM;
-			ShadowSlice.UVOffset = FVector2(0, 0);
-			ShadowSlice.UVScale = FVector2(1, 1);
-			OutShadowSlices.push_back(ShadowSlice);
-		}
-		break;
+    auto MakeSlice = [](uint32 Idx, EShadowSliceType Type, uint32 LightId) -> FShadowSlice
+    {
+        FShadowSlice S;
+        S.Index = Idx;
+        S.Type = Type;
+        S.UVOffset = FVector2(0.0f, 0.0f);
+        S.UVScale = FVector2(1.0f, 1.0f);
+        S.LightId = LightId;
+        return S;
+    };
 
-	case ELightType::LightType_Spot:
-		for (uint32 i = 0; i < Req.Cascades.size(); i++)
-		{
-			FShadowSlice ShadowSlice;
-			ShadowSlice.Index = i;
-			ShadowSlice.Type = EShadowSliceType::Atlas;
-			ShadowSlice.UVOffset = FVector2(0, 0);
-			ShadowSlice.UVScale = FVector2(1, 1);
-			OutShadowSlices.push_back(ShadowSlice);
-		}
-		break;
-	case ELightType::LightType_Point:
-		// Point Light 는 CSM 고려 X
-		for (uint32 i = 0; i < 6; i++)
-		{
-			FShadowSlice ShadowSlice;
-			ShadowSlice.Index = i;
-			ShadowSlice.Type = EShadowSliceType::CubeFace;
-			ShadowSlice.UVOffset = FVector2(0, 0);
-			ShadowSlice.UVScale = FVector2(1, 1);
-			OutShadowSlices.push_back(ShadowSlice);
-		}
-		break;
-	default:
-		return false;
-	}
+    switch (Req.Type)
+    {
+    case ELightType::LightType_Directional:
+        for (uint32 i = 0; i < static_cast<uint32>(Req.Cascades.size()); ++i)
+            OutShadowSlices.push_back(MakeSlice(i, EShadowSliceType::CSM, Req.LightId));
+        break;
 
-	return true;
+    case ELightType::LightType_Spot:
+        for (uint32 i = 0; i < static_cast<uint32>(Req.Cascades.size()); ++i)
+            OutShadowSlices.push_back(MakeSlice(i, EShadowSliceType::Atlas, Req.LightId));
+        break;
+
+    case ELightType::LightType_Point:
+        for (uint32 i = 0; i < 6; ++i)
+            OutShadowSlices.push_back(MakeSlice(i, EShadowSliceType::CubeFace, Req.LightId));
+        break;
+
+    default:
+        return false;
+    }
+
+    return true;
 }
 
-bool FShadowPass::AcquireResource(const FRenderPassContext* Context, const FShadowRequestDesc& Desc, FShadowResource** OutShadowResource)
+bool FShadowPass::AcquireResource(const FRenderPassContext* Context,
+                                  const FShadowRequestDesc& Desc,
+                                  FShadowResource** OutShadowResource)
 {
-	*OutShadowResource = Context->ShadowResourcePool->Acquire(Context->Device, Desc);
-	return *OutShadowResource != nullptr;
+    *OutShadowResource = Context->ShadowResourcePool->Acquire(Context->Device, Desc);
+    return (*OutShadowResource != nullptr);
 }

@@ -43,6 +43,7 @@ namespace EditorKey
 	constexpr const char* bDecals = "bDecals";
 	constexpr const char* bFog = "bFog";
 	constexpr const char* bShowLightHitmapOverlay = "bShowLightHitmapOverlay";
+	constexpr const char* ShadowProjection = "ShadowProjection";
 	constexpr const char* ShadowFilter = "ShadowFilter";
 	constexpr const char* ShadowFilterVersion = "ShadowFilterVersion";
 	constexpr const char* VSMEnabled = "VSMEnabled";
@@ -119,6 +120,7 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 	ViewObj[EditorKey::bDecals] = ShowFlags.bDecals;
 	ViewObj[EditorKey::bFog] = ShowFlags.bFog;
 	ViewObj[EditorKey::bShowLightHitmapOverlay] = ShowFlags.bShowLightHitmapOverlay;
+	ViewObj[EditorKey::ShadowProjection] = static_cast<int32>(ShowFlags.ShadowProjection);
 	ViewObj[EditorKey::ShadowFilter] = static_cast<int32>(ShowFlags.ShadowFilter);
 	ViewObj[EditorKey::ShadowFilterVersion] = EditorKey::ShadowFilterVersionValue;
 	ViewObj[EditorKey::VSMEnabled] = ShowFlags.UsesVSMShadowFilter();
@@ -272,6 +274,11 @@ void FEditorSettings::LoadFromFile(const FString& Path)
 			ShowFlags.bFog = ViewObj[EditorKey::bFog].ToBool();
 		if (ViewObj.hasKey(EditorKey::bShowLightHitmapOverlay))
 			ShowFlags.bShowLightHitmapOverlay = ViewObj[EditorKey::bShowLightHitmapOverlay].ToBool();
+		if (ViewObj.hasKey(EditorKey::ShadowProjection))
+		{
+			ShowFlags.ShadowProjection =
+				SanitizeShadowProjectionMode(ViewObj[EditorKey::ShadowProjection].ToInt());
+		}
 		if (ViewObj.hasKey(EditorKey::ShadowFilter))
 		{
 			const int32 ShadowFilterVersion =

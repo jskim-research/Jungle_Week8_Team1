@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "Core/CoreTypes.h"
+#include "Render/Common/ShadowTypes.h"
 // 에디터 UI와 렌더러가 공유하는 view mode 정의다.
 // 새 view mode를 추가할 때는 enum만 늘리지 말고 아래 helper 규칙도 함께 확장해야 한다.
 
@@ -34,6 +35,38 @@ enum class EShadowFilterMode : uint8
 	SSM_PCF = 1,
 	VSM = 2
 };
+
+constexpr EShadowProjectionMode GetDefaultShadowProjectionMode()
+{
+	return EShadowProjectionMode::Standard;
+}
+
+constexpr EShadowProjectionMode SanitizeShadowProjectionMode(
+	int32 ModeValue,
+	EShadowProjectionMode Fallback = GetDefaultShadowProjectionMode())
+{
+	switch (static_cast<EShadowProjectionMode>(ModeValue))
+	{
+	case EShadowProjectionMode::Standard:
+	case EShadowProjectionMode::PSM:
+		return static_cast<EShadowProjectionMode>(ModeValue);
+	default:
+		return Fallback;
+	}
+}
+
+inline const char* GetShadowProjectionModeDisplayName(EShadowProjectionMode Mode)
+{
+	switch (Mode)
+	{
+	case EShadowProjectionMode::Standard:
+		return "Standard";
+	case EShadowProjectionMode::PSM:
+		return "PSM";
+	default:
+		return "Unknown";
+	}
+}
 
 constexpr EShadowFilterMode GetDefaultShadowFilterMode()
 {
@@ -84,7 +117,13 @@ struct FShowFlags
 	bool bDecals = true;
 	bool bFog = true;
 	bool bShowLightHitmapOverlay = false;
+	EShadowProjectionMode ShadowProjection = GetDefaultShadowProjectionMode();
 	EShadowFilterMode ShadowFilter = GetDefaultShadowFilterMode();
+
+	bool UsesPSMShadowProjection() const
+	{
+		return ShadowProjection == EShadowProjectionMode::PSM;
+	}
 
 	bool UsesVSMShadowFilter() const
 	{

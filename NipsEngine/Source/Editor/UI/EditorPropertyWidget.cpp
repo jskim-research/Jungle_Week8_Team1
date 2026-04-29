@@ -525,6 +525,17 @@ void FEditorPropertyWidget::RenderComponentProperties()
 	{
 		RenderLightPreview();
 		ImGui::Separator();
+
+		if (ImGui::Button("Override Camera"))
+		{
+            ULightComponent* LightComponent = Cast<ULightComponent>(SelectedComponent);
+
+			// 설정된 애를 다시 클릭한 경우 해제
+            if (LightComponent->GetOwner()->GetFocusedWorld()->GetOverridenLight() == &LightComponent->GetLightHandle())
+                LightComponent->GetOwner()->GetFocusedWorld()->SetOverridenLight(nullptr, 0);
+            else
+                LightComponent->GetOwner()->GetFocusedWorld()->SetOverridenLight(&LightComponent->GetLightHandle(), LightPreviewSliceIndex);
+		}
 	}
 
 	// PropertyDescriptor 기반 자동 위젯 렌더링
@@ -874,9 +885,13 @@ void FEditorPropertyWidget::RenderLightPreview()
 				? ("Cascade " + std::to_string(SliceIndex))
 				: PointFaceLabels[SliceIndex];
 			const bool bSelected = (SliceIndex == LightPreviewSliceIndex);
-			if (ImGui::Selectable(OptionLabel.c_str(), bSelected))
+            if (ImGui::Selectable(OptionLabel.c_str(), bSelected))
 			{
 				LightPreviewSliceIndex = SliceIndex;
+
+				// 이미 override 중일 때만 변경
+				if (SelectedLight->GetOwner()->GetFocusedWorld()->GetOverridenLight())
+					SelectedLight->GetOwner()->GetFocusedWorld()->SetOverridenLight(&SelectedLight->GetLightHandle(), LightPreviewSliceIndex);
 			}
 			if (bSelected)
 			{

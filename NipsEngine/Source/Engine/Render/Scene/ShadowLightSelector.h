@@ -1,5 +1,4 @@
 ﻿#pragma once
-#include "Component/Light/LightComponent.h"
 #include "Render/Common/ShadowTypes.h"
 #include "Render/Scene/RenderCommand.h"
 #include "Component/CameraComponent.h"
@@ -21,9 +20,9 @@ struct FShadowRequest
 	int32 Resolution; // Shadow Map 해상도
     TArray<FCascadeInfo> Cascades;
 
-	bool bUseVSM; // VSM 사용할지 여부
-
-	EShadowProjectionMode ProjectionMode = EShadowProjectionMode::Default;
+	bool bUseVSM = false; // VSM 사용할지 여부
+    bool bPSM = false;
+	EShadowProjectionMode ProjectionMode = EShadowProjectionMode::Standard;
 };
 
 class IShadowLightSelector

@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include "Component/Light/LightComponent.h"
 
 namespace
 {
@@ -137,9 +138,9 @@ TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRe
 			Req.LightId = LightIndex;
 			Req.Type = static_cast<ELightType>(Light.Type);
 			Req.Resolution = ComputeShadowResolution(Light);
-			Req.ProjectionMode = EShadowProjectionMode::Default;
+			Req.ProjectionMode = Light.bPSM ? EShadowProjectionMode::PSM : EShadowProjectionMode::Standard;
 			Req.bUseVSM = false;
-
+			Req.bPSM = Light.bPSM;
 			FCascadeInfo CascadeInfo;
 
 			if (Req.Type == ELightType::LightType_Directional)
