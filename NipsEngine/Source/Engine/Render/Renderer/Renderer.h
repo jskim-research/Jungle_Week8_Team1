@@ -119,7 +119,7 @@ public:
 	void BeginFrame();
 	// Viewport 로부터 RTV, SRV 등 정보를 받아서 세팅
 	void BeginViewportFrame(FRenderTargetSet* InRenderTargetSet);
-	void Render(const FRenderBus& InRenderBus);
+	void Render(const FRenderBus& InRenderBus, int32 ViewportIndex = 0);
 	void EndFrame();
 	void UseBackBufferRenderTargets();
 	

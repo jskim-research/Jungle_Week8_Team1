@@ -15,6 +15,7 @@ private:
 
 private:
 	void RenderViewportSettings(float DeltaTime);
+	void RenderShadowStatsWindow();
 	void RenderDebugStats(float DeltaTime);
 	void RenderSplitterBar();
 	void RenderBoxSelectionOverlay();

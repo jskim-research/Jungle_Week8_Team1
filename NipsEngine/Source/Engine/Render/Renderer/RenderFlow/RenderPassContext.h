@@ -15,6 +15,7 @@ class FShadowResourcePool;
 struct FRenderPassContext
 {
 	const FRenderBus* RenderBus = nullptr;
+	int32 ViewportIndex = 0;
 	FRenderTargetSet* RenderTargets = nullptr;
 	ID3D11Device* Device = nullptr;
 	ID3D11DeviceContext* DeviceContext = nullptr;

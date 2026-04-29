@@ -445,6 +445,7 @@ void FEditorMainPanel::RenderViewportMenuBarForIndex(int32 Index)
 		ImGui::MenuItem("Memory", nullptr, &State.bShowStatMemory);
 		ImGui::MenuItem("Nametable", nullptr, &State.bShowStatNameTable);
 		ImGui::MenuItem("Lightcull", nullptr, &State.bShowStatLightCull);
+		ImGui::MenuItem("Shadow", nullptr, &State.bShowStatShadow);
 		ImGui::EndMenu();
 	}
 }

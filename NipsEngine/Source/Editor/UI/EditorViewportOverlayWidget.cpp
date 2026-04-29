@@ -14,6 +14,7 @@
 #include "Engine/Component/GizmoComponent.h"
 #include "Engine/Object/FName.h"
 #include "Engine/Render/Renderer/RenderFlow/LightCullingPass.h"
+#include "Engine/Render/Renderer/RenderFlow/ShadowPass.h"
 
 #include "Slate/SSplitterV.h"
 #include "Slate/SSplitterH.h"
@@ -56,6 +57,227 @@ namespace
 	const ImVec4 ColorRed      = ImVec4(1.0f, 0.2f, 0.2f, 1.0f); // 미사용
 	const ImVec4 ColorPurple   = ImVec4(0.7f, 0.4f, 1.0f, 1.0f);
 	const ImVec4 ColorMint     = ImVec4(0.3f, 1.0f, 0.7f, 1.0f);
+
+	const char* GetShadowStatsTypeName(ELightType LightType)
+	{
+		switch (LightType)
+		{
+		case ELightType::LightType_Directional:
+			return "Directional";
+		case ELightType::LightType_Spot:
+			return "Spot";
+		case ELightType::LightType_Point:
+			return "Point";
+		default:
+			return "Unknown";
+		}
+	}
+
+	const char* GetShadowStatsProjectionName(const FLightShadowStat& Stat)
+	{
+		if (Stat.ProjectionMode == EShadowProjectionMode::PSM)
+		{
+			return "PSM";
+		}
+
+		return Stat.bUsesCSM ? "CSM" : "Standard";
+	}
+
+	const char* GetShadowStatsProjectionName(const FShadowMapStat& Stat)
+	{
+		if (Stat.ProjectionMode == EShadowProjectionMode::PSM)
+		{
+			return "PSM";
+		}
+
+		return Stat.bUsesCSM ? "CSM" : "Standard";
+	}
+
+	const char* GetShadowStatsFormatName(DXGI_FORMAT Format)
+	{
+		switch (Format)
+		{
+		case DXGI_FORMAT_D32_FLOAT:
+			return "D32_FLOAT";
+		case DXGI_FORMAT_R32_FLOAT:
+			return "R32_FLOAT";
+		case DXGI_FORMAT_R32_TYPELESS:
+			return "R32_TYPELESS";
+		case DXGI_FORMAT_D24_UNORM_S8_UINT:
+			return "D24_UNORM_S8_UINT";
+		case DXGI_FORMAT_R24G8_TYPELESS:
+			return "R24G8_TYPELESS";
+		case DXGI_FORMAT_R24_UNORM_X8_TYPELESS:
+			return "R24_UNORM_X8_TYPELESS";
+		case DXGI_FORMAT_D16_UNORM:
+			return "D16_UNORM";
+		case DXGI_FORMAT_R16_TYPELESS:
+			return "R16_TYPELESS";
+		case DXGI_FORMAT_R16G16_FLOAT:
+			return "R16G16_FLOAT";
+		case DXGI_FORMAT_R32G32_FLOAT:
+			return "R32G32_FLOAT";
+		default:
+			return "UNKNOWN";
+		}
+	}
+
+	const char* GetShadowStatsFaceName(int32 FaceIndex)
+	{
+		switch (FaceIndex)
+		{
+		case 0:
+			return "+X";
+		case 1:
+			return "-X";
+		case 2:
+			return "+Y";
+		case 3:
+			return "-Y";
+		case 4:
+			return "+Z";
+		case 5:
+			return "-Z";
+		default:
+			return "?";
+		}
+	}
+
+	int32 GetShadowStatsViewportIndex(const FEditorViewportLayout& Layout)
+	{
+		const int32 FocusedViewportIndex = Layout.GetLastFocusedViewportIndex();
+		if (FocusedViewportIndex >= 0 &&
+			FocusedViewportIndex < FEditorViewportLayout::MaxViewports &&
+			Layout.GetViewportState(FocusedViewportIndex).bShowStatShadow)
+		{
+			return FocusedViewportIndex;
+		}
+
+		for (int32 ViewportIndex = 0; ViewportIndex < FEditorViewportLayout::MaxViewports; ++ViewportIndex)
+		{
+			if (Layout.GetViewportState(ViewportIndex).bShowStatShadow)
+			{
+				return ViewportIndex;
+			}
+		}
+
+		return -1;
+	}
+
+	void SetShadowStatsEnabled(FEditorViewportLayout& Layout, bool bEnabled)
+	{
+		for (int32 ViewportIndex = 0; ViewportIndex < FEditorViewportLayout::MaxViewports; ++ViewportIndex)
+		{
+			Layout.GetViewportState(ViewportIndex).bShowStatShadow = bEnabled;
+		}
+	}
+
+	FString BuildShadowStatsLightLabel(const FLightShadowStat& Stat)
+	{
+		FString Label = "#" + std::to_string(Stat.LightIndex);
+		if (Stat.SourceLightSlotIndex != 0xFFFFFFFF)
+		{
+			Label += " / Slot " + std::to_string(Stat.SourceLightSlotIndex);
+		}
+
+		if (!Stat.LightName.empty())
+		{
+			Label += " " + Stat.LightName;
+		}
+
+		return Label;
+	}
+
+	FString BuildShadowStatsMapSummary(const FLightShadowStat& Stat)
+	{
+		FString Label = std::to_string(Stat.LogicalShadowMapCount);
+		if (Stat.LightType == ELightType::LightType_Point)
+		{
+			Label += " faces";
+		}
+		else if (Stat.bUsesCSM)
+		{
+			Label += " cascades";
+		}
+
+		if (Stat.ResourceViewCount != Stat.LogicalShadowMapCount)
+		{
+			Label += " (" + std::to_string(Stat.ResourceViewCount) + " views)";
+		}
+
+		return Label;
+	}
+
+	FString BuildShadowStatsResolutionSummary(const FLightShadowStat& Stat)
+	{
+		if (Stat.ShadowMaps.empty())
+		{
+			return "-";
+		}
+
+		uint32 MinWidth = Stat.ShadowMaps[0].Width;
+		uint32 MaxWidth = Stat.ShadowMaps[0].Width;
+		uint32 MinHeight = Stat.ShadowMaps[0].Height;
+		uint32 MaxHeight = Stat.ShadowMaps[0].Height;
+
+		for (const FShadowMapStat& MapStat : Stat.ShadowMaps)
+		{
+			MinWidth = std::min(MinWidth, MapStat.Width);
+			MaxWidth = std::max(MaxWidth, MapStat.Width);
+			MinHeight = std::min(MinHeight, MapStat.Height);
+			MaxHeight = std::max(MaxHeight, MapStat.Height);
+		}
+
+		if (MinWidth == MaxWidth && MinHeight == MaxHeight)
+		{
+			return std::to_string(MaxWidth) + "x" + std::to_string(MaxHeight);
+		}
+
+		return std::to_string(MaxWidth) + "x" + std::to_string(MaxHeight) +
+			" .. " +
+			std::to_string(MinWidth) + "x" + std::to_string(MinHeight);
+	}
+
+	FString BuildShadowStatsFormatSummary(const FLightShadowStat& Stat)
+	{
+		if (Stat.ShadowMaps.empty())
+		{
+			return "-";
+		}
+
+		FString FirstFormat = GetShadowStatsFormatName(Stat.ShadowMaps[0].Format);
+		bool bMixed = false;
+		for (const FShadowMapStat& MapStat : Stat.ShadowMaps)
+		{
+			if (FirstFormat != GetShadowStatsFormatName(MapStat.Format))
+			{
+				bMixed = true;
+				break;
+			}
+		}
+
+		return bMixed ? "Mixed" : FirstFormat;
+	}
+
+	FString BuildShadowStatsDetailLabel(const FShadowMapStat& Stat)
+	{
+		FString Label = Stat.Name;
+		if (Stat.bHasAtlasRegion)
+		{
+			Label += " [Atlas " + std::to_string(Stat.AtlasX) + ", " + std::to_string(Stat.AtlasY) + "]";
+		}
+		else if (Stat.ArraySlice != 0u || Stat.FaceIndex >= 0 || Stat.CascadeIndex >= 0)
+		{
+			Label += " [Slice " + std::to_string(Stat.ArraySlice) + "]";
+		}
+
+		if (Stat.MipLevel > 0u)
+		{
+			Label += " [Mip " + std::to_string(Stat.MipLevel) + "]";
+		}
+
+		return Label;
+	}
 }
 
 // 뷰포트 타입(Enum)을 UI에 표시할 문자열로 변환합니다.
@@ -95,6 +317,7 @@ void FEditorViewportOverlayWidget::Render(float DeltaTime)
 	{
 		RenderViewportSettings(DeltaTime);
 	}
+	RenderShadowStatsWindow();
 	RenderDebugStats(DeltaTime);
 	RenderSplitterBar();
 	RenderBoxSelectionOverlay();
@@ -254,6 +477,188 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
 	}
 
 	ImGui::End();
+}
+
+void FEditorViewportOverlayWidget::RenderShadowStatsWindow()
+{
+	if (!EditorEngine)
+	{
+		return;
+	}
+
+	FEditorViewportLayout& Layout = EditorEngine->GetViewportLayout();
+	const int32 ShadowStatsViewportIndex = GetShadowStatsViewportIndex(Layout);
+	if (ShadowStatsViewportIndex < 0)
+	{
+		return;
+	}
+
+	const UWorld* ShadowStatsWorld = EditorEngine->GetFocusedWorld();
+	const FShadowStats ShadowStats = FShadowPass::GetShadowStats(ShadowStatsViewportIndex, ShadowStatsWorld);
+
+	ImGui::SetNextWindowSize(ImVec2(980.0f, 440.0f), ImGuiCond_FirstUseEver);
+	bool bWindowOpen = true;
+	if (!ImGui::Begin("Shadow Stats", &bWindowOpen))
+	{
+		ImGui::End();
+		if (!bWindowOpen)
+		{
+			SetShadowStatsEnabled(Layout, false);
+		}
+		return;
+	}
+
+	ImGui::Text("Viewport: %d", ShadowStatsViewportIndex);
+	ImGui::Text(
+		"Shadow Lights: %u | Logical Maps: %u | Resource Views: %u",
+		ShadowStats.ShadowCastingLightCount,
+		ShadowStats.TotalShadowMapCount,
+		ShadowStats.TotalResourceViewCount);
+	ImGui::Text(
+		"Total: %s | Depth: %s | VSM Moments: %s | VSM Temp: %s",
+		FShadowPass::FormatBytes(ShadowStats.TotalMemoryBytes).c_str(),
+		FShadowPass::FormatBytes(ShadowStats.TotalDepthMemoryBytes).c_str(),
+		FShadowPass::FormatBytes(ShadowStats.TotalVSMMomentMemoryBytes).c_str(),
+		FShadowPass::FormatBytes(ShadowStats.TotalVSMTempMemoryBytes).c_str());
+	if (ShadowStats.TotalAtlasMemoryBytes > 0u)
+	{
+		ImGui::Text("Shared Atlas Memory: %s", FShadowPass::FormatBytes(ShadowStats.TotalAtlasMemoryBytes).c_str());
+	}
+	ImGui::TextWrapped("Per-light memory is a logical allocation estimate. Shared atlases and shared cubemap arrays are counted once in the total summary.");
+	ImGui::Separator();
+
+	if (ShadowStats.Lights.empty())
+	{
+		ImGui::TextUnformatted("No active shadow resources for the focused viewport.");
+		ImGui::End();
+		return;
+	}
+
+	constexpr ImGuiTableFlags TableFlags =
+		ImGuiTableFlags_RowBg |
+		ImGuiTableFlags_Borders |
+		ImGuiTableFlags_Resizable |
+		ImGuiTableFlags_ScrollY;
+
+	if (ImGui::BeginTable("##ShadowStatsTable", 9, TableFlags, ImVec2(0.0f, 0.0f)))
+	{
+		ImGui::TableSetupColumn("Light", ImGuiTableColumnFlags_WidthStretch, 2.4f);
+		ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 0.9f);
+		ImGui::TableSetupColumn("Cast Shadow", ImGuiTableColumnFlags_WidthFixed, 0.95f);
+		ImGui::TableSetupColumn("Projection", ImGuiTableColumnFlags_WidthFixed, 0.95f);
+		ImGui::TableSetupColumn("Filter", ImGuiTableColumnFlags_WidthFixed, 0.95f);
+		ImGui::TableSetupColumn("Shadow Maps", ImGuiTableColumnFlags_WidthFixed, 1.1f);
+		ImGui::TableSetupColumn("Resolution", ImGuiTableColumnFlags_WidthFixed, 1.1f);
+		ImGui::TableSetupColumn("Format", ImGuiTableColumnFlags_WidthFixed, 1.0f);
+		ImGui::TableSetupColumn("Memory", ImGuiTableColumnFlags_WidthFixed, 1.0f);
+		ImGui::TableHeadersRow();
+
+		for (const FLightShadowStat& LightStat : ShadowStats.Lights)
+		{
+			ImGui::PushID(static_cast<int32>(LightStat.LightIndex));
+			ImGui::TableNextRow();
+
+			const bool bHasChildren = !LightStat.ShadowMaps.empty();
+			ImGuiTreeNodeFlags RowFlags =
+				ImGuiTreeNodeFlags_SpanFullWidth |
+				ImGuiTreeNodeFlags_SpanAvailWidth;
+			if (!bHasChildren)
+			{
+				RowFlags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+			}
+
+			ImGui::TableSetColumnIndex(0);
+			const bool bOpen = ImGui::TreeNodeEx("##ShadowLightRow", RowFlags, "%s", BuildShadowStatsLightLabel(LightStat).c_str());
+
+			ImGui::TableSetColumnIndex(1);
+			ImGui::TextUnformatted(GetShadowStatsTypeName(LightStat.LightType));
+
+			ImGui::TableSetColumnIndex(2);
+			ImGui::TextUnformatted(LightStat.bCastShadow ? "Yes" : "No");
+
+			ImGui::TableSetColumnIndex(3);
+			ImGui::TextUnformatted(GetShadowStatsProjectionName(LightStat));
+
+			ImGui::TableSetColumnIndex(4);
+			ImGui::TextUnformatted(GetShadowFilterModeDisplayName(LightStat.FilterMode));
+
+			ImGui::TableSetColumnIndex(5);
+			ImGui::TextUnformatted(BuildShadowStatsMapSummary(LightStat).c_str());
+
+			ImGui::TableSetColumnIndex(6);
+			ImGui::TextUnformatted(BuildShadowStatsResolutionSummary(LightStat).c_str());
+
+			ImGui::TableSetColumnIndex(7);
+			ImGui::TextUnformatted(BuildShadowStatsFormatSummary(LightStat).c_str());
+
+			ImGui::TableSetColumnIndex(8);
+			ImGui::TextUnformatted(FShadowPass::FormatBytes(LightStat.TotalMemoryBytes).c_str());
+
+			if (bOpen && bHasChildren)
+			{
+				for (const FShadowMapStat& MapStat : LightStat.ShadowMaps)
+				{
+					ImGui::TableNextRow();
+
+					ImGui::TableSetColumnIndex(0);
+					ImGui::Indent();
+					ImGui::BulletText("%s", BuildShadowStatsDetailLabel(MapStat).c_str());
+					ImGui::Unindent();
+
+					ImGui::TableSetColumnIndex(1);
+					ImGui::TextUnformatted("");
+
+					ImGui::TableSetColumnIndex(2);
+					ImGui::TextUnformatted(MapStat.bSharedResource ? "Shared" : "");
+
+					ImGui::TableSetColumnIndex(3);
+					ImGui::TextUnformatted(GetShadowStatsProjectionName(MapStat));
+
+					ImGui::TableSetColumnIndex(4);
+					ImGui::TextUnformatted(GetShadowFilterModeDisplayName(MapStat.FilterMode));
+
+					ImGui::TableSetColumnIndex(5);
+					if (MapStat.FaceIndex >= 0)
+					{
+						ImGui::Text("Face %s", GetShadowStatsFaceName(MapStat.FaceIndex));
+					}
+					else if (MapStat.CascadeIndex >= 0)
+					{
+						ImGui::Text("Cascade %d", MapStat.CascadeIndex);
+					}
+					else
+					{
+						ImGui::TextUnformatted("1");
+					}
+
+					ImGui::TableSetColumnIndex(6);
+					ImGui::Text("%ux%u", MapStat.Width, MapStat.Height);
+
+					ImGui::TableSetColumnIndex(7);
+					ImGui::TextUnformatted(GetShadowStatsFormatName(MapStat.Format));
+
+					ImGui::TableSetColumnIndex(8);
+					const FString MemoryLabel =
+						FShadowPass::FormatBytes(MapStat.MemoryBytes) +
+						(MapStat.bSharedResource ? " est." : "");
+					ImGui::TextUnformatted(MemoryLabel.c_str());
+				}
+
+				ImGui::TreePop();
+			}
+
+			ImGui::PopID();
+		}
+
+		ImGui::EndTable();
+	}
+
+	ImGui::End();
+
+	if (!bWindowOpen)
+	{
+		SetShadowStatsEnabled(Layout, false);
+	}
 }
 
 // 활성화된 뷰포트를 순회하며 설정에 따라 디버그 스탯(FPS, Culling, Memory 등) 오버레이를 화면에 배치하고 렌더링합니다.

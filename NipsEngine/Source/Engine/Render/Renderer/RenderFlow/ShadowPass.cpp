@@ -4,10 +4,16 @@
 #include "Render/Scene/ShadowLightSelector.h"
 #include "Core/ResourceManager.h"
 #include "Editor/UI/EditorConsoleWidget.h"
+#include "GameFramework/AActor.h"
+#include "GameFramework/World.h"
 #include "Render/Common/PSMCalculator.h"
+#include "Component/Light/LightComponent.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <iomanip>
+#include <sstream>
+#include <unordered_set>
 #include <vector>
 
 static constexpr uint32 kAtlasSize = 4096;
@@ -49,6 +55,17 @@ namespace
 	TArray<FShadowVSMResource*> GVSMResources;
 	TArray<int32> GLightToShadowIndices;
 	FOpaqueRenderPass::FShadowArrayCB GShadowCBData;
+
+	struct FShadowFrameCapture
+	{
+		TArray<FShadowMap> ShadowMaps;
+		TArray<FShadowVSMResource*> VSMResources;
+		TArray<int32> LightToShadowIndices;
+		FOpaqueRenderPass::FShadowArrayCB ShadowCBData = {};
+		bool bValid = false;
+	};
+
+	TArray<FShadowFrameCapture> GShadowFrameCaptures;
 
 	struct FResolvedShadowProjectionState
 	{
@@ -132,10 +149,10 @@ namespace
 		}
 	}
 
-	const char* GetPSMInvalidReasonName(EPSMInvalidReason Reason)
-	{
-		switch (Reason)
+		const char* GetPSMInvalidReasonName(EPSMInvalidReason Reason)
 		{
+			switch (Reason)
+			{
 		case EPSMInvalidReason::None:
 			return "None";
 		case EPSMInvalidReason::MissingContext:
@@ -156,14 +173,285 @@ namespace
 			return "UnsupportedLightType";
 		case EPSMInvalidReason::NonFiniteMatrix:
 			return "NonFiniteMatrix";
-		default:
-			return "Unknown";
+			default:
+				return "Unknown";
+			}
 		}
-	}
 
-	void UpdatePSMFallbackLogging(
-		const FShowFlags& ShowFlags,
-		const FRenderLight& Light,
+		bool IsAtlasShadowMap(const FShadowMap& ShadowMap)
+		{
+			return ShadowMap.MapType == EShadowMapType::Depth2D &&
+				   !ShadowMap.Slices.empty() &&
+				   ShadowMap.Slices[0].Type == EShadowSliceType::Atlas;
+		}
+
+		void CacheShadowFrameCapture(const FRenderPassContext* Context)
+		{
+			if (Context == nullptr || Context->ViewportIndex < 0)
+			{
+				return;
+			}
+
+			const size_t CaptureIndex = static_cast<size_t>(Context->ViewportIndex);
+			if (GShadowFrameCaptures.size() <= CaptureIndex)
+			{
+				GShadowFrameCaptures.resize(CaptureIndex + 1);
+			}
+
+			FShadowFrameCapture& Capture = GShadowFrameCaptures[CaptureIndex];
+			Capture.ShadowMaps = GShadowMaps;
+			Capture.VSMResources = GVSMResources;
+			Capture.LightToShadowIndices = GLightToShadowIndices;
+			Capture.ShadowCBData = GShadowCBData;
+			Capture.bValid = true;
+		}
+
+		const FShadowFrameCapture* GetShadowFrameCapture(int32 ViewportIndex)
+		{
+			if (ViewportIndex < 0)
+			{
+				return nullptr;
+			}
+
+			const size_t CaptureIndex = static_cast<size_t>(ViewportIndex);
+			if (CaptureIndex >= GShadowFrameCaptures.size())
+			{
+				return nullptr;
+			}
+
+			return GShadowFrameCaptures[CaptureIndex].bValid ? &GShadowFrameCaptures[CaptureIndex] : nullptr;
+		}
+
+		uint32 GetEffectiveMipCount(const D3D11_TEXTURE2D_DESC& Desc)
+		{
+			if (Desc.MipLevels != 0)
+			{
+				return Desc.MipLevels;
+			}
+
+			uint32 Width = std::max(Desc.Width, 1u);
+			uint32 Height = std::max(Desc.Height, 1u);
+			uint32 MipCount = 1;
+			while (Width > 1u || Height > 1u)
+			{
+				Width = std::max(Width >> 1u, 1u);
+				Height = std::max(Height >> 1u, 1u);
+				++MipCount;
+			}
+
+			return MipCount;
+		}
+
+		bool GetBlockCompressionInfo(DXGI_FORMAT Format, uint32& OutBlockWidth, uint32& OutBlockHeight, uint32& OutBytesPerBlock)
+		{
+			OutBlockWidth = 4u;
+			OutBlockHeight = 4u;
+
+			switch (Format)
+			{
+			case DXGI_FORMAT_BC1_TYPELESS:
+			case DXGI_FORMAT_BC1_UNORM:
+			case DXGI_FORMAT_BC1_UNORM_SRGB:
+			case DXGI_FORMAT_BC4_TYPELESS:
+			case DXGI_FORMAT_BC4_UNORM:
+			case DXGI_FORMAT_BC4_SNORM:
+				OutBytesPerBlock = 8u;
+				return true;
+
+			case DXGI_FORMAT_BC2_TYPELESS:
+			case DXGI_FORMAT_BC2_UNORM:
+			case DXGI_FORMAT_BC2_UNORM_SRGB:
+			case DXGI_FORMAT_BC3_TYPELESS:
+			case DXGI_FORMAT_BC3_UNORM:
+			case DXGI_FORMAT_BC3_UNORM_SRGB:
+			case DXGI_FORMAT_BC5_TYPELESS:
+			case DXGI_FORMAT_BC5_UNORM:
+			case DXGI_FORMAT_BC5_SNORM:
+			case DXGI_FORMAT_BC6H_TYPELESS:
+			case DXGI_FORMAT_BC6H_UF16:
+			case DXGI_FORMAT_BC6H_SF16:
+			case DXGI_FORMAT_BC7_TYPELESS:
+			case DXGI_FORMAT_BC7_UNORM:
+			case DXGI_FORMAT_BC7_UNORM_SRGB:
+				OutBytesPerBlock = 16u;
+				return true;
+
+			default:
+				OutBytesPerBlock = 0u;
+				return false;
+			}
+		}
+
+		DXGI_FORMAT ResolveShadowUsageFormat(DXGI_FORMAT Format, bool bTreatAsDepthResource)
+		{
+			switch (Format)
+			{
+			case DXGI_FORMAT_R32_TYPELESS:
+			case DXGI_FORMAT_R32_FLOAT:
+			case DXGI_FORMAT_D32_FLOAT:
+				return bTreatAsDepthResource ? DXGI_FORMAT_D32_FLOAT : DXGI_FORMAT_R32_FLOAT;
+
+			case DXGI_FORMAT_R24G8_TYPELESS:
+			case DXGI_FORMAT_R24_UNORM_X8_TYPELESS:
+			case DXGI_FORMAT_D24_UNORM_S8_UINT:
+				return bTreatAsDepthResource ? DXGI_FORMAT_D24_UNORM_S8_UINT : DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+
+			case DXGI_FORMAT_R16_TYPELESS:
+			case DXGI_FORMAT_R16_FLOAT:
+			case DXGI_FORMAT_D16_UNORM:
+				return bTreatAsDepthResource ? DXGI_FORMAT_D16_UNORM : DXGI_FORMAT_R16_FLOAT;
+
+			default:
+				return Format;
+			}
+		}
+
+		FString FormatBytesInternal(uint64 Bytes)
+		{
+			std::ostringstream Stream;
+			Stream << std::fixed << std::setprecision(2);
+
+			const double ByteCount = static_cast<double>(Bytes);
+			const double Kilobyte = 1024.0;
+			const double Megabyte = Kilobyte * 1024.0;
+			const double Gigabyte = Megabyte * 1024.0;
+
+			if (ByteCount >= Gigabyte)
+			{
+				Stream << (ByteCount / Gigabyte) << " GB";
+			}
+			else if (ByteCount >= Megabyte)
+			{
+				Stream << (ByteCount / Megabyte) << " MB";
+			}
+			else if (ByteCount >= Kilobyte)
+			{
+				Stream << (ByteCount / Kilobyte) << " KB";
+			}
+			else
+			{
+				Stream << Bytes << " B";
+			}
+
+			return Stream.str();
+		}
+
+		const char* GetDXGIFormatDisplayName(DXGI_FORMAT Format)
+		{
+			switch (Format)
+			{
+			case DXGI_FORMAT_R32_TYPELESS:
+				return "R32_TYPELESS";
+			case DXGI_FORMAT_D32_FLOAT:
+				return "D32_FLOAT";
+			case DXGI_FORMAT_R32_FLOAT:
+				return "R32_FLOAT";
+			case DXGI_FORMAT_R24G8_TYPELESS:
+				return "R24G8_TYPELESS";
+			case DXGI_FORMAT_D24_UNORM_S8_UINT:
+				return "D24_UNORM_S8_UINT";
+			case DXGI_FORMAT_R24_UNORM_X8_TYPELESS:
+				return "R24_UNORM_X8_TYPELESS";
+			case DXGI_FORMAT_R16_TYPELESS:
+				return "R16_TYPELESS";
+			case DXGI_FORMAT_D16_UNORM:
+				return "D16_UNORM";
+			case DXGI_FORMAT_R16_FLOAT:
+				return "R16_FLOAT";
+			case DXGI_FORMAT_R16G16_FLOAT:
+				return "R16G16_FLOAT";
+			case DXGI_FORMAT_R32G32_FLOAT:
+				return "R32G32_FLOAT";
+			default:
+				return "UNKNOWN";
+			}
+		}
+
+		const char* GetCubeFaceName(int32 FaceIndex)
+		{
+			switch (FaceIndex)
+			{
+			case 0:
+				return "+X";
+			case 1:
+				return "-X";
+			case 2:
+				return "+Y";
+			case 3:
+				return "-Y";
+			case 4:
+				return "+Z";
+			case 5:
+				return "-Z";
+			default:
+				return "?";
+			}
+		}
+
+		const FOpaqueRenderPass::FShadowCB* GetShadowConstantForLight(const FShadowFrameCapture& Capture, uint32 LightIndex)
+		{
+			if (LightIndex >= static_cast<uint32>(Capture.LightToShadowIndices.size()))
+			{
+				return nullptr;
+			}
+
+			const int32 ShadowIndex = Capture.LightToShadowIndices[LightIndex];
+			if (ShadowIndex < 0 || ShadowIndex >= MAX_SHADOW_LIGHTS)
+			{
+				return nullptr;
+			}
+
+			return &Capture.ShadowCBData.ShadowDataArray[ShadowIndex];
+		}
+
+		FString ResolveLightDisplayName(const UWorld* World, uint32 SourceLightSlotIndex)
+		{
+			if (World == nullptr || SourceLightSlotIndex == 0xFFFFFFFF)
+			{
+				return {};
+			}
+
+			const TArray<FLightSlot>& LightSlots = World->GetWorldLightSlots();
+			if (SourceLightSlotIndex >= static_cast<uint32>(LightSlots.size()))
+			{
+				return {};
+			}
+
+			const FLightSlot& Slot = LightSlots[SourceLightSlotIndex];
+			const ULightComponentBase* LightComponent = Slot.bAlive ? Slot.LightData : nullptr;
+			if (LightComponent == nullptr)
+			{
+				return {};
+			}
+
+			const AActor* Owner = LightComponent->GetOwner();
+			return (Owner != nullptr)
+				? Owner->GetFName().ToString()
+				: LightComponent->GetFName().ToString();
+		}
+
+		bool ResolveLightCastShadowEnabled(const UWorld* World, uint32 SourceLightSlotIndex, bool bDefaultValue)
+		{
+			if (World == nullptr || SourceLightSlotIndex == 0xFFFFFFFF)
+			{
+				return bDefaultValue;
+			}
+
+			const TArray<FLightSlot>& LightSlots = World->GetWorldLightSlots();
+			if (SourceLightSlotIndex >= static_cast<uint32>(LightSlots.size()))
+			{
+				return bDefaultValue;
+			}
+
+			const FLightSlot& Slot = LightSlots[SourceLightSlotIndex];
+			return (Slot.bAlive && Slot.LightData != nullptr)
+				? Slot.LightData->IsCastShadows()
+				: bDefaultValue;
+		}
+
+		void UpdatePSMFallbackLogging(
+			const FShowFlags& ShowFlags,
+			const FRenderLight& Light,
 		uint32 LightId,
 		EShadowProjectionMode RequestedMode,
 		bool bUsingFallback,
@@ -715,6 +1003,388 @@ namespace
 	}
 } // namespace
 
+uint32 FShadowPass::GetBytesPerPixel(DXGI_FORMAT Format)
+{
+	switch (Format)
+	{
+	case DXGI_FORMAT_R32_TYPELESS:
+	case DXGI_FORMAT_D32_FLOAT:
+	case DXGI_FORMAT_R32_FLOAT:
+	case DXGI_FORMAT_R24G8_TYPELESS:
+	case DXGI_FORMAT_D24_UNORM_S8_UINT:
+	case DXGI_FORMAT_R24_UNORM_X8_TYPELESS:
+		return 4u;
+
+	case DXGI_FORMAT_R16_TYPELESS:
+	case DXGI_FORMAT_D16_UNORM:
+	case DXGI_FORMAT_R16_FLOAT:
+		return 2u;
+
+	case DXGI_FORMAT_R16G16_FLOAT:
+		return 4u;
+
+	case DXGI_FORMAT_R32G32_FLOAT:
+		return 8u;
+
+	default:
+		return 0u;
+	}
+}
+
+uint64 FShadowPass::EstimateTexture2DMemoryBytes(const D3D11_TEXTURE2D_DESC& Desc, DXGI_FORMAT FormatOverride)
+{
+	const DXGI_FORMAT Format = (FormatOverride != DXGI_FORMAT_UNKNOWN) ? FormatOverride : Desc.Format;
+	const uint32 ArraySize = std::max(Desc.ArraySize, 1u);
+	const uint32 SampleCount = std::max(Desc.SampleDesc.Count, 1u);
+	const uint32 MipCount = GetEffectiveMipCount(Desc);
+
+	uint32 Width = std::max(Desc.Width, 1u);
+	uint32 Height = std::max(Desc.Height, 1u);
+	uint64 TotalBytes = 0u;
+
+	uint32 BlockWidth = 0u;
+	uint32 BlockHeight = 0u;
+	uint32 BytesPerBlock = 0u;
+	if (GetBlockCompressionInfo(Format, BlockWidth, BlockHeight, BytesPerBlock))
+	{
+		for (uint32 MipIndex = 0; MipIndex < MipCount; ++MipIndex)
+		{
+			const uint64 BlocksX = std::max<uint64>((Width + BlockWidth - 1u) / BlockWidth, 1u);
+			const uint64 BlocksY = std::max<uint64>((Height + BlockHeight - 1u) / BlockHeight, 1u);
+			TotalBytes += BlocksX * BlocksY * BytesPerBlock * ArraySize * SampleCount;
+			Width = std::max(Width >> 1u, 1u);
+			Height = std::max(Height >> 1u, 1u);
+		}
+
+		return TotalBytes;
+	}
+
+	const uint32 BytesPerPixel = GetBytesPerPixel(Format);
+	if (BytesPerPixel == 0u)
+	{
+		return 0u;
+	}
+
+	for (uint32 MipIndex = 0; MipIndex < MipCount; ++MipIndex)
+	{
+		TotalBytes += static_cast<uint64>(Width) * Height * BytesPerPixel * ArraySize * SampleCount;
+		Width = std::max(Width >> 1u, 1u);
+		Height = std::max(Height >> 1u, 1u);
+	}
+
+	return TotalBytes;
+}
+
+FString FShadowPass::FormatBytes(uint64 Bytes)
+{
+	return FormatBytesInternal(Bytes);
+}
+
+FShadowStats FShadowPass::GetShadowStats(int32 ViewportIndex, const UWorld* World)
+{
+	FShadowStats Stats;
+	const FShadowFrameCapture* Capture = GetShadowFrameCapture(ViewportIndex);
+	if (Capture == nullptr)
+	{
+		return Stats;
+	}
+
+	std::unordered_set<const void*> CountedTextures;
+	TMap<uint32, size_t> LightLookup;
+
+	auto CountUniqueTexture = [&](ID3D11Texture2D* Texture, DXGI_FORMAT Format, uint64& CategoryBytes, bool* bOutWasUnique = nullptr) -> uint64
+	{
+		if (bOutWasUnique != nullptr)
+		{
+			*bOutWasUnique = false;
+		}
+
+		if (Texture == nullptr)
+		{
+			return 0u;
+		}
+
+		D3D11_TEXTURE2D_DESC Desc = {};
+		Texture->GetDesc(&Desc);
+		const uint64 Bytes = EstimateTexture2DMemoryBytes(Desc, Format);
+		if (CountedTextures.insert(Texture).second)
+		{
+			if (bOutWasUnique != nullptr)
+			{
+				*bOutWasUnique = true;
+			}
+			Stats.TotalMemoryBytes += Bytes;
+			CategoryBytes += Bytes;
+		}
+
+		return Bytes;
+	};
+
+	auto GetOrAddLightStat = [&](uint32 LightIndex, uint32 SourceLightSlotIndex, ELightType LightType, EShadowMapType MapType, uint32 LogicalSliceCount) -> FLightShadowStat&
+	{
+		const auto Existing = LightLookup.find(LightIndex);
+		if (Existing != LightLookup.end())
+		{
+			return Stats.Lights[Existing->second];
+		}
+
+		FLightShadowStat NewStat;
+		NewStat.LightIndex = LightIndex;
+		NewStat.SourceLightSlotIndex = SourceLightSlotIndex;
+		NewStat.LightName = ResolveLightDisplayName(World, SourceLightSlotIndex);
+		NewStat.LightType = LightType;
+		NewStat.bCastShadow = ResolveLightCastShadowEnabled(World, SourceLightSlotIndex, true);
+
+		const FOpaqueRenderPass::FShadowCB* ShadowCB = GetShadowConstantForLight(*Capture, LightIndex);
+		NewStat.ProjectionMode =
+			(ShadowCB != nullptr && ShadowCB->isPSM != 0u)
+				? EShadowProjectionMode::PSM
+				: EShadowProjectionMode::Standard;
+		NewStat.bUsesCSM =
+			LightType == ELightType::LightType_Directional &&
+			LogicalSliceCount > 1u &&
+			NewStat.ProjectionMode != EShadowProjectionMode::PSM;
+		NewStat.FilterMode =
+			(ShadowCB != nullptr)
+				? SanitizeShadowFilterMode(static_cast<int32>(ShadowCB->ShadowFilterMode))
+				: ResolveShadowFilterMode(GetDefaultShadowFilterMode(), MapType);
+
+		Stats.Lights.push_back(std::move(NewStat));
+		const size_t NewIndex = Stats.Lights.size() - 1u;
+		LightLookup[LightIndex] = NewIndex;
+		return Stats.Lights[NewIndex];
+	};
+
+		auto AppendMapStat = [&](FLightShadowStat& LightStat, const FShadowMapStat& MapStat, bool bCountsAsLogicalShadowMap)
+		{
+			LightStat.ShadowMaps.push_back(MapStat);
+			LightStat.TotalMemoryBytes += MapStat.MemoryBytes;
+		++LightStat.ResourceViewCount;
+		++Stats.TotalResourceViewCount;
+
+		if (bCountsAsLogicalShadowMap)
+		{
+				++LightStat.LogicalShadowMapCount;
+				++Stats.TotalShadowMapCount;
+			}
+		};
+
+		auto MakeSingleSliceDesc = [](const D3D11_TEXTURE2D_DESC& Desc) -> D3D11_TEXTURE2D_DESC
+		{
+			D3D11_TEXTURE2D_DESC SingleSliceDesc = Desc;
+			SingleSliceDesc.ArraySize = 1u;
+			return SingleSliceDesc;
+		};
+
+	for (size_t ShadowMapIndex = 0; ShadowMapIndex < Capture->ShadowMaps.size(); ++ShadowMapIndex)
+	{
+		const FShadowMap& ShadowMap = Capture->ShadowMaps[ShadowMapIndex];
+		if (ShadowMap.Resource == nullptr || ShadowMap.Resource->BackingResource.Texture == nullptr)
+		{
+			continue;
+		}
+
+		D3D11_TEXTURE2D_DESC DepthDesc = {};
+		ShadowMap.Resource->BackingResource.Texture->GetDesc(&DepthDesc);
+		const DXGI_FORMAT DepthFormat = ResolveShadowUsageFormat(DepthDesc.Format, true);
+		const bool bAtlasMap = IsAtlasShadowMap(ShadowMap);
+		const bool bPointLight = ShadowMap.LightType == ELightType::LightType_Point;
+		const bool bSharedPointResource = bPointLight && DepthDesc.ArraySize > 6u;
+
+		bool bDepthTextureWasUnique = false;
+		const uint64 DepthTextureBytes =
+			CountUniqueTexture(
+				ShadowMap.Resource->BackingResource.Texture.Get(),
+				DepthFormat,
+				Stats.TotalDepthMemoryBytes,
+				&bDepthTextureWasUnique);
+		if (bAtlasMap && bDepthTextureWasUnique)
+		{
+			Stats.TotalAtlasMemoryBytes += DepthTextureBytes;
+		}
+
+		FShadowVSMResource* VSMResource =
+			(ShadowMapIndex < Capture->VSMResources.size()) ? Capture->VSMResources[ShadowMapIndex] : nullptr;
+
+		D3D11_TEXTURE2D_DESC MomentsDesc = {};
+		D3D11_TEXTURE2D_DESC TempDesc = {};
+		bool bHasMoments = false;
+		bool bHasTemp = false;
+
+		if (VSMResource != nullptr && VSMResource->MomentsTexture != nullptr)
+		{
+			VSMResource->MomentsTexture->GetDesc(&MomentsDesc);
+			bHasMoments = true;
+			CountUniqueTexture(VSMResource->MomentsTexture.Get(), MomentsDesc.Format, Stats.TotalVSMMomentMemoryBytes);
+		}
+
+		if (VSMResource != nullptr && VSMResource->TempTexture != nullptr)
+		{
+			VSMResource->TempTexture->GetDesc(&TempDesc);
+			bHasTemp = true;
+			CountUniqueTexture(VSMResource->TempTexture.Get(), TempDesc.Format, Stats.TotalVSMTempMemoryBytes);
+		}
+
+		if (bAtlasMap)
+		{
+			const uint32 SliceCount = std::min<uint32>(
+				static_cast<uint32>(ShadowMap.Views.size()),
+				static_cast<uint32>(ShadowMap.Slices.size()));
+
+			for (uint32 SliceIndex = 0; SliceIndex < SliceCount; ++SliceIndex)
+			{
+				const FShadowSlice& Slice = ShadowMap.Slices[SliceIndex];
+				const uint32 SliceWidth = std::max<uint32>(
+					static_cast<uint32>(std::lround(DepthDesc.Width * Slice.UVScale.X)),
+					1u);
+				const uint32 SliceHeight = std::max<uint32>(
+					static_cast<uint32>(std::lround(DepthDesc.Height * Slice.UVScale.Y)),
+					1u);
+
+				D3D11_TEXTURE2D_DESC SliceDesc = DepthDesc;
+				SliceDesc.Width = SliceWidth;
+				SliceDesc.Height = SliceHeight;
+				SliceDesc.ArraySize = 1u;
+				const uint64 SliceBytes = EstimateTexture2DMemoryBytes(SliceDesc, DepthFormat);
+
+				FLightShadowStat& LightStat =
+					GetOrAddLightStat(Slice.LightId, Slice.SourceLightSlotIndex, ELightType::LightType_Spot, ShadowMap.MapType, 1u);
+
+				FShadowMapStat DepthStat;
+				DepthStat.Name = "Spot Shadow Depth";
+				DepthStat.Width = SliceWidth;
+				DepthStat.Height = SliceHeight;
+				DepthStat.ArraySlice = 0u;
+				DepthStat.MipLevel = 0u;
+				DepthStat.Format = DepthFormat;
+				DepthStat.MemoryBytes = SliceBytes;
+				DepthStat.ProjectionMode = LightStat.ProjectionMode;
+				DepthStat.FilterMode = LightStat.FilterMode;
+				DepthStat.bUsesCSM = LightStat.bUsesCSM;
+				DepthStat.bSharedResource = true;
+				DepthStat.bHasAtlasRegion = true;
+				DepthStat.AtlasX = static_cast<uint32>(std::lround(Slice.UVOffset.X * DepthDesc.Width));
+				DepthStat.AtlasY = static_cast<uint32>(std::lround(Slice.UVOffset.Y * DepthDesc.Height));
+				AppendMapStat(LightStat, DepthStat, true);
+			}
+
+			continue;
+		}
+
+		const uint32 AvailableDepthSlices =
+			static_cast<uint32>(DepthDesc.ArraySize > ShadowMap.ResourceSliceOffset
+				? DepthDesc.ArraySize - ShadowMap.ResourceSliceOffset
+				: 0u);
+		uint32 SliceCount = std::min<uint32>(static_cast<uint32>(ShadowMap.Views.size()), AvailableDepthSlices);
+
+		if (bHasMoments)
+		{
+			const uint32 AvailableMomentSlices =
+				static_cast<uint32>(MomentsDesc.ArraySize > ShadowMap.ResourceSliceOffset
+					? MomentsDesc.ArraySize - ShadowMap.ResourceSliceOffset
+					: 0u);
+			SliceCount = std::min<uint32>(SliceCount, AvailableMomentSlices);
+		}
+
+		if (bHasTemp)
+		{
+			const uint32 AvailableTempSlices =
+				static_cast<uint32>(TempDesc.ArraySize > ShadowMap.ResourceSliceOffset
+					? TempDesc.ArraySize - ShadowMap.ResourceSliceOffset
+					: 0u);
+			SliceCount = std::min<uint32>(SliceCount, AvailableTempSlices);
+		}
+
+		if (SliceCount == 0u)
+		{
+			continue;
+		}
+
+			const uint64 DepthSliceBytes =
+				EstimateTexture2DMemoryBytes(MakeSingleSliceDesc(DepthDesc), DepthFormat);
+
+			const uint64 MomentSliceBytes = bHasMoments
+				? EstimateTexture2DMemoryBytes(MakeSingleSliceDesc(MomentsDesc), MomentsDesc.Format)
+				: 0u;
+
+			const uint64 TempSliceBytes = bHasTemp
+				? EstimateTexture2DMemoryBytes(MakeSingleSliceDesc(TempDesc), TempDesc.Format)
+				: 0u;
+
+		FLightShadowStat& LightStat =
+			GetOrAddLightStat(ShadowMap.LightId, ShadowMap.SourceLightSlotIndex, ShadowMap.LightType, ShadowMap.MapType, SliceCount);
+
+		for (uint32 SliceIndex = 0; SliceIndex < SliceCount; ++SliceIndex)
+		{
+			const uint32 ArraySlice = ShadowMap.ResourceSliceOffset + SliceIndex;
+			const bool bDirectionalCascade =
+				ShadowMap.LightType == ELightType::LightType_Directional && SliceCount > 1u;
+
+			FString SliceLabel;
+			if (ShadowMap.LightType == ELightType::LightType_Point)
+			{
+				SliceLabel = FString("Face ") + GetCubeFaceName(static_cast<int32>(SliceIndex));
+			}
+			else if (bDirectionalCascade)
+			{
+				SliceLabel = "Cascade " + std::to_string(SliceIndex);
+			}
+			else
+			{
+				SliceLabel = "Shadow 0";
+			}
+
+			FShadowMapStat DepthStat;
+			DepthStat.Name = SliceLabel + " Depth";
+			DepthStat.Width = DepthDesc.Width;
+			DepthStat.Height = DepthDesc.Height;
+			DepthStat.ArraySlice = ArraySlice;
+			DepthStat.MipLevel = 0u;
+			DepthStat.CascadeIndex = bDirectionalCascade ? static_cast<int32>(SliceIndex) : -1;
+			DepthStat.FaceIndex =
+				ShadowMap.LightType == ELightType::LightType_Point ? static_cast<int32>(SliceIndex) : -1;
+			DepthStat.Format = DepthFormat;
+			DepthStat.MemoryBytes = DepthSliceBytes;
+			DepthStat.ProjectionMode = LightStat.ProjectionMode;
+			DepthStat.FilterMode = LightStat.FilterMode;
+			DepthStat.bUsesCSM = LightStat.bUsesCSM;
+			DepthStat.bSharedResource = bSharedPointResource;
+			AppendMapStat(LightStat, DepthStat, true);
+
+			if (bHasMoments)
+			{
+				FShadowMapStat MomentsStat = DepthStat;
+				MomentsStat.Name = SliceLabel + " VSM Moments";
+				MomentsStat.Format = MomentsDesc.Format;
+				MomentsStat.MemoryBytes = MomentSliceBytes;
+				MomentsStat.bSharedResource = bSharedPointResource;
+				AppendMapStat(LightStat, MomentsStat, false);
+			}
+
+			if (bHasTemp)
+			{
+				FShadowMapStat TempStat = DepthStat;
+				TempStat.Name = SliceLabel + " VSM Temp";
+				TempStat.Format = TempDesc.Format;
+				TempStat.MemoryBytes = TempSliceBytes;
+				TempStat.bSharedResource = bSharedPointResource;
+				AppendMapStat(LightStat, TempStat, false);
+			}
+		}
+	}
+
+	std::sort(
+		Stats.Lights.begin(),
+		Stats.Lights.end(),
+		[](const FLightShadowStat& Lhs, const FLightShadowStat& Rhs)
+		{
+			return Lhs.LightIndex < Rhs.LightIndex;
+		});
+
+	Stats.ShadowCastingLightCount = static_cast<uint32>(Stats.Lights.size());
+	return Stats;
+}
+
 bool FShadowPass::Initialize()
 {
 	return true;
@@ -729,6 +1399,7 @@ bool FShadowPass::Release()
 	GShadowMaps.clear();
 	GVSMResources.clear();
 	GVSMResourcePool.clear();
+	GShadowFrameCaptures.clear();
 	GLightToShadowIndices.clear();
 	GShadowCBData = FOpaqueRenderPass::FShadowArrayCB{};
 	bSkip = false;
@@ -1531,6 +2202,8 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 
 bool FShadowPass::End(const FRenderPassContext* Context)
 {
+	CacheShadowFrameCapture(Context);
+
 	if (bSkip)
 	{
 		return true;

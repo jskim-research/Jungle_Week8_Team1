@@ -269,13 +269,14 @@ void FRenderer::UpdateSceneLightBuffer(const FRenderBus& InRenderBus)
 }
 
 //	RenderBus에 담긴 모든 RenderCommand에 대해서 Draw Call 수행 (GPU)
-void FRenderer::Render(const FRenderBus& InRenderBus)
+void FRenderer::Render(const FRenderBus& InRenderBus, int32 ViewportIndex)
 {
 	/** Opaque 만 테스트 */
 	
 	RenderPassContext->Device = Device.GetDevice();
 	RenderPassContext->DeviceContext = Device.GetDeviceContext();
 	RenderPassContext->RenderBus = &InRenderBus;
+	RenderPassContext->ViewportIndex = ViewportIndex;
 	RenderPassContext->RenderTargets = CurrentRenderTargets;
 	RenderPassContext->RenderResources = &Resources;
 	RenderPassContext->FontBatcher = &FontBatcher;
