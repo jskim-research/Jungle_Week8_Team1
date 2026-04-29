@@ -1,333 +1,192 @@
-# GameTechLab W4_Jungle_Team2
-
-Windows 환경에서 동작하는 `Win32 + DirectX 11 + ImGui` 기반의 3D 에디터/엔진 프로젝트입니다.  
-이번 리포지토리에는 두 가지 실행 형태가 함께 들어 있습니다.
-
-- `Editor` 모드: 씬 편집, 다중 뷰포트, 선택/기즈모, 씬 저장 및 복원
-- `ObjViewer` 모드: `.obj` 메시를 빠르게 검토하기 위한 전용 뷰어
-
-이 문서는 코드와 첨부 발표 자료를 기준으로, 실제 구현이 확인된 기능만 정리한 설명문서입니다.
+# NipsEngine - 8주차 제출 README
 
 ## 프로젝트 개요
 
-이 프로젝트는 단순 렌더링 데모가 아니라, 다음 요소를 직접 구현한 소형 편집기 엔진에 가깝습니다.
-
-- 커스텀 `UObject` 계층과 RTTI
-- `FName` 기반 이름 관리
-- 월드/액터/컴포넌트 구조
-- DirectX 11 렌더링 파이프라인
-- ImGui 기반 편집 UI
-- OBJ/MTL 로더와 정적 메시 렌더링
-- JSON 씬 저장/복원
-- OBJ 바이너리 베이킹 및 캐시 로딩
-
-## 핵심 기능
-
-### 1. 에디터 모드
-
-에디터 모드는 씬을 직접 배치하고 편집하는 데 초점이 맞춰져 있습니다.
-
-- 4분할 뷰포트 지원
-  - 좌상단 `Perspective`
-  - 우상단 `Top`
-  - 좌하단 `Front`
-  - 우하단 `Right`
-- 스플리터 드래그로 뷰포트 크기 조절
-- 1개 뷰포트 전체화면 모드와 4분할 모드 전환
-- 뷰포트별 호버/포커스 상태 관리
-- 뷰포트 설정 저장
-  - 스플리터 비율
-  - 활성 뷰포트 수
-  - 단일 뷰포트 인덱스
-
-### 2. 카메라와 뷰포트 조작
-
-- Perspective 뷰 카메라 이동 및 회전
-- Orthographic 뷰 지원
-- 직교 뷰에서 팬/줌 조작
-- 마우스 휠 기반 FOV 또는 Ortho Height 조절
-- 포커스된 뷰포트 기준 이동 속도 조절
-- Perspective 카메라 상태 저장/복원
-  - 위치
-  - 회전
-  - FOV
-  - Near/Far Clip
-
-### 3. 씬 편집 기능
-
-- 월드의 액터 목록 표시
-- 선택된 액터/컴포넌트의 속성 편집
-- 프로퍼티 위젯 자동 렌더링
-- 액터 선택
-  - 단일 선택
-  - `Shift` 추가 선택
-  - `Ctrl` 토글 선택
-- 박스 선택
-- 기즈모 기반 편집
-  - Translate
-  - Rotate
-  - Scale
-- 기즈모 월드/로컬 모드 전환
-- 선택 액터 삭제
-
-### 4. 에디터 UI
-
-ImGui 기반으로 아래 패널들이 분리되어 있습니다.
-
-- `Scene Manager`
-  - 액터 아웃라이너
-  - 씬 저장/불러오기
-- `Property`
-  - 선택 오브젝트의 속성 수정
-  - StaticMesh 경로 콤보 선택
-- `Material Editor`
-  - StaticMesh의 섹션별 머티리얼 확인
-  - 슬롯별 머티리얼 교체
-  - 색상/스칼라/텍스처 정보 확인
-- `Console`
-  - stat 명령 처리
-- `Stat Profiler`
-  - CPU/GPU 통계 테이블
-- `Viewport Settings`
-  - Show Flags
-  - Grid 설정
-  - 카메라 이동 속도
-
-### 5. StaticMesh 렌더링
-
-이번 주차에서 가장 큰 변화 중 하나는 OBJ 기반 정적 메시 렌더링입니다.
-
-- `UStaticMesh`와 `UStaticMeshComponent` 추가
-- OBJ를 렌더링용 정적 메시 데이터로 변환
-- 섹션 단위 인덱스 관리
-- 섹션별 머티리얼 슬롯 연결
-- 로컬/월드 AABB 계산
-- 메시 단위 레이캐스트
-- 프로퍼티 창에서 StaticMesh 에셋 지정 가능
-
-### 6. OBJ / MTL 파이프라인
-
-OBJ 로더는 텍스트 파일을 바로 렌더링하지 않고, 중간 데이터를 거쳐 최종 메시로 변환합니다.
-
-- OBJ 파싱 지원 항목
-  - `v`
-  - `vt`
-  - `vn`
-  - `mtllib`
-  - `usemtl`
-  - `f`
-- Raw 데이터에서 Cooked StaticMesh로 변환
-- 머티리얼 이름 기준 슬롯 생성
-- 로컬 바운드 계산
-- 로딩 옵션에 따라 단위 큐브 기준 정규화 가능
+이번 제출물은 커스텀 DirectX 11 엔진에서 구현된 그림자 렌더링 기능을 확인하기 위한 실행형 데모입니다.  
+평가자는 소스 코드 없이 실행 파일과 런타임 폴더만으로 아래 항목을 직접 확인할 수 있습니다.
 
-MTL 파서는 다음 정보를 읽습니다.
+- Directional Light, Point Light, Spot Light의 그림자 생성
+- `Projection Mode` 전환: `Standard`, `PSM`
+- `Filter Mode` 전환: `SSM`, `SSM + PCF`, `VSM`
+- 광원별 `Cast Shadows`, `Shadow Resolution Scale`, `Shadow Bias`, `Shadow Slope Bias`, `Shadow Sharpen`
+- `Shadow Map Preview`를 통한 그림자 맵 확인
+- `Override Camera`를 통한 광원 시점 확인
+- `Shadow Stats` 창에서 광원 수, Shadow Map 수, 해상도, 포맷, 메모리 확인
+- `Directional Light Debug`, `Point Light Debug`, `Spot Light Debug` 표시
 
-- `newmtl`
-- `Ka`
-- `Kd`
-- `Ks`
-- `Ke`
-- `Ns`
-- `d`
-- `illum`
-- `map_Kd`
-- `map_Ka`
-- `map_Ks`
-- `map_bump` / `bump`
-
-텍스처 경로는 파싱 시점에 정규화되고, 렌더링 시 SRV로 연결됩니다.
+## 실행 방법
 
-### 7. 다중 재질 처리
+- 제출 폴더에서 `NipsEngine.exe`를 실행합니다.
+- 실행 파일과 같은 위치에 `Asset/`, `Shaders/`, `Settings/` 폴더가 있어야 합니다.
+- `imgui.ini`가 함께 제공되면 기본 UI 배치를 바로 재현할 수 있습니다.
+- 패널이 닫혀 있으면 상단 `View` 메뉴에서 `Scene Manager`, `Property`, `Viewport Settings`를 다시 열 수 있습니다.
 
-정적 메시 하나에 여러 재질을 연결할 수 있습니다.
+## 가장 먼저 보면 좋은 것
 
-- `usemtl` 기준 슬롯 생성
-- 섹션별 `MaterialSlotIndex` 유지
-- 메시 컴포넌트의 override material 배열 보유
-- Material Editor에서 섹션별 머티리얼 교체 가능
-- 머티리얼이 없으면 기본 재질/기본 흰색 텍스처로 대체
+1. `NipsEngine.exe`를 실행합니다.
+2. 상단 `Files > Load Scene`에서 `PSM_Test.Scene`을 불러옵니다.
+3. `Scene Manager` 또는 뷰포트에서 Directional Light 또는 Spot Light를 선택합니다.
+4. `Property` 창에서 `Cast Shadows`, `Apply PSM`, `Shadow Bias`, `Shadow Slope Bias`, `Shadow Resolution Scale`을 확인합니다.
+5. `Viewport Settings > Shadow Settings`에서 `Projection Mode`와 `Filter Mode`를 바꿔가며 결과를 비교합니다.
+6. 같은 `Property` 창의 `Shadow Map Preview`와 `Override Camera`로 그림자 맵과 광원 시점을 확인합니다.
+7. 뷰포트 상단 오버레이 메뉴의 `Stats > Shadow`를 켜서 `Shadow Stats` 창을 확인합니다.
 
-즉, "머티리얼 에디터"라기보다 "섹션별 머티리얼 확인 및 교체 UI"에 가깝습니다.
+## 추천 확인 씬
 
-### 8. 렌더링 파이프라인
+### `PSM_Test.Scene`
 
-렌더링은 수집과 실행이 분리된 구조입니다.
+- `Standard`와 `PSM` 비교에 가장 적합한 씬입니다.
+- Directional Light와 Spot Light가 모두 배치되어 있어 투영 방식 차이를 보기 쉽습니다.
+- `Shadow Map Preview`, `Override Camera`, bias 조절, 필터 전환을 먼저 확인하기 좋습니다.
 
-- `RenderCollector`
-  - 월드, 선택 오브젝트, 그리드, 기즈모 수집
-- `RenderBus`
-  - 패스별 커맨드 정리
-- `Renderer`
-  - 실제 GPU 상태 설정 및 드로우
+### `Multiple_Light.Scene`
 
-에디터 렌더링에서 확인되는 요소는 다음과 같습니다.
+- 여러 Point Light, Spot Light, Directional Light가 동시에 그림자를 생성하는 장면입니다.
+- 다수 광원 환경에서 shadow가 안정적으로 유지되는지 확인하기 좋습니다.
+- `Shadow Stats`에서 광원 수, Shadow Map 수, 해상도, 메모리 요약을 보기 좋습니다.
+- Point Light 선택 시 `Shadow Map Preview`의 `Face` 전환으로 6방향 그림자 확인이 가능합니다.
 
-- 일반 오브젝트 렌더링
-- StaticMesh 렌더링
-- Grid 렌더링
-- Billboard Text 렌더링
-- SubUV 렌더링
-- 기즈모 렌더링
-- 선택 마스크 + 포스트프로세스 아웃라인
+### `Scene_01_LightComponents_whitewall.Scene`
 
-View Mode는 다음을 지원합니다.
+- 밝은 배경과 단순한 배치 덕분에 그림자 경계와 아티팩트를 보기 쉬운 씬입니다.
+- `Cast Shadows` on/off, `Shadow Bias`, `Shadow Slope Bias`, `Shadow Resolution Scale` 변화 확인에 적합합니다.
+- Shadow acne, peter panning, 해상도 차이에 따른 계단 현상 관찰용으로 추천합니다.
 
-- `Lit`
-- `Unlit`
-- `Wireframe`
+## 핵심 기능별 확인 방법
 
-Show Flags는 다음을 제어합니다.
+### 1. Shadow Mapping
 
-- Primitives
-- BillboardText
-- Grid
-- Gizmo
-- Bounding Volume
-
-### 9. 선택, 피킹, 아웃라인
-
-- 마우스 클릭 기반 선택
-- 메시 레이캐스트 기반 피킹
-- 선택 오브젝트 스텐실 마스크 렌더링
-- 후처리 아웃라인 표시
-- 선택 상태에 맞춰 기즈모 자동 동기화
-
-### 10. 씬 저장 및 복원
-
-씬은 `.Scene` 확장자의 JSON 파일로 저장됩니다.
-
-저장되는 정보:
-
-- 월드 타입
-- 액터/컴포넌트 계층
-- 컴포넌트 프로퍼티
-- StaticMesh 경로
-- Perspective 카메라 상태
-
-즉, 편집 결과를 다시 열 수 있는 최소 단위의 씬 직렬화가 구현되어 있습니다.
-
-### 11. 리소스 관리와 캐시
-
-리소스 매니저는 에셋 검색, 로딩, 캐시를 담당합니다.
-
-- 메시 경로 스캔
-- 머티리얼 파일 스캔
-- 텍스처 스캔
-- 로드된 StaticMesh 캐시
-- 머티리얼 레지스트리 유지
-
-StaticMesh 로드는 다음 순서로 진행됩니다.
-
-1. 메모리 캐시 확인
-2. 대응하는 바이너리 파일 유효성 검사
-3. 유효하면 바이너리 로드
-4. 실패하면 OBJ 파싱
-5. OBJ 파싱 성공 시 바이너리 저장
-
-### 12. OBJ 바이너리 베이킹
-
-텍스트 OBJ를 매번 다시 파싱하지 않도록 바이너리 캐시를 생성합니다.
-
-- 전용 헤더 사용
-  - Magic Number
-  - Version
-  - Vertex/Index/Section/Slot count
-  - 원본 파일 수정 시간
-- 원본 OBJ 수정 시간이 바뀌면 바이너리 무효화
-- 재로드 시 바이너리 우선 사용
-
-캐시 파일은 `Asset/Mesh/Bin` 아래에 `.bin` 형태로 저장됩니다.
-
-### 13. ObjViewer 모드
-
-프로젝트에는 별도 `ObjViewer` 빌드 구성이 포함되어 있습니다.
-
-- `IS_OBJ_VIEWER=1` 전처리 매크로 사용
-- 전용 엔진 클래스 `UObjViewerEngine`
-- 파일 다이얼로그로 `.obj` 선택 로드
-- 미리보기용 `UStaticMeshComponent` 사용
-- 카메라 리셋 기능
-- 우측 패널에 기본 메시 통계 표시
-
-ObjViewer는 "에디터 전체 기능"이 아니라, 모델 확인에 집중한 별도 실행 모드입니다.
-
-## 엔진 구조
-
-### 객체 시스템
-
-- `UObject` 기반 공통 객체 시스템
-- `DECLARE_CLASS`, `DEFINE_CLASS` 기반 커스텀 RTTI
-- `IsA<T>()`, `Cast<T>()` 지원
-- `UObjectManager`를 통한 생성/파괴 관리
-- UUID와 내부 인덱스 보유
-
-### 이름 시스템
-
-- `FName` 이름 풀 사용
-- Display 이름과 Comparison 이름을 분리 저장
-- 비교 시 소문자 기반 인덱스 비교
-
-즉, 표시용 문자열과 비교용 문자열을 나눠 관리하는 방식입니다.
-
-### 객체 순회
-
-- `TObjectIterator<T>` 구현
-- 글로벌 UObject 배열을 순회하며 타입이 맞는 객체만 반환
-
-## 폴더 개요
-
-```text
-W4_Jungle_Team2/
-├─ W4_Jungle_Team2/
-│  ├─ Source/
-│  │  ├─ Engine/
-│  │  │  ├─ Asset/
-│  │  │  ├─ Component/
-│  │  │  ├─ Core/
-│  │  │  ├─ GameFramework/
-│  │  │  ├─ Math/
-│  │  │  ├─ Object/
-│  │  │  ├─ Render/
-│  │  │  ├─ Runtime/
-│  │  │  ├─ Serialization/
-│  │  │  └─ Slate/
-│  │  ├─ Editor/
-│  │  └─ Misc/ObjViewer/
-│  ├─ Asset/
-│  ├─ Shaders/
-│  ├─ Settings/
-│  └─ Bin/
-└─ W4_Jungle_Team2.sln
-```
-
-## 실행과 빌드
-
-### 권장 환경
-
-- Windows
-- Visual Studio 2022
-- DirectX 11 지원 환경
-
-### 솔루션
-
-- 솔루션 파일: `W4_Jungle_Team2.sln`
-
-### 주요 빌드 구성
-
-- `Debug | x64`
-- `Release | x64`
-- `ObjViewer | x64`
-
-`ObjViewer` 구성은 전용 모델 뷰어 모드입니다.
-
-## 문서 범위에서 제외한 것
-
-아래 항목은 발표자료에 언급되더라도, 이 문서에서는 과장하지 않기 위해 표현을 낮추거나 일반화했습니다.
-
-- 범용 게임 엔진 수준의 완성도
-- 범용 머티리얼 에디터
-- 모든 OBJ/MTL 조합에 대한 완전 호환
-- 고급 메시 최적화 기능 전반
-
-현재 리포지토리 기준으로는 "에디터 기능을 갖춘 DirectX 11 기반 학습용 3D 엔진/도구 프로젝트"로 보는 것이 가장 정확합니다.
+- 광원과 수광면 사이에 오브젝트가 있으면 그림자가 생성됩니다.
+- 광원의 위치 또는 방향을 바꾸면 그림자 방향과 길이가 함께 변합니다.
+- 그림자를 만드는 오브젝트를 움직이면 그림자도 즉시 따라 움직입니다.
+
+### 2. 광원 시점과 Shadow Map 확인
+
+- 그림자를 만드는 광원을 선택하면 `Property` 창에 `Shadow Map Preview`가 표시됩니다.
+- `Override Camera`를 누르면 선택한 광원 기준으로 장면을 확인할 수 있습니다.
+- Directional Light는 `Cascade` 단위로 확인할 수 있습니다.
+- Point Light는 `Face` 선택으로 `+X`, `-X`, `+Y`, `-Y`, `+Z`, `-Z` 방향을 확인할 수 있습니다.
+- Spot Light는 `Shadow Atlas` 슬롯 기준으로 preview를 확인할 수 있습니다.
+
+### 3. Cast Shadows 토글
+
+- 현재 제출본에서 명확히 확인 가능한 on/off 옵션은 광원별 `Cast Shadows`입니다.
+- 동일한 씬에서 이 값을 껐다 켜면 해당 광원의 그림자 생성 여부를 즉시 비교할 수 있습니다.
+
+### 4. Directional Light Shadow
+
+- `PSM_Test.Scene` 또는 `Scene_01_LightComponents_whitewall.Scene`에서 확인을 권장합니다.
+- `Property` 창에서 `Cascade Count`, `Cascade Splits`, `Shadow Distance`, `Apply PSM`을 확인할 수 있습니다.
+- `Shadow Map Preview`에서 cascade별 그림자 맵을 비교할 수 있습니다.
+- 광원 회전에 따라 장면 전체 그림자 방향이 바뀌는지 확인하면 됩니다.
+
+### 5. Spot Light Shadow
+
+- `PSM_Test.Scene`과 `Multiple_Light.Scene`에서 확인하기 좋습니다.
+- `Inner Cone Angle`, `Outer Cone Angle`, `Cast Shadows`, `Apply PSM`을 직접 조절할 수 있습니다.
+- Spot Light를 회전시키면 원뿔 범위에 맞춰 그림자가 변하는지 확인할 수 있습니다.
+- `Shadow Map Preview`에서 atlas 기반 preview를 확인할 수 있습니다.
+
+### 6. Point Light Shadow
+
+- `Multiple_Light.Scene`에서 확인을 권장합니다.
+- Point Light 선택 시 `Shadow Map Preview`의 `Face` 전환으로 6방향 그림자를 확인할 수 있습니다.
+- Point Light의 위치를 바꾸면 주변 모든 방향의 그림자 결과가 함께 바뀌는지 확인하면 됩니다.
+
+### 7. PSM
+
+- `Viewport Settings > Shadow Settings > Projection Mode`에서 `Standard`와 `PSM`을 전환할 수 있습니다.
+- `PSM_Test.Scene`에서 비교하는 것이 가장 쉽습니다.
+- Directional Light와 Spot Light의 `Property`에 `Apply PSM` 항목이 있어, 투영 방식 비교가 가능합니다.
+- 같은 장면과 비슷한 해상도에서 카메라에 보이는 영역의 그림자 분포 차이를 비교해 보면 됩니다.
+
+### 8. Shadow Filtering
+
+- `Viewport Settings > Shadow Settings > Filter Mode`에서 `SSM`, `SSM + PCF`, `VSM`을 선택할 수 있습니다.
+- `SSM`은 비교적 단단한 경계를 확인하기 좋습니다.
+- `SSM + PCF`는 가장자리 비교가 더 부드럽게 보이는지 확인하면 됩니다.
+- `VSM`은 Directional Light와 Point Light에서 차이가 비교적 잘 드러납니다.
+- Spot Light는 필터 비교 시에도 depth-atlas 기반 결과를 중심으로 확인하면 됩니다.
+
+### 9. Bias와 아티팩트 확인
+
+- 광원 `Property`에서 `Shadow Bias`, `Shadow Slope Bias`, `Shadow Sharpen`, `Shadow Resolution Scale`을 조절할 수 있습니다.
+- `Scene_01_LightComponents_whitewall.Scene`에서 오브젝트 접점과 바닥 그림자를 보면 변화가 잘 보입니다.
+- Bias가 너무 작으면 자기 자신을 잘못 가리는 shadow acne가 나타날 수 있습니다.
+- Bias가 너무 크면 그림자가 물체에서 떨어져 보이는 peter panning이 나타날 수 있습니다.
+- `Shadow Sharpen`은 경계 인상을 비교할 때 함께 보기 좋습니다.
+
+### 10. Shadow Resolution / Multi-light / Stats
+
+- 광원별 `Shadow Resolution Scale`을 바꾸면 그림자 선명도와 계단 현상 차이를 확인할 수 있습니다.
+- 뷰포트 상단 오버레이 메뉴의 `Stats > Shadow`를 켜면 `Shadow Stats` 창이 열립니다.
+- 상단 요약에는 shadow-casting light 수, logical map 수, resource view 수, 총 메모리 요약이 표시됩니다.
+- 표에는 `Light`, `Type`, `Cast Shadow`, `Projection`, `Filter`, `Shadow Maps`, `Resolution`, `Format`, `Memory`가 표시됩니다.
+- `Multiple_Light.Scene`에서 여러 광원이 동시에 그림자를 사용할 때 map 수와 메모리 변화가 잘 드러납니다.
+
+### 11. 디버그 표시와 보조 뷰
+
+- `Viewport Settings > Light Settings`에서 `Directional Light Debug`, `Point Light Debug`, `Spot Light Debug`를 켤 수 있습니다.
+- 각 뷰포트 상단 메뉴의 `View`에서 `Lit`, `Unlit`, `Wireframe`, `Scene Depth`, `World Normal`을 선택할 수 있습니다.
+- 그림자 확인 자체는 `Lit`이 가장 직접적이고, 보조 분석은 `Scene Depth`와 `World Normal`이 유용합니다.
+
+## 사용 방법
+
+- 씬 열기: `Files > Load Scene` 또는 `Ctrl+O`
+- 씬 저장: `Files > Save Scene` 또는 `Ctrl+S`
+- 패널 다시 열기: 상단 `View` 메뉴
+- 뷰포트 레이아웃: 각 뷰포트 상단의 `Layout > SingleView / Quad View`
+- 뷰포트 타입: `Type` 메뉴에서 `Perspective`, `Top`, `Bottom`, `Front`, `Back`, `Left`, `Right`
+- 카메라 회전: `Mouse Right Drag`
+- 카메라 팬 이동: `Mouse Middle Drag`
+- 돌리 인/아웃: `Alt + Mouse Right Drag`
+- FOV 또는 직교 높이 조절: `Mouse Wheel`
+- 카메라 이동: `W / A / S / D / Q / E` (회전 중)
+- 선택 포커스: `F`
+- 단일 선택: `Mouse Left Click`
+- 선택 추가/토글: `Shift + Click`, `Ctrl + Click`
+- 박스 선택: `Ctrl + Alt + Drag`
+- 기즈모 모드 순환: `Space`
+- 월드/로컬 전환: `X`
+- 선택 삭제: `Delete`
+
+## 평가자가 보면 좋은 체크 포인트
+
+- 오브젝트 뒤쪽에 광원 방향에 맞는 그림자가 생성되는가
+- 광원 위치나 방향을 바꾸면 그림자 방향과 길이가 함께 바뀌는가
+- 오브젝트를 이동하면 투영된 그림자가 즉시 따라 움직이는가
+- `Cast Shadows`를 끄면 해당 광원의 그림자가 사라지는가
+- `Standard`와 `PSM` 전환 시 동일 장면에서 그림자 분포 차이가 보이는가
+- `SSM`, `SSM + PCF`, `VSM` 전환 시 경계 표현 차이가 보이는가
+- `Shadow Bias`를 높이거나 낮출 때 acne 또는 peter panning 변화가 보이는가
+- `Shadow Resolution Scale` 증가 시 그림자가 더 선명해지고 `Shadow Stats`의 해상도/메모리 수치가 달라지는가
+- Directional Light 선택 시 cascade 단위 preview가 가능한가
+- Point Light 선택 시 `Face` 전환으로 6방향 preview가 가능한가
+- 여러 광원이 동시에 그림자를 사용하는 장면에서도 렌더링이 유지되는가
+
+## 핵심 키워드
+
+- Shadow Mapping
+- Light View
+- Light Projection
+- Depth Buffer
+- Shadow Map
+- Cast Shadows
+- Cascade
+- Cube Face
+- Shadow Atlas
+- PSM
+- SSM
+- PCF
+- VSM
+- Shadow Bias
+- Shadow Slope Bias
+- Shadow Sharpen
+- Shadow Resolution Scale
+- Shadow Acne
+- Peter Panning
+- Multi-light Shadow
+
+## 요약
+
+이번 제출물은 그림자 렌더링 자체를 실행 파일 기준으로 검증할 수 있도록 구성되어 있으며, Directional / Point / Spot Light 그림자, PSM 전환, 필터 비교, bias 조절, shadow map preview, 그리고 shadow 통계 창까지 한 번에 확인할 수 있는 Shadow 중심 데모입니다.
