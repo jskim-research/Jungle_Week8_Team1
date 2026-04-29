@@ -885,11 +885,13 @@ void FEditorPropertyWidget::RenderLightPreview()
 				? ("Cascade " + std::to_string(SliceIndex))
 				: PointFaceLabels[SliceIndex];
 			const bool bSelected = (SliceIndex == LightPreviewSliceIndex);
-			if (ImGui::Selectable(OptionLabel.c_str(), bSelected))
+            if (ImGui::Selectable(OptionLabel.c_str(), bSelected))
 			{
 				LightPreviewSliceIndex = SliceIndex;
 
-                SelectedLight->GetOwner()->GetFocusedWorld()->SetOverridenLight(&SelectedLight->GetLightHandle(), LightPreviewSliceIndex);
+				// 이미 override 중일 때만 변경
+				if (SelectedLight->GetOwner()->GetFocusedWorld()->GetOverridenLight())
+					SelectedLight->GetOwner()->GetFocusedWorld()->SetOverridenLight(&SelectedLight->GetLightHandle(), LightPreviewSliceIndex);
 			}
 			if (bSelected)
 			{
