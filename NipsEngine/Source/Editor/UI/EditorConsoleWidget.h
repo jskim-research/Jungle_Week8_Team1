@@ -54,6 +54,7 @@ private:
 
 private:
 	void CmdStat(const TArray<FString>& Args);
+	void CmdShadowFilter(const TArray<FString>& Args);
 };
 
 #define UE_LOG(Format, ...) \

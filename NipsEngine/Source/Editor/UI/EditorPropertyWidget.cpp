@@ -835,7 +835,7 @@ void FEditorPropertyWidget::RenderLightPreview()
 		break;
 	case ELightType::LightType_Spot:
 		SliceCount = 1;
-		PreviewSelectorLabel = "Atlas Slot";
+		PreviewSelectorLabel = "Shadow Atlas";
 		break;
 	default:
 		ImGui::TextWrapped("This preview currently supports Directional Light cascades, Point Light cubemap faces, and Spot Light atlas slots.");

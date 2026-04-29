@@ -4,6 +4,8 @@
 #include "Render/Scene/ShadowLightSelector.h"
 #include "Render/Resource/ShadowAtlasAllocator.h"
 #include "Render/Renderer/RenderFlow/OpaqueRenderPass.h"
+struct ID3D11ShaderResourceView;
+
 class FShadowPass : public FBaseRenderPass
 {
 public:
@@ -12,6 +14,8 @@ public:
     static TArray<FShadowMap>& GetShadowMaps();
     static const TArray<int32>& GetLightToShadowIndices();
     static const FOpaqueRenderPass::FShadowArrayCB& GetShadowCBData();
+    static ID3D11ShaderResourceView* GetVSM2DShadowSRV();
+    static ID3D11ShaderResourceView* GetVSMCubeShadowSRV();
 
 protected:
 	bool Begin(const FRenderPassContext* Context);
@@ -19,6 +23,7 @@ protected:
 	bool End(const FRenderPassContext* Context);
 
 private:
+	bool EnsureVSMBindings(const FRenderPassContext* Context);
 	bool MakeShadowMap(const FRenderPassContext* Context, const FShadowRequest& Req, FShadowMap& OutShadowMap);
 	// View 정보 (Light View, Projection, Split Depth) 반환
 	// 예를 들어 Cubemap 인 경우 6개
@@ -33,4 +38,7 @@ private:
     bool bSkip = false;
     FShadowAtlasAllocator AtlasAllocator;
     std::shared_ptr<FShaderBindingInstance> ShaderBinding;
+    std::shared_ptr<FShaderBindingInstance> VSMConvertShaderBinding;
+    std::shared_ptr<FShaderBindingInstance> VSMBlurShaderBinding;
+    std::shared_ptr<FShaderBindingInstance> PointVSMShaderBinding;
 };

@@ -150,6 +150,21 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
 		ImGui::Checkbox("Light Hitmap Overlay", &Settings.ShowFlags.bShowLightHitmapOverlay);
 	}
 
+	if (BeginSettingsSection("Shadow Settings", false))
+	{
+		int32 ShadowFilterMode = static_cast<int32>(Settings.ShowFlags.ShadowFilter);
+		ImGui::SetNextItemWidth(ItemWidth);
+		if (ImGui::Combo("Shadow Filter", &ShadowFilterMode, "PCF\0VSM\0"))
+		{
+			Settings.ShowFlags.ShadowFilter =
+				(ShadowFilterMode == static_cast<int32>(EShadowFilterMode::VSM))
+					? EShadowFilterMode::VSM
+					: EShadowFilterMode::PCF;
+		}
+
+		ImGui::TextWrapped("VSM applies to directional and point-light shadows. Spot lights stay on PCF because the atlas path is still unfiltered.");
+	}
+
 	// Camera Sensitivity
 	if (BeginSettingsSection("Camera Settings", true))
 	{
@@ -165,6 +180,8 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
 			const int32 FocusedIdx = Layout.GetLastFocusedViewportIndex();
 			FEditorViewportClient* FocusedClient = Layout.GetViewportClient(FocusedIdx);
 			float CameraMoveSpeed = FocusedClient->GetMoveSpeed();
+
+			(void)CameraMoveSpeed;
 
 			SetControlWidth(); // 너비 설정
 			ImGui::SliderFloat("Zoom Speed", &Settings.CameraZoomSpeed, 0.01f, 30.0f, "%.2f");

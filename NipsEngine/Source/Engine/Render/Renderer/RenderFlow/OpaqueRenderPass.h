@@ -19,9 +19,10 @@ public:
 
 		float ShadowBias = 0.005f;
         float ShadowSlopeBias = 0.f;
-        FVector2 Pad0;
+		float ShadowFilterScale = 1.0f;
+        float Pad0 = 0.0f;
 
-		uint32 ShadowMapType = 0; // 0: none, 1: Depth2D, 2: DepthCube
+		uint32 ShadowMapType = 0; // 0: none, 1: Depth2D, 2: DepthCube, 3: VSM2D, 4: VSMCube
 		uint32 SliceCount = 0;
         uint32 ShadowTextureIndex = 0;
 		float Pad1;

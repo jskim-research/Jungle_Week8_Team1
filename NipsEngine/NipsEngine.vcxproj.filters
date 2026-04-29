@@ -210,6 +210,15 @@
     <FxCompile Include="Shaders\Multipass\FXAAPass.hlsl">
       <Filter>Shaders\Multipass</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Multipass\ShadowVSMConvertPass.hlsl">
+      <Filter>Shaders\Multipass</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Multipass\ShadowVSMBlurPass.hlsl">
+      <Filter>Shaders\Multipass</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Multipass\ShadowPointVSMPass.hlsl">
+      <Filter>Shaders\Multipass</Filter>
+    </FxCompile>
     <FxCompile Include="Shaders\Multipass\FogPass.hlsl">
       <Filter>Shaders\Multipass</Filter>
     </FxCompile>

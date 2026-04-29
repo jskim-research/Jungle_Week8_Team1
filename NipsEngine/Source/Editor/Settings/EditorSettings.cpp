@@ -43,6 +43,8 @@ namespace EditorKey
 	constexpr const char* bDecals = "bDecals";
 	constexpr const char* bFog = "bFog";
 	constexpr const char* bShowLightHitmapOverlay = "bShowLightHitmapOverlay";
+	constexpr const char* ShadowFilter = "ShadowFilter";
+	constexpr const char* VSMEnabled = "VSMEnabled";
 	constexpr const char* FXAAEnabled = "FXAAEnabled";
 	constexpr const char* FXAAThreshold = "FXAAThreshold"; // Backward compatibility
 
@@ -115,6 +117,8 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 	ViewObj[EditorKey::bDecals] = ShowFlags.bDecals;
 	ViewObj[EditorKey::bFog] = ShowFlags.bFog;
 	ViewObj[EditorKey::bShowLightHitmapOverlay] = ShowFlags.bShowLightHitmapOverlay;
+	ViewObj[EditorKey::ShadowFilter] = static_cast<int32>(ShowFlags.ShadowFilter);
+	ViewObj[EditorKey::VSMEnabled] = ShowFlags.UsesVSMShadowFilter();
 	ViewObj[EditorKey::FXAAEnabled] = bEnableFXAA;
 	Root[EditorKey::View] = ViewObj;
 
@@ -265,6 +269,21 @@ void FEditorSettings::LoadFromFile(const FString& Path)
 			ShowFlags.bFog = ViewObj[EditorKey::bFog].ToBool();
 		if (ViewObj.hasKey(EditorKey::bShowLightHitmapOverlay))
 			ShowFlags.bShowLightHitmapOverlay = ViewObj[EditorKey::bShowLightHitmapOverlay].ToBool();
+		if (ViewObj.hasKey(EditorKey::ShadowFilter))
+		{
+			const int32 FilterMode = ViewObj[EditorKey::ShadowFilter].ToInt();
+			ShowFlags.ShadowFilter =
+				(FilterMode == static_cast<int32>(EShadowFilterMode::VSM))
+					? EShadowFilterMode::VSM
+					: EShadowFilterMode::PCF;
+		}
+		else if (ViewObj.hasKey(EditorKey::VSMEnabled))
+		{
+			ShowFlags.ShadowFilter =
+				ViewObj[EditorKey::VSMEnabled].ToBool()
+					? EShadowFilterMode::VSM
+					: EShadowFilterMode::PCF;
+		}
 		if (ViewObj.hasKey(EditorKey::FXAAEnabled))
 			bEnableFXAA = ViewObj[EditorKey::FXAAEnabled].ToBool();
 		else if (ViewObj.hasKey(EditorKey::FXAAThreshold))

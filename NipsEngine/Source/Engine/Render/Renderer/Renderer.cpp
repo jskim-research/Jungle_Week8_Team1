@@ -45,6 +45,9 @@ void FRenderer::Create(HWND hWindow)
 	FResourceManager::Get().LoadShader("Shaders/Multipass/SkyPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
 	FResourceManager::Get().LoadShader("Shaders/Multipass/FogPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
 	FResourceManager::Get().LoadShader("Shaders/Multipass/FXAAPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Multipass/ShadowVSMConvertPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Multipass/ShadowVSMBlurPass.hlsl", "mainVS", "mainPS", nullptr, 0, nullptr);
+	FResourceManager::Get().LoadShader("Shaders/Multipass/ShadowPointVSMPass.hlsl", "mainVS", "mainPS", DepthPrepassInputLayout, ARRAYSIZE(DepthPrepassInputLayout), nullptr);
 	FResourceManager::Get().LoadShader("Shaders/ShaderFont.hlsl", "VS", "PS", TextureVertexInputLayout, ARRAYSIZE(TextureVertexInputLayout), nullptr);
 	FResourceManager::Get().LoadShader("Shaders/ShaderLine.hlsl", "mainVS", "mainPS", PrimitiveInputLayout, ARRAYSIZE(PrimitiveInputLayout), nullptr);
 	FResourceManager::Get().LoadShader("Shaders/ShaderGrid.hlsl", "GridVS", "GridPS", nullptr, 0, nullptr);

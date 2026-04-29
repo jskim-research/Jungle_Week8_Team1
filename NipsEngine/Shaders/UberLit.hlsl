@@ -56,7 +56,8 @@ struct FShadowData
     
     float ShadowBias;
     float ShadowSlopeBias;
-    float2 Pad;
+    float ShadowFilterScale;
+    float Pad;
     
     uint ShadowMapType;
     uint SliceCount;
@@ -104,7 +105,10 @@ StructuredBuffer<uint> TileSpotLightIndices : register(t13);
 
 Texture2DArray ShadowMap2D : register(t14);
 TextureCubeArray ShadowMapCube : register(t15);
+Texture2DArray ShadowMoments2D : register(t16);
+TextureCubeArray ShadowMomentsCube : register(t17);
 SamplerState ShadowSampler : register(s1);
+SamplerState ShadowLinearSampler : register(s2);
 
 static const uint LIGHT_TYPE_DIRECTIONAL = 0u;
 static const uint LIGHT_TYPE_POINT = 1u;
@@ -113,7 +117,11 @@ static const uint LIGHT_TYPE_AMBIENT = 3u;
 static const uint SHADOW_MAP_TYPE_NONE = 0u;
 static const uint SHADOW_MAP_TYPE_DEPTH2D = 1u;
 static const uint SHADOW_MAP_TYPE_DEPTHCUBE = 2u;
+static const uint SHADOW_MAP_TYPE_VSM2D = 3u;
+static const uint SHADOW_MAP_TYPE_VSMCUBE = 4u;
 static const float3 DEFAULT_AMBIENT_COLOR = float3(0.02f, 0.02f, 0.02f);
+static const float VSM_MIN_VARIANCE = 2.0e-5f;
+static const float VSM_LIGHT_BLEED_REDUCTION = 0.2f;
 
 struct FLightingResult
 {
@@ -123,7 +131,7 @@ struct FLightingResult
 
 float SamplePointShadowPCF(float3 SampleDir, float CurrentDepth, FShadowData SData)
 {
-    const float FilterRadius = max(SData.PointShadowTexelSize, 1.0e-4f);
+    const float FilterRadius = max(SData.PointShadowTexelSize * SData.ShadowFilterScale, 1.0e-4f);
     const float3 UpRef = (abs(SampleDir.z) < 0.99f) ? float3(0.0f, 0.0f, 1.0f) : float3(1.0f, 0.0f, 0.0f);
     const float3 Tangent = normalize(cross(UpRef, SampleDir));
     const float3 Bitangent = cross(SampleDir, Tangent);
@@ -146,6 +154,17 @@ float SamplePointShadowPCF(float3 SampleDir, float CurrentDepth, FShadowData SDa
     return Shadow / 9.0f;
 }
 
+float ComputeVSMShadowFactor(float2 Moments, float CurrentDepth)
+{
+    float Mean = Moments.x;
+    float MeanSquared = Moments.y;
+    float Variance = max(MeanSquared - Mean * Mean, VSM_MIN_VARIANCE);
+    float DepthDelta = CurrentDepth - Mean;
+
+    float LitProbability = (CurrentDepth <= Mean) ? 1.0f : (Variance / (Variance + DepthDelta * DepthDelta));
+    return saturate((LitProbability - VSM_LIGHT_BLEED_REDUCTION) / (1.0f - VSM_LIGHT_BLEED_REDUCTION));
+}
+
 float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex)
 {
     if (ShadowIndex < 0)
@@ -157,7 +176,64 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
     float Slope = sqrt(1 - CosTheta * CosTheta) / max(CosTheta, 1e-4);
     float FinalBias = SData.ShadowBias + Slope * SData.ShadowSlopeBias;
         
-    if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTH2D)
+    if (SData.ShadowMapType == SHADOW_MAP_TYPE_VSM2D)
+    {
+        float ViewDepth = mul(float4(WorldPos, 1), View).x;
+        int SliceIndex = 0;
+
+        if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.x)
+            SliceIndex = 1;
+
+        if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.y)
+            SliceIndex = 2;
+
+        float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView[SliceIndex]), SData.ShadowLightProjection[SliceIndex]);
+        float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
+        float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
+        float CurrentDepth = NDC.z;
+
+        if (ShadowUV.x < 0.0 || ShadowUV.x > 1.0 || ShadowUV.y < 0.0 || ShadowUV.y > 1.0 || CurrentDepth < 0.0 || CurrentDepth > 1.0)
+            return 1.0f;
+
+        ShadowUV = (ShadowUV * SData.UVScale) + SData.UVOffset;
+        float2 Moments = ShadowMoments2D.Sample(ShadowLinearSampler, float3(ShadowUV, SliceIndex)).rg;
+        return ComputeVSMShadowFactor(Moments, saturate(CurrentDepth - FinalBias));
+    }
+    else if (SData.ShadowMapType == SHADOW_MAP_TYPE_VSMCUBE)
+    {
+        if (SData.ShadowFar <= 1.0e-4f)
+        {
+            return 1.0f;
+        }
+
+        const float3 ToPixel = WorldPos - SData.ShadowLightPosition;
+        const float Distance = length(ToPixel);
+        if (Distance <= 1.0e-4f || Distance >= SData.ShadowFar)
+        {
+            return 1.0f;
+        }
+
+        const float3 SampleDir = ToPixel / Distance;
+        const float PointShadowNear = 0.1f;
+        if (SData.ShadowFar <= PointShadowNear + 1.0e-4f || Distance <= PointShadowNear + 1.0e-4f)
+        {
+            return 1.0f;
+        }
+
+        const float CurrentDepth = Distance;
+        const float PointVSMBias = FinalBias;
+        if (CurrentDepth < 0.0f || CurrentDepth > SData.ShadowFar)
+        {
+            return 1.0f;
+        }
+
+        const float2 Moments = ShadowMomentsCube.SampleLevel(
+            ShadowLinearSampler,
+            float4(SampleDir, (float)SData.ShadowTextureIndex),
+            0.0f).rg;
+        return ComputeVSMShadowFactor(Moments, max(CurrentDepth - PointVSMBias, 0.0f));
+    }
+    else if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTH2D)
     {
         float ViewDepth = mul(float4(WorldPos, 1), View).x;
         int SliceIndex = 0;
@@ -183,7 +259,7 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
         uint ShadowMapLayers = 0;
         ShadowMap2D.GetDimensions(ShadowMapWidth, ShadowMapHeight, ShadowMapLayers);
 
-        float2 TexelSize = 1.0f / max(float2(ShadowMapWidth, ShadowMapHeight), float2(1.0f, 1.0f));
+        float2 TexelSize = (1.0f / max(float2(ShadowMapWidth, ShadowMapHeight), float2(1.0f, 1.0f))) * SData.ShadowFilterScale;
         float Shadow = 0.0f;
 
         [unroll]

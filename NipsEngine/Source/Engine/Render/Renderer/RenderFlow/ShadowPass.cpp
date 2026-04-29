@@ -9,16 +9,210 @@ namespace
 {
 	// 현재 Pass 간 Input, Output 연결 구조가 아니어서 전역으로 놓았는데, 나중에 바꿔야 함
 	TArray<FShadowMap> GShadowMaps;
+	struct FShadowVSMResource
+	{
+		TComPtr<ID3D11Texture2D> MomentsTexture;
+		TComPtr<ID3D11ShaderResourceView> MomentsSRV;
+		TComPtr<ID3D11ShaderResourceView> MomentsCubeSRV;
+		TArray<TComPtr<ID3D11RenderTargetView>> MomentRTVOwners;
+		TArray<ID3D11RenderTargetView*> MomentRTVs;
+
+		TComPtr<ID3D11Texture2D> TempTexture;
+		TComPtr<ID3D11ShaderResourceView> TempSRV;
+		TArray<TComPtr<ID3D11RenderTargetView>> TempRTVOwners;
+		TArray<ID3D11RenderTargetView*> TempRTVs;
+
+		TComPtr<ID3D11ShaderResourceView> DepthArraySRV;
+	};
+	TArray<FShadowVSMResource> GVSMResources;
 
 	// 1. LightId -> ShadowDataArray Index (0~31) 매핑 테이블
 	TArray<int32> GLightToShadowIndices;
 	// 2. OpaquePass에 넘겨줄 상수 버퍼 데이터
 	FOpaqueRenderPass::FShadowArrayCB GShadowCBData;
 
+	constexpr DXGI_FORMAT GVSMMomentsFormat = DXGI_FORMAT_R32G32_FLOAT;
+
 	float ComputeShadowCompareBias(const FRenderLight& Light)
 	{
 		const float UserBias = std::clamp(Light.ShadowBias, 0.0f, 1.0f);
 		return 0.005f * std::max(UserBias * 2.0f, 0.1f);
+	}
+
+	float ComputeShadowFilterScale(const FRenderLight& Light)
+	{
+		const float UserSharpen = std::clamp(Light.ShadowSharpen, 0.0f, 1.0f);
+		return std::max(0.25f, 1.0f - (UserSharpen * 0.75f));
+	}
+
+	bool CreateVSMTextureResource(
+		ID3D11Device* Device,
+		uint32 Resolution,
+		uint32 SliceCount,
+		bool bCreateCubeSRV,
+		TComPtr<ID3D11Texture2D>& OutTexture,
+		TComPtr<ID3D11ShaderResourceView>& OutSRV,
+		TComPtr<ID3D11ShaderResourceView>& OutCubeSRV,
+		TArray<TComPtr<ID3D11RenderTargetView>>& OutRTVOwners,
+		TArray<ID3D11RenderTargetView*>& OutRTVs)
+	{
+		if (Device == nullptr || Resolution == 0 || SliceCount == 0 ||
+			(bCreateCubeSRV && (SliceCount % 6u) != 0u))
+		{
+			return false;
+		}
+
+		OutTexture.Reset();
+		OutSRV.Reset();
+		OutCubeSRV.Reset();
+		OutRTVOwners.clear();
+		OutRTVs.clear();
+
+		D3D11_TEXTURE2D_DESC TextureDesc = {};
+		TextureDesc.Width = Resolution;
+		TextureDesc.Height = Resolution;
+		TextureDesc.MipLevels = 1;
+		TextureDesc.ArraySize = SliceCount;
+		TextureDesc.Format = GVSMMomentsFormat;
+		TextureDesc.SampleDesc.Count = 1;
+		TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+		TextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+		TextureDesc.MiscFlags = bCreateCubeSRV ? D3D11_RESOURCE_MISC_TEXTURECUBE : 0u;
+
+		if (FAILED(Device->CreateTexture2D(&TextureDesc, nullptr, OutTexture.GetAddressOf())))
+		{
+			return false;
+		}
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+		SRVDesc.Format = GVSMMomentsFormat;
+		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+		SRVDesc.Texture2DArray.MostDetailedMip = 0;
+		SRVDesc.Texture2DArray.MipLevels = 1;
+		SRVDesc.Texture2DArray.FirstArraySlice = 0;
+		SRVDesc.Texture2DArray.ArraySize = SliceCount;
+		if (FAILED(Device->CreateShaderResourceView(OutTexture.Get(), &SRVDesc, OutSRV.GetAddressOf())))
+		{
+			return false;
+		}
+
+		if (bCreateCubeSRV)
+		{
+			D3D11_SHADER_RESOURCE_VIEW_DESC CubeSRVDesc = {};
+			CubeSRVDesc.Format = GVSMMomentsFormat;
+			CubeSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBEARRAY;
+			CubeSRVDesc.TextureCubeArray.MostDetailedMip = 0;
+			CubeSRVDesc.TextureCubeArray.MipLevels = 1;
+			CubeSRVDesc.TextureCubeArray.First2DArrayFace = 0;
+			CubeSRVDesc.TextureCubeArray.NumCubes = SliceCount / 6u;
+			if (FAILED(Device->CreateShaderResourceView(OutTexture.Get(), &CubeSRVDesc, OutCubeSRV.GetAddressOf())))
+			{
+				return false;
+			}
+		}
+
+		OutRTVOwners.resize(SliceCount);
+		OutRTVs.resize(SliceCount, nullptr);
+
+		for (uint32 SliceIndex = 0; SliceIndex < SliceCount; ++SliceIndex)
+		{
+			D3D11_RENDER_TARGET_VIEW_DESC RTVDesc = {};
+			RTVDesc.Format = GVSMMomentsFormat;
+			RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DARRAY;
+			RTVDesc.Texture2DArray.MipSlice = 0;
+			RTVDesc.Texture2DArray.FirstArraySlice = SliceIndex;
+			RTVDesc.Texture2DArray.ArraySize = 1;
+
+			if (FAILED(Device->CreateRenderTargetView(OutTexture.Get(), &RTVDesc, OutRTVOwners[SliceIndex].GetAddressOf())))
+			{
+				return false;
+			}
+
+			OutRTVs[SliceIndex] = OutRTVOwners[SliceIndex].Get();
+		}
+
+		return true;
+	}
+
+	bool CreateVSMResources(ID3D11Device* Device, uint32 Resolution, uint32 SliceCount, FShadowVSMResource& OutResource)
+	{
+		return CreateVSMTextureResource(
+				   Device,
+				   Resolution,
+				   SliceCount,
+				   false,
+				   OutResource.MomentsTexture,
+				   OutResource.MomentsSRV,
+				   OutResource.MomentsCubeSRV,
+				   OutResource.MomentRTVOwners,
+				   OutResource.MomentRTVs) &&
+			   CreateVSMTextureResource(
+				   Device,
+				   Resolution,
+				   SliceCount,
+				   false,
+				   OutResource.TempTexture,
+				   OutResource.TempSRV,
+				   OutResource.DepthArraySRV,
+				   OutResource.TempRTVOwners,
+				   OutResource.TempRTVs);
+	}
+
+	bool CreateVSMCubeResources(ID3D11Device* Device, uint32 Resolution, uint32 CubeCount, FShadowVSMResource& OutResource)
+	{
+		const uint32 SliceCount = CubeCount * 6u;
+		return CreateVSMTextureResource(
+				   Device,
+				   Resolution,
+				   SliceCount,
+				   true,
+				   OutResource.MomentsTexture,
+				   OutResource.MomentsSRV,
+				   OutResource.MomentsCubeSRV,
+				   OutResource.MomentRTVOwners,
+				   OutResource.MomentRTVs) &&
+			   CreateVSMTextureResource(
+				   Device,
+				   Resolution,
+				   SliceCount,
+				   false,
+				   OutResource.TempTexture,
+				   OutResource.TempSRV,
+				   OutResource.DepthArraySRV,
+				   OutResource.TempRTVOwners,
+				   OutResource.TempRTVs);
+	}
+
+	bool CreateDepthArraySRV(
+		ID3D11Device* Device,
+		ID3D11Texture2D* DepthTexture,
+		uint32 SliceCount,
+		TComPtr<ID3D11ShaderResourceView>& OutSRV)
+	{
+		if (Device == nullptr || DepthTexture == nullptr || SliceCount == 0u)
+		{
+			return false;
+		}
+
+		OutSRV.Reset();
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+		SRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+		SRVDesc.Texture2DArray.MostDetailedMip = 0;
+		SRVDesc.Texture2DArray.MipLevels = 1;
+		SRVDesc.Texture2DArray.FirstArraySlice = 0;
+		SRVDesc.Texture2DArray.ArraySize = SliceCount;
+
+		return SUCCEEDED(Device->CreateShaderResourceView(DepthTexture, &SRVDesc, OutSRV.GetAddressOf()));
+	}
+
+	bool HasVSMResources(const FShadowVSMResource& Resource)
+	{
+		return Resource.MomentsSRV != nullptr &&
+			   Resource.TempSRV != nullptr &&
+			   !Resource.MomentRTVs.empty() &&
+			   !Resource.TempRTVs.empty();
 	}
 
 } // namespace
@@ -31,6 +225,11 @@ bool FShadowPass::Initialize()
 bool FShadowPass::Release()
 {
 	ShaderBinding.reset();
+	VSMConvertShaderBinding.reset();
+	VSMBlurShaderBinding.reset();
+	PointVSMShaderBinding.reset();
+	GShadowMaps.clear();
+	GVSMResources.clear();
 	return true;
 }
 
@@ -46,6 +245,67 @@ const TArray<int32>& FShadowPass::GetLightToShadowIndices()
 const FOpaqueRenderPass::FShadowArrayCB& FShadowPass::GetShadowCBData()
 {
 	return GShadowCBData;
+}
+
+ID3D11ShaderResourceView* FShadowPass::GetVSM2DShadowSRV()
+{
+	for (size_t ShadowMapIndex = 0; ShadowMapIndex < GShadowMaps.size() && ShadowMapIndex < GVSMResources.size(); ++ShadowMapIndex)
+	{
+		if (GShadowMaps[ShadowMapIndex].MapType == EShadowMapType::VSM2D &&
+			GVSMResources[ShadowMapIndex].MomentsSRV != nullptr)
+		{
+			return GVSMResources[ShadowMapIndex].MomentsSRV.Get();
+		}
+	}
+
+	return nullptr;
+}
+
+ID3D11ShaderResourceView* FShadowPass::GetVSMCubeShadowSRV()
+{
+	for (size_t ShadowMapIndex = 0; ShadowMapIndex < GShadowMaps.size() && ShadowMapIndex < GVSMResources.size(); ++ShadowMapIndex)
+	{
+		if (GShadowMaps[ShadowMapIndex].MapType == EShadowMapType::VSMCube &&
+			GVSMResources[ShadowMapIndex].MomentsCubeSRV != nullptr)
+		{
+			return GVSMResources[ShadowMapIndex].MomentsCubeSRV.Get();
+		}
+	}
+
+	return nullptr;
+}
+
+bool FShadowPass::EnsureVSMBindings(const FRenderPassContext* Context)
+{
+	if (Context == nullptr || Context->Device == nullptr)
+	{
+		return false;
+	}
+
+	UShader* ConvertShader = FResourceManager::Get().GetShader("Shaders/Multipass/ShadowVSMConvertPass.hlsl");
+	UShader* BlurShader = FResourceManager::Get().GetShader("Shaders/Multipass/ShadowVSMBlurPass.hlsl");
+	UShader* PointVSMShader = FResourceManager::Get().GetShader("Shaders/Multipass/ShadowPointVSMPass.hlsl");
+	if (ConvertShader == nullptr || BlurShader == nullptr || PointVSMShader == nullptr)
+	{
+		return false;
+	}
+
+	if (!VSMConvertShaderBinding || VSMConvertShaderBinding->GetShader() != ConvertShader)
+	{
+		VSMConvertShaderBinding = ConvertShader->CreateBindingInstance(Context->Device);
+	}
+
+	if (!VSMBlurShaderBinding || VSMBlurShaderBinding->GetShader() != BlurShader)
+	{
+		VSMBlurShaderBinding = BlurShader->CreateBindingInstance(Context->Device);
+	}
+
+	if (!PointVSMShaderBinding || PointVSMShaderBinding->GetShader() != PointVSMShader)
+	{
+		PointVSMShaderBinding = PointVSMShader->CreateBindingInstance(Context->Device);
+	}
+
+	return VSMConvertShaderBinding != nullptr && VSMBlurShaderBinding != nullptr && PointVSMShaderBinding != nullptr;
 }
 
 bool FShadowPass::Begin(const FRenderPassContext* Context)
@@ -73,6 +333,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		}
 		GShadowMaps.clear();
 	}
+	GVSMResources.clear();
 
 	bSkip = false;
 
@@ -118,6 +379,20 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		}
 	}
 
+	bool bUseVSMFilter = Context->RenderBus->GetShowFlags().UsesVSMShadowFilter();
+	if (bUseVSMFilter && !EnsureVSMBindings(Context))
+	{
+		bUseVSMFilter = false;
+	}
+
+	for (FShadowRequest& ShadowRequest : ShadowRequests)
+	{
+		ShadowRequest.bUseVSM =
+			bUseVSMFilter &&
+			(ShadowRequest.Type == ELightType::LightType_Directional ||
+			 ShadowRequest.Type == ELightType::LightType_Point);
+	}
+
 	// 원본 인덱스 저장한 룩업테이블
 	struct FLightShadowMappingInfo
 	{
@@ -138,6 +413,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 	AtlasAllocator.Reset();
 
 	FShadowResource* SharedPointShadowResource = nullptr;
+	FShadowVSMResource SharedPointVSMResource = {};
 	uint32 SharedPointShadowFaceOffset = 0;
 	uint32 PointShadowRequestCount = 0;
 	uint32 SharedPointShadowResolution = 0;
@@ -166,6 +442,19 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			SharedPointShadowResource = nullptr;
 			PointShadowRequestCount = 0;
 		}
+		else if (bUseVSMFilter)
+		{
+			const uint32 PointSliceCount = PointArrayDesc.CubeCount * 6u;
+			if (!CreateVSMCubeResources(Context->Device, SharedPointShadowResolution, PointArrayDesc.CubeCount, SharedPointVSMResource) ||
+				!CreateDepthArraySRV(
+					Context->Device,
+					SharedPointShadowResource->BackingResource.Texture.Get(),
+					PointSliceCount,
+					SharedPointVSMResource.DepthArraySRV))
+			{
+				SharedPointVSMResource = FShadowVSMResource{};
+			}
+		}
 	}
 
 	// 기존의 범위 기반 for 문을 인덱스 기반으로 교체
@@ -186,7 +475,10 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
 			FShadowMap ShadowMap;
 			ShadowMap.Resource = SharedPointShadowResource;
-			ShadowMap.MapType = EShadowMapType::DepthCube;
+			ShadowMap.MapType =
+				(ShadowRequest.bUseVSM && HasVSMResources(SharedPointVSMResource) && SharedPointVSMResource.MomentsCubeSRV != nullptr)
+					? EShadowMapType::VSMCube
+					: EShadowMapType::DepthCube;
 			ShadowMap.LightId = ShadowRequest.LightId;
 			ShadowMap.SourceLightSlotIndex = ShadowLight.SourceLightSlotIndex;
 			ShadowMap.ResourceSliceOffset = SharedPointShadowFaceOffset;
@@ -205,6 +497,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			}
 
 			GShadowMaps.push_back(ShadowMap);
+			GVSMResources.push_back(ShadowMap.MapType == EShadowMapType::VSMCube ? SharedPointVSMResource : FShadowVSMResource{});
 			GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
 
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVOffset = FVector2(0, 0);
@@ -212,6 +505,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowLightPosition = ShadowLight.Position;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFar = std::max(ShadowLight.Radius, 0.1f);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = PointShadowTextureIndexCounter;
@@ -245,6 +540,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 					NewAtlasMap.MapType = EShadowMapType::Depth2D;
 					NewAtlasMap.LightType = ELightType::LightType_Spot;
 					GShadowMaps.push_back(NewAtlasMap);
+					GVSMResources.emplace_back();
 
 					uint32 NewAtlasIndex = GShadowMaps.size() - 1;
 					AtlasAllocator.SetCurrentAtlasIndex(NewAtlasIndex);
@@ -288,6 +584,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].UVScale = AllocResult.UVScale;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(CurrentAtlasMap.MapType);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
@@ -299,7 +596,23 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			FShadowMap ShadowMap;
 			if (MakeShadowMap(Context, ShadowRequest, ShadowMap))
 			{
+				FShadowVSMResource VSMResource;
+				if (ShadowRequest.bUseVSM)
+				{
+					const uint32 SliceCount = static_cast<uint32>(ShadowMap.Views.size());
+					if (!CreateVSMResources(
+							Context->Device,
+							ShadowMap.Resource ? ShadowMap.Resource->Resolution : 0u,
+							SliceCount,
+							VSMResource))
+					{
+						ShadowMap.MapType = EShadowMapType::Depth2D;
+						VSMResource = FShadowVSMResource{};
+					}
+				}
+
 				GShadowMaps.push_back(ShadowMap);
+				GVSMResources.push_back(std::move(VSMResource));
 
 				GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
 
@@ -317,6 +630,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 					std::max(ShadowLight.Radius, 0.1f);
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowBias = ComputeShadowCompareBias(ShadowLight);
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
+				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = ShadowRequest.Cascades.size();
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 0u;
@@ -433,10 +747,129 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 		return true;
 	};
 
-	for (FShadowMap& ShadowMap : GShadowMaps)
+	for (size_t ShadowMapIndex = 0; ShadowMapIndex < GShadowMaps.size(); ++ShadowMapIndex)
 	{
+		FShadowMap& ShadowMap = GShadowMaps[ShadowMapIndex];
 		if (ShadowMap.Resource == nullptr)
 		{
+			continue;
+		}
+
+		const bool bPointVSM =
+			ShadowMap.MapType == EShadowMapType::VSMCube &&
+			ShadowMapIndex < GVSMResources.size() &&
+			HasVSMResources(GVSMResources[ShadowMapIndex]) &&
+			PointVSMShaderBinding != nullptr;
+
+		if (bPointVSM)
+		{
+			FShadowVSMResource& VSMResource = GVSMResources[ShadowMapIndex];
+			const FRenderLight* DrawShadowLight =
+				ShadowMap.LightId < static_cast<uint32>(Context->RenderBus->GetLights().size())
+					? &Context->RenderBus->GetLights()[ShadowMap.LightId]
+					: nullptr;
+			if (DrawShadowLight == nullptr)
+			{
+				continue;
+			}
+
+			const uint32 DrawSliceCount = std::min<uint32>(
+				static_cast<uint32>(ShadowMap.Views.size()),
+				std::min<uint32>(
+					static_cast<uint32>(ShadowMap.Resource->DSVs.size() > ShadowMap.ResourceSliceOffset ? ShadowMap.Resource->DSVs.size() - ShadowMap.ResourceSliceOffset : 0),
+					static_cast<uint32>(VSMResource.MomentRTVs.size() > ShadowMap.ResourceSliceOffset ? VSMResource.MomentRTVs.size() - ShadowMap.ResourceSliceOffset : 0)));
+			if (DrawSliceCount == 0)
+			{
+				continue;
+			}
+
+			D3D11_VIEWPORT ShadowViewport = {};
+			ShadowViewport.TopLeftX = 0.0f;
+			ShadowViewport.TopLeftY = 0.0f;
+			ShadowViewport.Width = static_cast<float>(ShadowMap.Resource->Resolution);
+			ShadowViewport.Height = static_cast<float>(ShadowMap.Resource->Resolution);
+			ShadowViewport.MinDepth = 0.0f;
+			ShadowViewport.MaxDepth = 1.0f;
+			Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
+
+			for (uint32 ViewIndex = 0; ViewIndex < DrawSliceCount; ++ViewIndex)
+			{
+				const uint32 ResourceSliceIndex = ShadowMap.ResourceSliceOffset + ViewIndex;
+				ID3D11RenderTargetView* MomentRTV = VSMResource.MomentRTVs[ResourceSliceIndex];
+				ID3D11DepthStencilView* DepthDSV = ShadowMap.Resource->DSVs[ResourceSliceIndex];
+				const float ShadowFar = std::max(DrawShadowLight->Radius, 0.1f);
+				const float ClearMoments[4] = { ShadowFar, ShadowFar * ShadowFar, 0.0f, 0.0f };
+
+				Context->DeviceContext->ClearRenderTargetView(MomentRTV, ClearMoments);
+				Context->DeviceContext->ClearDepthStencilView(
+					DepthDSV,
+					D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+					1.0f,
+					0);
+				Context->DeviceContext->OMSetRenderTargets(1, &MomentRTV, DepthDSV);
+
+				PointVSMShaderBinding->ApplyFrameParameters(*Context->RenderBus);
+				PointVSMShaderBinding->SetMatrix4("View", ShadowMap.Views[ViewIndex].LightView);
+				PointVSMShaderBinding->SetMatrix4("Projection", ShadowMap.Views[ViewIndex].LightProjection);
+				PointVSMShaderBinding->SetFloat("ShadowFar", ShadowFar);
+
+				for (const FRenderCommand& Cmd : Commands)
+				{
+					if (Cmd.Type == ERenderCommandType::PostProcessOutline)
+					{
+						continue;
+					}
+
+					if (Cmd.WorldBounds.IsValid())
+					{
+						const FVector BoundsCenter = Cmd.WorldBounds.GetCenter();
+						const float BoundsRadius = Cmd.WorldBounds.GetExtent().Size();
+						if (FVector::Dist(BoundsCenter, DrawShadowLight->Position) - BoundsRadius > DrawShadowLight->Radius)
+						{
+							continue;
+						}
+					}
+
+					if (Cmd.MeshBuffer == nullptr || !Cmd.MeshBuffer->IsValid())
+					{
+						Context->DeviceContext->RSSetViewports(OldVPCount, OldVP);
+						return false;
+					}
+
+					uint32 Offset = 0;
+					ID3D11Buffer* VertexBuffer = Cmd.MeshBuffer->GetVertexBuffer().GetBuffer();
+					if (VertexBuffer == nullptr)
+					{
+						Context->DeviceContext->RSSetViewports(OldVPCount, OldVP);
+						return false;
+					}
+
+					const uint32 VertexCount = Cmd.MeshBuffer->GetVertexBuffer().GetVertexCount();
+					const uint32 Stride = Cmd.MeshBuffer->GetVertexBuffer().GetStride();
+					if (VertexCount == 0 || Stride == 0)
+					{
+						Context->DeviceContext->RSSetViewports(OldVPCount, OldVP);
+						return false;
+					}
+
+					PointVSMShaderBinding->ApplyPerObjectParameters(Cmd.PerObjectConstants);
+					PointVSMShaderBinding->Bind(Context->DeviceContext);
+					CheckOverrideViewMode(Context);
+					Context->DeviceContext->IASetVertexBuffers(0, 1, &VertexBuffer, &Stride, &Offset);
+
+					ID3D11Buffer* IndexBuffer = Cmd.MeshBuffer->GetIndexBuffer().GetBuffer();
+					if (IndexBuffer != nullptr)
+					{
+						Context->DeviceContext->IASetIndexBuffer(IndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+						Context->DeviceContext->DrawIndexed(Cmd.SectionIndexCount, Cmd.SectionIndexStart, 0);
+					}
+					else
+					{
+						Context->DeviceContext->Draw(VertexCount, 0);
+					}
+				}
+			}
+
 			continue;
 		}
 
@@ -536,6 +969,156 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 {
 	if (bSkip)
 		return true;
+
+	bool bHasVSMWork = false;
+	for (size_t ShadowMapIndex = 0; ShadowMapIndex < GShadowMaps.size() && ShadowMapIndex < GVSMResources.size(); ++ShadowMapIndex)
+	{
+		if ((GShadowMaps[ShadowMapIndex].MapType == EShadowMapType::VSM2D ||
+			 GShadowMaps[ShadowMapIndex].MapType == EShadowMapType::VSMCube) &&
+			HasVSMResources(GVSMResources[ShadowMapIndex]))
+		{
+			bHasVSMWork = true;
+			break;
+		}
+	}
+
+	if (!bHasVSMWork)
+	{
+		return true;
+	}
+
+	if (!EnsureVSMBindings(Context))
+	{
+		return false;
+	}
+
+	ID3D11SamplerState* LinearClampSampler =
+		FResourceManager::Get().GetOrCreateSamplerState(ESamplerType::EST_LinearClamp, Context->Device);
+	if (LinearClampSampler == nullptr)
+	{
+		return false;
+	}
+
+	D3D11_VIEWPORT OldVP[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
+	UINT OldVPCount = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
+	Context->DeviceContext->RSGetViewports(&OldVPCount, OldVP);
+
+	Context->DeviceContext->IASetInputLayout(nullptr);
+	Context->DeviceContext->IASetVertexBuffers(0, 0, nullptr, nullptr, nullptr);
+	Context->DeviceContext->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
+	Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	ID3D11ShaderResourceView* NullSRV = nullptr;
+	auto UnbindPixelShaderInput = [&]()
+	{
+		Context->DeviceContext->PSSetShaderResources(0, 1, &NullSRV);
+	};
+
+	for (size_t ShadowMapIndex = 0; ShadowMapIndex < GShadowMaps.size() && ShadowMapIndex < GVSMResources.size(); ++ShadowMapIndex)
+	{
+		const FShadowMap& ShadowMap = GShadowMaps[ShadowMapIndex];
+		FShadowVSMResource& VSMResource = GVSMResources[ShadowMapIndex];
+		const bool bPointVSM = ShadowMap.MapType == EShadowMapType::VSMCube;
+		if ((ShadowMap.MapType != EShadowMapType::VSM2D && !bPointVSM) ||
+			!HasVSMResources(VSMResource) ||
+			ShadowMap.Resource == nullptr)
+		{
+			continue;
+		}
+
+		ID3D11ShaderResourceView* DepthInputSRV = bPointVSM ? nullptr : ShadowMap.Resource->SRV;
+		if ((!bPointVSM && DepthInputSRV == nullptr) || (bPointVSM && VSMResource.MomentsCubeSRV == nullptr))
+		{
+			continue;
+		}
+
+		const uint32 AvailableMomentSlices =
+			static_cast<uint32>(VSMResource.MomentRTVs.size() > ShadowMap.ResourceSliceOffset
+				? VSMResource.MomentRTVs.size() - ShadowMap.ResourceSliceOffset
+				: 0u);
+		const uint32 AvailableTempSlices =
+			static_cast<uint32>(VSMResource.TempRTVs.size() > ShadowMap.ResourceSliceOffset
+				? VSMResource.TempRTVs.size() - ShadowMap.ResourceSliceOffset
+				: 0u);
+		const uint32 DrawSliceCount = std::min<uint32>(
+			static_cast<uint32>(ShadowMap.Views.size()),
+			std::min<uint32>(
+				AvailableMomentSlices,
+				AvailableTempSlices));
+		if (DrawSliceCount == 0)
+		{
+			continue;
+		}
+
+		const FRenderLight* ShadowLight =
+			(ShadowMap.LightId < static_cast<uint32>(Context->RenderBus->GetLights().size()))
+				? &Context->RenderBus->GetLights()[ShadowMap.LightId]
+				: nullptr;
+		const float FilterScale = (ShadowLight != nullptr) ? ComputeShadowFilterScale(*ShadowLight) : 1.0f;
+		const float InvResolution =
+			1.0f / std::max<float>(static_cast<float>(ShadowMap.Resource->Resolution), 1.0f);
+		D3D11_VIEWPORT ShadowViewport = {};
+		ShadowViewport.TopLeftX = 0.0f;
+		ShadowViewport.TopLeftY = 0.0f;
+		ShadowViewport.Width = static_cast<float>(ShadowMap.Resource->Resolution);
+		ShadowViewport.Height = static_cast<float>(ShadowMap.Resource->Resolution);
+		ShadowViewport.MinDepth = 0.0f;
+		ShadowViewport.MaxDepth = 1.0f;
+		Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
+
+		for (uint32 SliceIndex = 0; SliceIndex < DrawSliceCount; ++SliceIndex)
+		{
+			const uint32 ResourceSliceIndex = ShadowMap.ResourceSliceOffset + SliceIndex;
+
+			ID3D11RenderTargetView* MomentRTV = VSMResource.MomentRTVs[ResourceSliceIndex];
+			if (!bPointVSM)
+			{
+				UnbindPixelShaderInput();
+				Context->DeviceContext->OMSetRenderTargets(1, &MomentRTV, nullptr);
+				VSMConvertShaderBinding->ApplyFrameParameters(*Context->RenderBus);
+				VSMConvertShaderBinding->SetSRV("DepthShadowInput", DepthInputSRV);
+				VSMConvertShaderBinding->SetInt("SliceIndex", static_cast<int32>(ResourceSliceIndex));
+				VSMConvertShaderBinding->SetInt("LinearizeDepth", 0);
+				VSMConvertShaderBinding->SetFloat("DepthLinearizeA", 0.0f);
+				VSMConvertShaderBinding->SetFloat("DepthLinearizeB", 0.0f);
+				VSMConvertShaderBinding->SetFloat("InvDepthRange", 1.0f);
+				VSMConvertShaderBinding->Bind(Context->DeviceContext);
+				Context->DeviceContext->Draw(3, 0);
+			}
+
+			if (bPointVSM)
+			{
+				continue;
+			}
+
+			ID3D11RenderTargetView* TempRTV = VSMResource.TempRTVs[ResourceSliceIndex];
+			UnbindPixelShaderInput();
+			Context->DeviceContext->OMSetRenderTargets(1, &TempRTV, nullptr);
+			VSMBlurShaderBinding->ApplyFrameParameters(*Context->RenderBus);
+			VSMBlurShaderBinding->SetSRV("MomentsInput", VSMResource.MomentsSRV.Get());
+			VSMBlurShaderBinding->SetSampler("LinearClampSampler", LinearClampSampler);
+			VSMBlurShaderBinding->SetInt("SliceIndex", static_cast<int32>(ResourceSliceIndex));
+			VSMBlurShaderBinding->SetVector2("BlurDirection", FVector2(InvResolution * FilterScale, 0.0f));
+			VSMBlurShaderBinding->Bind(Context->DeviceContext);
+			Context->DeviceContext->Draw(3, 0);
+
+			UnbindPixelShaderInput();
+			Context->DeviceContext->OMSetRenderTargets(1, &MomentRTV, nullptr);
+			VSMBlurShaderBinding->ApplyFrameParameters(*Context->RenderBus);
+			VSMBlurShaderBinding->SetSRV("MomentsInput", VSMResource.TempSRV.Get());
+			VSMBlurShaderBinding->SetSampler("LinearClampSampler", LinearClampSampler);
+			VSMBlurShaderBinding->SetInt("SliceIndex", static_cast<int32>(ResourceSliceIndex));
+			VSMBlurShaderBinding->SetVector2("BlurDirection", FVector2(0.0f, InvResolution * FilterScale));
+			VSMBlurShaderBinding->Bind(Context->DeviceContext);
+			Context->DeviceContext->Draw(3, 0);
+		}
+	}
+
+	Context->DeviceContext->PSSetShaderResources(0, 1, &NullSRV);
+	ID3D11SamplerState* NullSampler = nullptr;
+	Context->DeviceContext->PSSetSamplers(0, 1, &NullSampler);
+	Context->DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
+	Context->DeviceContext->RSSetViewports(OldVPCount, OldVP);
 	return true;
 }
 
@@ -543,7 +1126,10 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 {
 	FShadowRequestDesc Desc;
 	Desc.AllocationMode = EShadowAllocationMode::ArrayBased; // CSM
-	Desc.MapType = Req.Type != ELightType::LightType_Point ? EShadowMapType::Depth2D : EShadowMapType::DepthCube;
+	Desc.MapType =
+		Req.Type == ELightType::LightType_Point
+			? (Req.bUseVSM ? EShadowMapType::VSMCube : EShadowMapType::DepthCube)
+			: (Req.bUseVSM ? EShadowMapType::VSM2D : EShadowMapType::Depth2D);
 	Desc.Resolution = Req.Resolution;
 	Desc.CascadeCount = Req.Cascades.size();
 	Desc.CubeCount = (Req.Type == ELightType::LightType_Point) ? 1u : 0u;
@@ -551,9 +1137,23 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 	if (!AcquireResource(Context, Desc, &OutShadowMap.Resource))
 		return false;
 	if (!BuildViews(Context, Req, OutShadowMap.Views))
+	{
+		if (OutShadowMap.Resource != nullptr)
+		{
+			Context->ShadowResourcePool->Release(OutShadowMap.Resource);
+			OutShadowMap.Resource = nullptr;
+		}
 		return false;
+	}
 	if (!BuildSlices(Context, Req, OutShadowMap.Slices))
+	{
+		if (OutShadowMap.Resource != nullptr)
+		{
+			Context->ShadowResourcePool->Release(OutShadowMap.Resource);
+			OutShadowMap.Resource = nullptr;
+		}
 		return false;
+	}
 	OutShadowMap.MapType = Desc.MapType;
 	OutShadowMap.LightId = Req.LightId;
 	OutShadowMap.SourceLightSlotIndex = Context->RenderBus->GetLights()[Req.LightId].SourceLightSlotIndex;

@@ -7,7 +7,7 @@ FShadowResource* FShadowResourcePool::Acquire(ID3D11Device* Device, const FShado
 	FShadowResource* ShadowResource = new FShadowResource;
 	ShadowResource->Resolution = Desc.Resolution;
 
-	if (Desc.MapType == EShadowMapType::DepthCube)
+	if (Desc.MapType == EShadowMapType::DepthCube || Desc.MapType == EShadowMapType::VSMCube)
 	{
 		if (Desc.AllocationMode == EShadowAllocationMode::ArrayBased)
 		{

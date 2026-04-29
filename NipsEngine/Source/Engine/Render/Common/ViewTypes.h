@@ -28,6 +28,12 @@ inline bool ShouldBypassSceneCompositePasses(EViewMode ViewMode)
 	return ViewMode == EViewMode::Wireframe || IsBufferVisualizationViewMode(ViewMode);
 }
 
+enum class EShadowFilterMode : uint8
+{
+	PCF = 0,
+	VSM = 1
+};
+
 struct FShowFlags
 {
 	bool bPrimitives = true;
@@ -44,6 +50,12 @@ struct FShowFlags
 	bool bDecals = true;
 	bool bFog = true;
 	bool bShowLightHitmapOverlay = false;
+	EShadowFilterMode ShadowFilter = EShadowFilterMode::PCF;
+
+	bool UsesVSMShadowFilter() const
+	{
+		return ShadowFilter == EShadowFilterMode::VSM;
+	}
 };
 
 struct FGridRenderSettings
