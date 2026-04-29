@@ -137,7 +137,7 @@ void UWorld::UnregisterLight(ULightComponentBase* Comp)
 
 	if (OverridenLight && *OverridenLight == LightHandle)
 	{
-        SetOverridenLight(nullptr);
+        SetOverridenLight(nullptr, 0);
 	}
 
 	WorldLightSlots[LightHandle.Index].bAlive = false;

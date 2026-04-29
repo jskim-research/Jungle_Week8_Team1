@@ -122,12 +122,18 @@ public:
 	void UnregisterLight(ULightComponentBase* Comp);
 	const TArray<FLightSlot>& GetWorldLightSlots() const { return WorldLightSlots; }
 
-	void SetOverridenLight(const FLightHandle* InLightHandle) 
+	void SetOverridenLight(const FLightHandle* InLightHandle, uint32 InSliceIndex) 
 	{
-        if (InLightHandle && InLightHandle->IsValid())
+		if (InLightHandle && InLightHandle->IsValid())
+        {
             OverridenLight = InLightHandle;
-        else
+            OverridenLightSliceIndex = InSliceIndex;
+		}
+		else
+        {
             OverridenLight = nullptr;
+            OverridenLightSliceIndex = 0;
+		}
 	}
     const FLightHandle* GetOverridenLight() const 
 	{
@@ -136,6 +142,8 @@ public:
 		return nullptr;
 	}
 
+	uint32 GetOverridenLightSliceIndex() const { return OverridenLightSliceIndex; }
+
 private:
 	EWorldType WorldType = EWorldType::Editor;
 	ULevel* PersistentLevel = nullptr;
@@ -143,7 +151,8 @@ private:
 	FWorldSpatialIndex SpatialIndex;
 	bool bHasBegunPlay = false;
     const FLightHandle* OverridenLight = nullptr;
-
+    uint32 OverridenLightSliceIndex = 0;
+	
 	TArray<FLightSlot> WorldLightSlots;
 	TArray<uint32> FreeLightSlotList;  // 삭제된 Light 의 Index 만 Free 로 등록
 };

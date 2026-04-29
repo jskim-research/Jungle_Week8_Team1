@@ -125,7 +125,8 @@ void FEditorViewportClient::BuildSceneView(FSceneView& OutView) const
     if (!Camera.IsOrthographic() && LightHandle && LightHandle->IsValid() && World->GetWorldLightSlots()[LightHandle->Index].bAlive)
 	{
         ULightComponentBase* Light = World->GetWorldLightSlots()[LightHandle->Index].LightData;
-        Light->BuildShadowView(0, OutView.ViewMatrix, OutView.ProjectionMatrix);
+
+        Light->BuildShadowView(World->GetOverridenLightSliceIndex(), OutView.ViewMatrix, OutView.ProjectionMatrix);
         OutView.bIsCameraOverridenByLight = true;
 	}
 	else
@@ -227,7 +228,8 @@ void FEditorViewportClient::TickInput(float DeltaTime)
 {
 	if (!bHasCamera)
 		return;
-    if (World->GetOverridenLight())
+
+    if (!Camera.IsOrthographic() && World->GetOverridenLight())
         return;
 
 	if (Settings)
@@ -410,7 +412,7 @@ void FEditorViewportClient::TickInteraction(float DeltaTime)
 	if (!bHasCamera || !Gizmo)
 		return;
 
-	if (World->GetOverridenLight())
+    if (!Camera.IsOrthographic() && World->GetOverridenLight())
         return;
 
 	if (World && World->GetWorldType() == EWorldType::PIE)

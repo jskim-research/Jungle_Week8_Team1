@@ -532,9 +532,9 @@ void FEditorPropertyWidget::RenderComponentProperties()
 
 			// 설정된 애를 다시 클릭한 경우 해제
             if (LightComponent->GetOwner()->GetFocusedWorld()->GetOverridenLight() == &LightComponent->GetLightHandle())
-                LightComponent->GetOwner()->GetFocusedWorld()->SetOverridenLight(nullptr);
+                LightComponent->GetOwner()->GetFocusedWorld()->SetOverridenLight(nullptr, 0);
             else
-	            LightComponent->GetOwner()->GetFocusedWorld()->SetOverridenLight(&LightComponent->GetLightHandle());
+                LightComponent->GetOwner()->GetFocusedWorld()->SetOverridenLight(&LightComponent->GetLightHandle(), LightPreviewSliceIndex);
 		}
 	}
 
@@ -888,6 +888,8 @@ void FEditorPropertyWidget::RenderLightPreview()
 			if (ImGui::Selectable(OptionLabel.c_str(), bSelected))
 			{
 				LightPreviewSliceIndex = SliceIndex;
+
+                SelectedLight->GetOwner()->GetFocusedWorld()->SetOverridenLight(&SelectedLight->GetLightHandle(), LightPreviewSliceIndex);
 			}
 			if (bSelected)
 			{
