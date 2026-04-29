@@ -91,6 +91,16 @@ void FEditorRenderPipeline::RenderViewport(FRenderer& Renderer, int32 ViewportIn
 	Bus.SetFXAAEnabled(Settings.bEnableFXAA && !SceneView.bOrthographic);
     Bus.SetIsCameraOverridenByLight(SceneView.bIsCameraOverridenByLight);
 
+	FCameraState CameraState;
+
+	CameraState.AspectRatio = VC->GetCamera()->GetAspectRatio();
+    CameraState.bIsOrthogonal = VC->GetCamera()->IsOrthographic();
+    CameraState.FarZ = VC->GetCamera()->GetFarPlane();
+    CameraState.FOV = VC->GetCamera()->GetFOV();
+    CameraState.NearZ = VC->GetCamera()->GetNearPlane();
+    CameraState.OrthoWidth = VC->GetCamera()->GetOrthoHeight() * VC->GetCamera()->GetAspectRatio();
+    Bus.SetCameraState(CameraState);
+
 	const FFrustum& ViewFrustum = SceneView.CameraFrustum;
 	Renderer.GetEditorLineBatcher().Clear();
 	Collector.SetLineBatcher(&Renderer.GetEditorLineBatcher());

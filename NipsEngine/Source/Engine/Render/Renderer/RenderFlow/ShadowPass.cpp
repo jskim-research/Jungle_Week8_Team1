@@ -655,9 +655,12 @@ bool FShadowPass::BuildViews(const FRenderPassContext* Context,
                 FarZ += 0.5f;
             }
 
+			float ViewWidth = Radius * 2;
+            float ViewHeight = Radius * 2;
+
             FShadowViewInfo View;
             View.LightView = LightView;
-            View.LightProjection = FMatrix::MakeOrthographicLH(LSMax.X - LSMin.X, LSMax.Y - LSMin.Y, NearZ, FarZ);
+            View.LightProjection = FMatrix::MakeOrthographicLH(ViewWidth, ViewHeight, NearZ, FarZ);
             View.SplitDepth = Far;
             OutViewInfoArray.push_back(View);
         }
