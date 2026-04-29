@@ -45,6 +45,40 @@ namespace
 		return std::max(0.25f, 1.0f - (UserSharpen * 0.75f));
 	}
 
+	float ComputeVSMDepthBias(const FRenderLight& Light, EShadowMapType MapType)
+	{
+		const float UserBias = std::clamp(Light.ShadowBias, 0.0f, 1.0f);
+		if (MapType == EShadowMapType::VSMCube)
+		{
+			return std::max(0.02f, std::max(Light.Radius, 1.0f) * 1.0e-4f * std::max(UserBias * 2.0f, 0.1f));
+		}
+
+		return 5.0e-4f * std::max(UserBias * 2.0f, 0.1f);
+	}
+
+	float ComputeVSMMinVariance(const FRenderLight& Light, EShadowMapType MapType)
+	{
+		if (MapType == EShadowMapType::VSMCube)
+		{
+			const float ShadowFar = std::max(Light.Radius, 1.0f);
+			return std::max(ShadowFar * ShadowFar * 1.0e-6f, 1.0e-4f);
+		}
+
+		return 2.0e-5f;
+	}
+
+	float ComputeVSMLightBleedingReduction(EShadowMapType MapType)
+	{
+		return (MapType == EShadowMapType::VSMCube) ? 0.35f : 0.2f;
+	}
+
+	void ApplyVSMParameters(FOpaqueRenderPass::FShadowCB& ShadowData, const FRenderLight& Light, EShadowMapType MapType)
+	{
+		ShadowData.VSMDepthBias = ComputeVSMDepthBias(Light, MapType);
+		ShadowData.VSMMinVariance = ComputeVSMMinVariance(Light, MapType);
+		ShadowData.VSMLightBleedingReduction = ComputeVSMLightBleedingReduction(MapType);
+	}
+
 	bool CreateVSMTextureResource(
 		ID3D11Device* Device,
 		uint32 Resolution,
@@ -512,6 +546,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = PointShadowTextureIndexCounter;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize =
 				2.0f / std::max<float>(static_cast<float>(SharedPointShadowResource->Resolution), 1.0f);
+			ApplyVSMParameters(GShadowCBData.ShadowDataArray[ShadowIndexCounter], ShadowLight, ShadowMap.MapType);
 
 			SharedPointShadowFaceOffset += 6;
 			++PointShadowTextureIndexCounter;
@@ -589,6 +624,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 1u;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
+			ApplyVSMParameters(GShadowCBData.ShadowDataArray[ShadowIndexCounter], ShadowLight, CurrentAtlasMap.MapType);
 
 			ShadowIndexCounter++;
 		}
@@ -636,6 +672,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = ShadowRequest.Cascades.size();
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 0u;
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
+				ApplyVSMParameters(GShadowCBData.ShadowDataArray[ShadowIndexCounter], ShadowLight, ShadowMap.MapType);
 
 				ShadowIndexCounter++;
 			}
@@ -678,6 +715,20 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 	UINT OldVPCount = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
 	Context->DeviceContext->RSGetViewports(&OldVPCount, OldVP);
 	Context->DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	ID3D11DepthStencilState* DefaultDepthStencilState =
+		FResourceManager::Get().GetOrCreateDepthStencilState(EDepthStencilType::Default, Context->Device);
+	ID3D11BlendState* OpaqueBlendState =
+		FResourceManager::Get().GetOrCreateBlendState(EBlendType::Opaque, Context->Device);
+	if (DefaultDepthStencilState == nullptr || OpaqueBlendState == nullptr)
+	{
+		Context->DeviceContext->RSSetViewports(OldVPCount, OldVP);
+		return false;
+	}
+
+	// Shadow rendering must not inherit read-only depth or translucent blend state from the previous frame.
+	Context->DeviceContext->OMSetDepthStencilState(DefaultDepthStencilState, 0);
+	Context->DeviceContext->OMSetBlendState(OpaqueBlendState, nullptr, 0xFFFFFFFF);
 
 	auto DrawShadowCommands = [&](const FShadowViewInfo& ViewInfo, const FRenderLight* ShadowLight = nullptr) -> bool
 	{
@@ -807,6 +858,8 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 					D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
 					1.0f,
 					0);
+				Context->DeviceContext->OMSetDepthStencilState(DefaultDepthStencilState, 0);
+				Context->DeviceContext->OMSetBlendState(OpaqueBlendState, nullptr, 0xFFFFFFFF);
 				Context->DeviceContext->OMSetRenderTargets(1, &MomentRTV, DepthDSV);
 
 				PointVSMShaderBinding->ApplyFrameParameters(*Context->RenderBus);
@@ -995,7 +1048,9 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 
 	ID3D11SamplerState* LinearClampSampler =
 		FResourceManager::Get().GetOrCreateSamplerState(ESamplerType::EST_LinearClamp, Context->Device);
-	if (LinearClampSampler == nullptr)
+	ID3D11BlendState* OpaqueBlendState =
+		FResourceManager::Get().GetOrCreateBlendState(EBlendType::Opaque, Context->Device);
+	if (LinearClampSampler == nullptr || OpaqueBlendState == nullptr)
 	{
 		return false;
 	}
@@ -1075,6 +1130,8 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 			if (!bPointVSM)
 			{
 				UnbindPixelShaderInput();
+				// The moments texture is filterable color data, so these fullscreen writes must be pure overwrites.
+				Context->DeviceContext->OMSetBlendState(OpaqueBlendState, nullptr, 0xFFFFFFFF);
 				Context->DeviceContext->OMSetRenderTargets(1, &MomentRTV, nullptr);
 				VSMConvertShaderBinding->ApplyFrameParameters(*Context->RenderBus);
 				VSMConvertShaderBinding->SetSRV("DepthShadowInput", DepthInputSRV);
@@ -1094,6 +1151,7 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 
 			ID3D11RenderTargetView* TempRTV = VSMResource.TempRTVs[ResourceSliceIndex];
 			UnbindPixelShaderInput();
+			Context->DeviceContext->OMSetBlendState(OpaqueBlendState, nullptr, 0xFFFFFFFF);
 			Context->DeviceContext->OMSetRenderTargets(1, &TempRTV, nullptr);
 			VSMBlurShaderBinding->ApplyFrameParameters(*Context->RenderBus);
 			VSMBlurShaderBinding->SetSRV("MomentsInput", VSMResource.MomentsSRV.Get());
@@ -1104,6 +1162,7 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 			Context->DeviceContext->Draw(3, 0);
 
 			UnbindPixelShaderInput();
+			Context->DeviceContext->OMSetBlendState(OpaqueBlendState, nullptr, 0xFFFFFFFF);
 			Context->DeviceContext->OMSetRenderTargets(1, &MomentRTV, nullptr);
 			VSMBlurShaderBinding->ApplyFrameParameters(*Context->RenderBus);
 			VSMBlurShaderBinding->SetSRV("MomentsInput", VSMResource.TempSRV.Get());

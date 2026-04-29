@@ -66,6 +66,11 @@ struct FShadowData
     
     float3 CascadeSplits;
     float PointShadowTexelSize;
+
+    float VSMDepthBias;
+    float VSMMinVariance;
+    float VSMLightBleedingReduction;
+    float Pad3;
 };
 
 cbuffer ShadowLightViewInfo : register(b7)
@@ -121,8 +126,6 @@ static const uint SHADOW_MAP_TYPE_DEPTHCUBE = 2u;
 static const uint SHADOW_MAP_TYPE_VSM2D = 3u;
 static const uint SHADOW_MAP_TYPE_VSMCUBE = 4u;
 static const float3 DEFAULT_AMBIENT_COLOR = float3(0.02f, 0.02f, 0.02f);
-static const float VSM_MIN_VARIANCE = 2.0e-5f;
-static const float VSM_LIGHT_BLEED_REDUCTION = 0.2f;
 
 struct FLightingResult
 {
@@ -155,15 +158,25 @@ float SamplePointShadowPCF(float3 SampleDir, float CurrentDepth, FShadowData SDa
     return Shadow / 9.0f;
 }
 
-float ComputeVSMShadowFactor(float2 Moments, float CurrentDepth)
+float ReduceLightBleeding(float LitProbability, float LightBleedReduction)
 {
-    float Mean = Moments.x;
-    float MeanSquared = Moments.y;
-    float Variance = max(MeanSquared - Mean * Mean, VSM_MIN_VARIANCE);
-    float DepthDelta = CurrentDepth - Mean;
+    return saturate((LitProbability - LightBleedReduction) / max(1.0f - LightBleedReduction, 1.0e-4f));
+}
 
-    float LitProbability = (CurrentDepth <= Mean) ? 1.0f : (Variance / (Variance + DepthDelta * DepthDelta));
-    return saturate((LitProbability - VSM_LIGHT_BLEED_REDUCTION) / (1.0f - VSM_LIGHT_BLEED_REDUCTION));
+float ComputeVSMShadowFactor(float2 Moments, float CurrentDepth, float DepthBias, float MinVariance, float LightBleedReduction)
+{
+    const float Mean = Moments.x;
+    const float MeanSquared = Moments.y;
+    const float ReceiverDepth = max(CurrentDepth - DepthBias, 0.0f);
+    if (ReceiverDepth <= Mean)
+    {
+        return 1.0f;
+    }
+
+    const float Variance = max(MeanSquared - Mean * Mean, MinVariance);
+    const float DepthDelta = ReceiverDepth - Mean;
+    const float LitProbability = Variance / (Variance + DepthDelta * DepthDelta);
+    return ReduceLightBleeding(LitProbability, LightBleedReduction);
 }
 
 float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex)
@@ -197,8 +210,14 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
             return 1.0f;
 
         ShadowUV = (ShadowUV * SData.UVScale) + SData.UVOffset;
-        float2 Moments = ShadowMoments2D.Sample(ShadowLinearSampler, float3(ShadowUV, SliceIndex)).rg;
-        return ComputeVSMShadowFactor(Moments, saturate(CurrentDepth - FinalBias));
+        const float2 Moments = ShadowMoments2D.Sample(ShadowLinearSampler, float3(ShadowUV, SliceIndex)).rg;
+        // VSM compares the receiver depth against stored moments, so it uses its own bias and variance floor.
+        return ComputeVSMShadowFactor(
+            Moments,
+            CurrentDepth,
+            SData.VSMDepthBias,
+            SData.VSMMinVariance,
+            SData.VSMLightBleedingReduction);
     }
     else if (SData.ShadowMapType == SHADOW_MAP_TYPE_VSMCUBE)
     {
@@ -222,7 +241,6 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
         }
 
         const float CurrentDepth = Distance;
-        const float PointVSMBias = FinalBias;
         if (CurrentDepth < 0.0f || CurrentDepth > SData.ShadowFar)
         {
             return 1.0f;
@@ -232,7 +250,12 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
             ShadowLinearSampler,
             float4(SampleDir, (float)SData.ShadowTextureIndex),
             0.0f).rg;
-        return ComputeVSMShadowFactor(Moments, max(CurrentDepth - PointVSMBias, 0.0f));
+        return ComputeVSMShadowFactor(
+            Moments,
+            CurrentDepth,
+            SData.VSMDepthBias,
+            SData.VSMMinVariance,
+            SData.VSMLightBleedingReduction);
     }
     else if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTH2D)
     {

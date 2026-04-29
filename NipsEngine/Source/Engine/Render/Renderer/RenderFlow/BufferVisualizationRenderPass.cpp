@@ -1,4 +1,4 @@
-﻿#include "BufferVisualizationRenderPass.h"
+#include "BufferVisualizationRenderPass.h"
 #include "Core/ResourceManager.h"
 #include "Render/Scene/RenderBus.h"
 

@@ -29,6 +29,11 @@ public:
 
         float CascadeSplits[3] = { 0.0f, 0.0f, 0.0f };
 		float PointShadowTexelSize = 0.0f;
+
+		float VSMDepthBias = 5.0e-4f;
+		float VSMMinVariance = 2.0e-5f;
+		float VSMLightBleedingReduction = 0.2f;
+		float Pad2 = 0.0f;
 	};
 
 	struct FShadowArrayCB
@@ -37,6 +42,7 @@ public:
 	};
 
 	static_assert((sizeof(FShadowCB) % 16) == 0, "FShadowCB must remain 16-byte aligned for HLSL constant buffer packing.");
+	static_assert(sizeof(FShadowCB) == 480, "FShadowCB layout must stay in sync with UberLit.hlsl / BufferVisualizationPass.hlsl.");
 
 	bool Initialize() override;
 	bool Release() override;

@@ -39,7 +39,8 @@ float2 mainPS(VSOutput input) : SV_TARGET
     MomentsInput.GetDimensions(width, height, layers);
 
     float2 invResolution = 1.0f / max(float2(width, height), float2(1.0f, 1.0f));
-    float2 uv = (input.ClipPos.xy + 0.5f) * invResolution;
+    int2 pixelCoord = clamp(int2(input.ClipPos.xy), int2(0, 0), int2((int)width - 1, (int)height - 1));
+    float2 uv = (float2(pixelCoord) + 0.5f) * invResolution;
 
     const float weights[5] = { 0.0625f, 0.25f, 0.375f, 0.25f, 0.0625f };
 

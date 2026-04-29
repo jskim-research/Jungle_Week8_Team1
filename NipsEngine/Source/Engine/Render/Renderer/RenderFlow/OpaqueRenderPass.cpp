@@ -174,8 +174,14 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 		SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
 
 		// Material bind가 texture 슬롯을 다시 덮어쓸 수 있으므로 shadow 리소스는 draw 직전 재바인딩한다.
-		ID3D11ShaderResourceView* ShadowSRVs[4] = { ShadowMap2DSRV, ShadowMapCubeSRV, ShadowVSM2DSRV, ShadowVSMCubeSRV };
-		Context->DeviceContext->PSSetShaderResources(14, 4, ShadowSRVs);
+		ID3D11ShaderResourceView* ShadowSRVs[5] = {
+			ShadowMap2DSRV,
+			ShadowMapCubeSRV,
+			ShadowAtlas2DSRV,
+			ShadowVSM2DSRV,
+			ShadowVSMCubeSRV
+		};
+		Context->DeviceContext->PSSetShaderResources(14, 5, ShadowSRVs);
 
         ID3D11Buffer* RawShadowConstantBuffer = ShadowConstantBuffer.Get();
         Context->DeviceContext->PSSetConstantBuffers(7, 1, &RawShadowConstantBuffer);
@@ -214,8 +220,8 @@ bool FOpaqueRenderPass::End(const FRenderPassContext* Context)
 		return true;
 	}
 
-	ID3D11ShaderResourceView* NullSRVs[4] = { nullptr, nullptr, nullptr, nullptr };
-	Context->DeviceContext->PSSetShaderResources(14, 4, NullSRVs);
+	ID3D11ShaderResourceView* NullSRVs[5] = { nullptr, nullptr, nullptr, nullptr, nullptr };
+	Context->DeviceContext->PSSetShaderResources(14, 5, NullSRVs);
     ID3D11Buffer* NullShadowCB = nullptr;
     Context->DeviceContext->PSSetConstantBuffers(7, 1, &NullShadowCB);
     Context->DeviceContext->VSSetConstantBuffers(7, 1, &NullShadowCB);
