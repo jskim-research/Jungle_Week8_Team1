@@ -148,7 +148,10 @@ const TArray<FRenderCommand>& FRenderer::GetAlignedCommands(ERenderPass Pass, co
 //	GPU 프레임 시작. 반드시 Render 이전에 호출되어야 함.
 void FRenderer::BeginFrame()
 {
+	FRAME_SPIKE_SCOPE("BeginFrame");
+
 	FResourceManager::Get().ProcessShaderHotReloads(ShaderFileWatcher.DequeueChangedFiles());
+	ShadowResourcePool.BeginFrame();
 	Device.BeginFrame();
 	UseBackBufferRenderTargets();
 
@@ -161,10 +164,6 @@ void FRenderer::BeginViewportFrame(FRenderTargetSet* InRenderTargetSet)
 {
 	Device.BeginViewportFrame(InRenderTargetSet);
 	UseViewportRenderTargets(InRenderTargetSet);
-
-#if STATS
-	FGPUProfiler::Get().BeginFrame();
-#endif
 }
 
 void FRenderer::UseBackBufferRenderTargets()
@@ -479,5 +478,9 @@ void FRenderer::EndFrame()
 #if STATS
 	FGPUProfiler::Get().EndFrame();
 #endif
-	Device.EndFrame();
+
+	{
+		FRAME_SPIKE_SCOPE("Present");
+		Device.EndFrame();
+	}
 }

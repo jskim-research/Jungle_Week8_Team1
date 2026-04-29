@@ -38,7 +38,7 @@ private:
 	~FGPUProfiler() = default;
 
 	static const uint32 MAX_TIMESTAMPS = 64;
-	static const uint32 FRAME_COUNT = 2;
+	static const uint32 FRAME_COUNT = 4;
 
 	struct FTimestampPair
 	{
@@ -52,6 +52,7 @@ private:
 		TComPtr<ID3D11Query> DisjointQuery;
 		FTimestampPair Timestamps[MAX_TIMESTAMPS];
 		uint32 UsedCount = 0;
+		bool bSubmitted = false;
 	};
 
 	FFrameData Frames[FRAME_COUNT];
@@ -62,7 +63,8 @@ private:
 	bool bInitialized = false;
 	bool bSkipFrame = false;
 
-	void CollectPreviousFrame();
+	void CollectReadyFrames();
+	bool TryCollectFrame(FFrameData& Frame);
 
 	TMap<const char*, FStatEntry> GPUStats;
 	TArray<FStatEntry> Snapshot;

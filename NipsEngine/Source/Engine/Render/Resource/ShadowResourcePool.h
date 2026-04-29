@@ -1,8 +1,14 @@
-﻿#pragma once
+#pragma once
+
+#include "Core/Containers/Array.h"
+#include "Core/Containers/Map.h"
 #include "Core/CoreTypes.h"
-struct ID3D11Device;
-#include "ShadowResource.h"
 #include "Render/Common/ShadowTypes.h"
+#include "ShadowResource.h"
+
+#include <memory>
+
+struct ID3D11Device;
 
 struct FShadowRequestDesc
 {
@@ -20,13 +26,8 @@ class IShadowResourcePool
 public:
 	virtual ~IShadowResourcePool() = default;
 
-	// 요청 기반 리소스 확보
 	virtual FShadowResource* Acquire(ID3D11Device* Device, const FShadowRequestDesc& Desc) = 0;
-
-	// 사용 종료 (옵션 or 프레임 기반이면 생략 가능)
 	virtual void Release(FShadowResource* Resource) = 0;
-
-	// 프레임 시작 초기화 (bInUse 리셋)
 	virtual void BeginFrame() = 0;
 };
 
@@ -36,4 +37,15 @@ public:
 	FShadowResource* Acquire(ID3D11Device* Device, const FShadowRequestDesc& Desc) override;
 	void Release(FShadowResource* Resource) override;
 	void BeginFrame() override;
+
+private:
+	struct FPooledShadowResourceEntry
+	{
+		std::unique_ptr<FShadowResource> Resource;
+		FShadowRequestDesc Desc = {};
+		bool bInUse = false;
+	};
+
+	TArray<FPooledShadowResourceEntry> ResourcePool;
+	TMap<FShadowResource*, uint32> ResourceLookup;
 };

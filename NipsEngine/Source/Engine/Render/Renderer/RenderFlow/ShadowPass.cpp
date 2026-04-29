@@ -1,4 +1,6 @@
-#include "ShadowPass.h"
+﻿#include "ShadowPass.h"
+#include "Core/Logging/GPUProfiler.h"
+#include "Core/Logging/Stats.h"
 #include "Render/Scene/ShadowLightSelector.h"
 #include "Core/ResourceManager.h"
 #include "Editor/UI/EditorConsoleWidget.h"
@@ -27,15 +29,35 @@ namespace
 		TComPtr<ID3D11ShaderResourceView> TempSRV;
 		TArray<TComPtr<ID3D11RenderTargetView>> TempRTVOwners;
 		TArray<ID3D11RenderTargetView*> TempRTVs;
-
-		TComPtr<ID3D11ShaderResourceView> DepthArraySRV;
 	};
 
-	TArray<FShadowVSMResource> GVSMResources;
+	struct FShadowVSMResourceDesc
+	{
+		uint32 Resolution = 0;
+		uint32 SliceCount = 0;
+		bool bCreateCubeSRV = false;
+	};
+
+	struct FPooledShadowVSMResource
+	{
+		FShadowVSMResourceDesc Desc = {};
+		FShadowVSMResource Resource;
+		bool bInUse = false;
+	};
+
+	TArray<FPooledShadowVSMResource> GVSMResourcePool;
+	TArray<FShadowVSMResource*> GVSMResources;
 	TArray<int32> GLightToShadowIndices;
 	FOpaqueRenderPass::FShadowArrayCB GShadowCBData;
 
 	constexpr DXGI_FORMAT GVSMMomentsFormat = DXGI_FORMAT_R32G32_FLOAT;
+
+	bool MatchesVSMResourceDesc(const FShadowVSMResourceDesc& Lhs, const FShadowVSMResourceDesc& Rhs)
+	{
+		return Lhs.Resolution == Rhs.Resolution &&
+			   Lhs.SliceCount == Rhs.SliceCount &&
+			   Lhs.bCreateCubeSRV == Rhs.bCreateCubeSRV;
+	}
 
 	bool SupportsPSMProjection(ELightType LightType)
 	{
@@ -68,6 +90,8 @@ namespace
 
 	FMatrix ComputePSMMatrix(const FRenderPassContext* Context, const FRenderLight& Light)
 	{
+		FRAME_SPIKE_SCOPE("PSM shadow matrix/build step");
+
 		if (Context == nullptr || Context->RenderBus == nullptr)
 		{
 			return FMatrix::Identity;
@@ -256,6 +280,7 @@ namespace
 
 	bool CreateVSMResources(ID3D11Device* Device, uint32 Resolution, uint32 SliceCount, FShadowVSMResource& OutResource)
 	{
+		TComPtr<ID3D11ShaderResourceView> UnusedCubeSRV;
 		return CreateVSMTextureResource(
 				   Device,
 				   Resolution,
@@ -273,7 +298,7 @@ namespace
 				   false,
 				   OutResource.TempTexture,
 				   OutResource.TempSRV,
-				   OutResource.DepthArraySRV,
+				   UnusedCubeSRV,
 				   OutResource.TempRTVOwners,
 				   OutResource.TempRTVs);
 	}
@@ -281,6 +306,7 @@ namespace
 	bool CreateVSMCubeResources(ID3D11Device* Device, uint32 Resolution, uint32 CubeCount, FShadowVSMResource& OutResource)
 	{
 		const uint32 SliceCount = CubeCount * 6u;
+		TComPtr<ID3D11ShaderResourceView> UnusedCubeSRV;
 		return CreateVSMTextureResource(
 				   Device,
 				   Resolution,
@@ -298,33 +324,9 @@ namespace
 				   false,
 				   OutResource.TempTexture,
 				   OutResource.TempSRV,
-				   OutResource.DepthArraySRV,
+				   UnusedCubeSRV,
 				   OutResource.TempRTVOwners,
 				   OutResource.TempRTVs);
-	}
-
-	bool CreateDepthArraySRV(
-		ID3D11Device* Device,
-		ID3D11Texture2D* DepthTexture,
-		uint32 SliceCount,
-		TComPtr<ID3D11ShaderResourceView>& OutSRV)
-	{
-		if (Device == nullptr || DepthTexture == nullptr || SliceCount == 0u)
-		{
-			return false;
-		}
-
-		OutSRV.Reset();
-
-		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
-		SRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
-		SRVDesc.Texture2DArray.MostDetailedMip = 0;
-		SRVDesc.Texture2DArray.MipLevels = 1;
-		SRVDesc.Texture2DArray.FirstArraySlice = 0;
-		SRVDesc.Texture2DArray.ArraySize = SliceCount;
-
-		return SUCCEEDED(Device->CreateShaderResourceView(DepthTexture, &SRVDesc, OutSRV.GetAddressOf()));
 	}
 
 	bool HasVSMResources(const FShadowVSMResource& Resource)
@@ -333,6 +335,65 @@ namespace
 			   Resource.TempSRV != nullptr &&
 			   !Resource.MomentRTVs.empty() &&
 			   !Resource.TempRTVs.empty();
+	}
+
+	FShadowVSMResource* AcquirePooledVSMResource(
+		ID3D11Device* Device,
+		uint32 Resolution,
+		uint32 SliceCount,
+		bool bCreateCubeSRV)
+	{
+		if (Device == nullptr || Resolution == 0u || SliceCount == 0u || (bCreateCubeSRV && (SliceCount % 6u) != 0u))
+		{
+			return nullptr;
+		}
+
+		const FShadowVSMResourceDesc Desc = { Resolution, SliceCount, bCreateCubeSRV };
+		for (FPooledShadowVSMResource& Entry : GVSMResourcePool)
+		{
+			if (!Entry.bInUse && MatchesVSMResourceDesc(Entry.Desc, Desc))
+			{
+				Entry.bInUse = true;
+				FFrameSpikeProfiler::Get().AddCounter("VSM resource reuses");
+				return &Entry.Resource;
+			}
+		}
+
+		FPooledShadowVSMResource Entry;
+		Entry.Desc = Desc;
+		{
+			FRAME_SPIKE_SCOPE("VSM resource create");
+			const bool bCreated =
+				bCreateCubeSRV
+					? CreateVSMCubeResources(Device, Resolution, SliceCount / 6u, Entry.Resource)
+					: CreateVSMResources(Device, Resolution, SliceCount, Entry.Resource);
+			if (!bCreated)
+			{
+				return nullptr;
+			}
+		}
+
+		Entry.bInUse = true;
+		FFrameSpikeProfiler::Get().AddCounter("VSM resource creates");
+		GVSMResourcePool.push_back(std::move(Entry));
+		return &GVSMResourcePool.back().Resource;
+	}
+
+	void ReleasePooledVSMResource(FShadowVSMResource* Resource)
+	{
+		if (Resource == nullptr)
+		{
+			return;
+		}
+
+		for (FPooledShadowVSMResource& Entry : GVSMResourcePool)
+		{
+			if (&Entry.Resource == Resource)
+			{
+				Entry.bInUse = false;
+				return;
+			}
+		}
 	}
 } // namespace
 
@@ -349,6 +410,7 @@ bool FShadowPass::Release()
 	PointVSMShaderBinding.reset();
 	GShadowMaps.clear();
 	GVSMResources.clear();
+	GVSMResourcePool.clear();
 	GLightToShadowIndices.clear();
 	GShadowCBData = FOpaqueRenderPass::FShadowArrayCB{};
 	bSkip = false;
@@ -377,9 +439,10 @@ ID3D11ShaderResourceView* FShadowPass::GetVSM2DShadowSRV()
 	for (size_t ShadowMapIndex = 0; ShadowMapIndex < GShadowMaps.size() && ShadowMapIndex < GVSMResources.size(); ++ShadowMapIndex)
 	{
 		if (GShadowMaps[ShadowMapIndex].MapType == EShadowMapType::VSM2D &&
-			GVSMResources[ShadowMapIndex].MomentsSRV != nullptr)
+			GVSMResources[ShadowMapIndex] != nullptr &&
+			GVSMResources[ShadowMapIndex]->MomentsSRV != nullptr)
 		{
-			return GVSMResources[ShadowMapIndex].MomentsSRV.Get();
+			return GVSMResources[ShadowMapIndex]->MomentsSRV.Get();
 		}
 	}
 
@@ -391,9 +454,10 @@ ID3D11ShaderResourceView* FShadowPass::GetVSMCubeShadowSRV()
 	for (size_t ShadowMapIndex = 0; ShadowMapIndex < GShadowMaps.size() && ShadowMapIndex < GVSMResources.size(); ++ShadowMapIndex)
 	{
 		if (GShadowMaps[ShadowMapIndex].MapType == EShadowMapType::VSMCube &&
-			GVSMResources[ShadowMapIndex].MomentsCubeSRV != nullptr)
+			GVSMResources[ShadowMapIndex] != nullptr &&
+			GVSMResources[ShadowMapIndex]->MomentsCubeSRV != nullptr)
 		{
-			return GVSMResources[ShadowMapIndex].MomentsCubeSRV.Get();
+			return GVSMResources[ShadowMapIndex]->MomentsCubeSRV.Get();
 		}
 	}
 
@@ -447,11 +511,17 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		return true;
 	}
 
-	for (FShadowMap& ShadowMap : GShadowMaps)
+	for (size_t ShadowMapIndex = 0; ShadowMapIndex < GShadowMaps.size(); ++ShadowMapIndex)
 	{
+		FShadowMap& ShadowMap = GShadowMaps[ShadowMapIndex];
 		if (ShadowMap.bOwnsResource && ShadowMap.Resource != nullptr)
 		{
 			Context->ShadowResourcePool->Release(ShadowMap.Resource);
+		}
+
+		if (ShadowMap.bOwnsResource && ShadowMapIndex < GVSMResources.size())
+		{
+			ReleasePooledVSMResource(GVSMResources[ShadowMapIndex]);
 		}
 	}
 
@@ -529,7 +599,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 	AtlasAllocator.Reset();
 
 	FShadowResource* SharedPointShadowResource = nullptr;
-	FShadowVSMResource SharedPointVSMResource = {};
+	FShadowVSMResource* SharedPointVSMResource = nullptr;
 	uint32 SharedPointShadowFaceOffset = 0;
 	uint32 PointShadowRequestCount = 0;
 	uint32 SharedPointShadowResolution = 0;
@@ -561,15 +631,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		else if (bUseVSMFilter)
 		{
 			const uint32 PointSliceCount = PointArrayDesc.CubeCount * 6u;
-			if (!CreateVSMCubeResources(Context->Device, SharedPointShadowResolution, PointArrayDesc.CubeCount, SharedPointVSMResource) ||
-				!CreateDepthArraySRV(
-					Context->Device,
-					SharedPointShadowResource->BackingResource.Texture.Get(),
-					PointSliceCount,
-					SharedPointVSMResource.DepthArraySRV))
-			{
-				SharedPointVSMResource = FShadowVSMResource{};
-			}
+			SharedPointVSMResource =
+				AcquirePooledVSMResource(Context->Device, SharedPointShadowResolution, PointSliceCount, true);
 		}
 	}
 
@@ -592,7 +655,10 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			FShadowMap ShadowMap;
 			ShadowMap.Resource = SharedPointShadowResource;
 			ShadowMap.MapType =
-				(ShadowRequest.bUseVSM && HasVSMResources(SharedPointVSMResource) && SharedPointVSMResource.MomentsCubeSRV != nullptr)
+				(ShadowRequest.bUseVSM &&
+				 SharedPointVSMResource != nullptr &&
+				 HasVSMResources(*SharedPointVSMResource) &&
+				 SharedPointVSMResource->MomentsCubeSRV != nullptr)
 					? EShadowMapType::VSMCube
 					: EShadowMapType::DepthCube;
 			ShadowMap.LightId = ShadowRequest.LightId;
@@ -608,12 +674,14 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 				{
 					Context->ShadowResourcePool->Release(SharedPointShadowResource);
 					SharedPointShadowResource = nullptr;
+					ReleasePooledVSMResource(SharedPointVSMResource);
+					SharedPointVSMResource = nullptr;
 				}
 				continue;
 			}
 
 			GShadowMaps.push_back(ShadowMap);
-			GVSMResources.push_back(ShadowMap.MapType == EShadowMapType::VSMCube ? SharedPointVSMResource : FShadowVSMResource{});
+			GVSMResources.push_back(ShadowMap.MapType == EShadowMapType::VSMCube ? SharedPointVSMResource : nullptr);
 			GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
 
 			FOpaqueRenderPass::FShadowCB& CB = GShadowCBData.ShadowDataArray[ShadowIndexCounter];
@@ -664,7 +732,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 				NewAtlasMap.LightType = ELightType::LightType_Spot;
 				NewAtlasMap.bOwnsResource = true;
 				GShadowMaps.push_back(NewAtlasMap);
-				GVSMResources.emplace_back();
+				GVSMResources.push_back(nullptr);
 
 				const uint32 NewAtlasIndex = static_cast<uint32>(GShadowMaps.size() - 1);
 				AtlasAllocator.SetCurrentAtlasIndex(NewAtlasIndex);
@@ -719,23 +787,23 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			continue;
 		}
 
-		FShadowVSMResource VSMResource = {};
+		FShadowVSMResource* VSMResource = nullptr;
 		if (ShadowRequest.bUseVSM)
 		{
 			const uint32 SliceCount = static_cast<uint32>(ShadowMap.Views.size());
-			if (!CreateVSMResources(
-					Context->Device,
-					ShadowMap.Resource ? ShadowMap.Resource->Resolution : 0u,
-					SliceCount,
-					VSMResource))
+			VSMResource = AcquirePooledVSMResource(
+				Context->Device,
+				ShadowMap.Resource ? ShadowMap.Resource->Resolution : 0u,
+				SliceCount,
+				false);
+			if (VSMResource == nullptr)
 			{
 				ShadowMap.MapType = EShadowMapType::Depth2D;
-				VSMResource = FShadowVSMResource{};
 			}
 		}
 
 		GShadowMaps.push_back(ShadowMap);
-		GVSMResources.push_back(std::move(VSMResource));
+		GVSMResources.push_back(VSMResource);
 		GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
 
 		FOpaqueRenderPass::FShadowCB& CB = GShadowCBData.ShadowDataArray[ShadowIndexCounter];
@@ -768,6 +836,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 	{
 		Context->ShadowResourcePool->Release(SharedPointShadowResource);
 		SharedPointShadowResource = nullptr;
+		ReleasePooledVSMResource(SharedPointVSMResource);
+		SharedPointVSMResource = nullptr;
 	}
 
 	if (GShadowMaps.empty())
@@ -908,12 +978,13 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 		const bool bPointVSM =
 			ShadowMap.MapType == EShadowMapType::VSMCube &&
 			ShadowMapIndex < GVSMResources.size() &&
-			HasVSMResources(GVSMResources[ShadowMapIndex]) &&
+			GVSMResources[ShadowMapIndex] != nullptr &&
+			HasVSMResources(*GVSMResources[ShadowMapIndex]) &&
 			PointVSMShaderBinding != nullptr;
 
 		if (bPointVSM)
 		{
-			FShadowVSMResource& VSMResource = GVSMResources[ShadowMapIndex];
+			FShadowVSMResource& VSMResource = *GVSMResources[ShadowMapIndex];
 			const FRenderLight* DrawShadowLight = GetLight(ShadowMap.LightId);
 			if (DrawShadowLight == nullptr)
 			{
@@ -1127,7 +1198,8 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 	{
 		if ((GShadowMaps[ShadowMapIndex].MapType == EShadowMapType::VSM2D ||
 			 GShadowMaps[ShadowMapIndex].MapType == EShadowMapType::VSMCube) &&
-			HasVSMResources(GVSMResources[ShadowMapIndex]))
+			GVSMResources[ShadowMapIndex] != nullptr &&
+			HasVSMResources(*GVSMResources[ShadowMapIndex]))
 		{
 			bHasVSMWork = true;
 			break;
@@ -1138,6 +1210,9 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 	{
 		return true;
 	}
+
+	FRAME_SPIKE_SCOPE("VSM moment pass");
+	GPU_SCOPE_STAT("VSM moment pass");
 
 	if (!EnsureVSMBindings(Context))
 	{
@@ -1171,7 +1246,12 @@ bool FShadowPass::End(const FRenderPassContext* Context)
 	for (size_t ShadowMapIndex = 0; ShadowMapIndex < GShadowMaps.size() && ShadowMapIndex < GVSMResources.size(); ++ShadowMapIndex)
 	{
 		const FShadowMap& ShadowMap = GShadowMaps[ShadowMapIndex];
-		FShadowVSMResource& VSMResource = GVSMResources[ShadowMapIndex];
+		if (GVSMResources[ShadowMapIndex] == nullptr)
+		{
+			continue;
+		}
+
+		FShadowVSMResource& VSMResource = *GVSMResources[ShadowMapIndex];
 		const bool bPointVSM = ShadowMap.MapType == EShadowMapType::VSMCube;
 		if ((ShadowMap.MapType != EShadowMapType::VSM2D && !bPointVSM) ||
 			!HasVSMResources(VSMResource) ||

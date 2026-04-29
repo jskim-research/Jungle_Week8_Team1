@@ -10,7 +10,7 @@
 
 // --- 빌드 설정 ---
 #ifndef STATS
-#if defined(_DEBUG) || defined(DEBUG)
+#if defined(_DEBUG) || (defined(DEBUG) && DEBUG)
 #define STATS 1
 #else
 #define STATS 0
@@ -50,6 +50,27 @@ private:
 	LARGE_INTEGER Frequency;
 };
 
+class FFrameSpikeProfiler : public TSingleton<FFrameSpikeProfiler>
+{
+	friend class TSingleton<FFrameSpikeProfiler>;
+
+public:
+	void BeginFrame();
+	void RecordSection(const char* Name, double ElapsedSeconds);
+	void AddCounter(const char* Name, uint64 Amount = 1);
+	void EndFrame();
+
+private:
+	FFrameSpikeProfiler() = default;
+	~FFrameSpikeProfiler() = default;
+
+	TMap<const char*, double> SectionTimesMs;
+	TMap<const char*, uint64> CounterValues;
+	LARGE_INTEGER FrameStartTime = {};
+	double RollingAverageMs = 0.0;
+	uint64 FrameIndex = 0;
+};
+
 // --- Scoped Timer (RAII) ---
 class FScopedTimer
 {
@@ -73,12 +94,40 @@ private:
 	LARGE_INTEGER StartTime;
 };
 
+class FFrameSectionTimer
+{
+public:
+	FFrameSectionTimer(const char* InName)
+		: Name(InName)
+	{
+		QueryPerformanceCounter(&StartTime);
+	}
+
+	~FFrameSectionTimer()
+	{
+		LARGE_INTEGER EndTime;
+		QueryPerformanceCounter(&EndTime);
+
+		const double Elapsed =
+			static_cast<double>(EndTime.QuadPart - StartTime.QuadPart) /
+			static_cast<double>(FStatManager::Get().GetFrequency().QuadPart);
+		FFrameSpikeProfiler::Get().RecordSection(Name, Elapsed);
+	}
+
+private:
+	const char* Name;
+	LARGE_INTEGER StartTime;
+};
+
 // --- SCOPE_STAT 매크로 ---
-#if STATS
 #define SCOPE_STAT_CONCAT2(a, b) a##b
 #define SCOPE_STAT_CONCAT(a, b)  SCOPE_STAT_CONCAT2(a, b)
+
+#if STATS
 #define SCOPE_STAT(Name) FScopedTimer SCOPE_STAT_CONCAT(_ScopedTimer_, __COUNTER__)(Name)
+#define FRAME_SPIKE_SCOPE(Name) FFrameSectionTimer SCOPE_STAT_CONCAT(_FrameSectionTimer_, __COUNTER__)(Name)
 #else
 #define SCOPE_STAT(Name) ((void)0)
+#define FRAME_SPIKE_SCOPE(Name) ((void)0)
 #endif
 

@@ -52,9 +52,20 @@ void UEngine::BeginPlay()
 
 void UEngine::Tick(float DeltaTime)
 {
+#if STATS
+	FFrameSpikeProfiler::Get().BeginFrame();
+#endif
+
 	InputSystem::Get().Tick();
-	WorldTick(DeltaTime);
+	{
+		FRAME_SPIKE_SCOPE("Scene update");
+		WorldTick(DeltaTime);
+	}
 	Render(DeltaTime);
+
+#if STATS
+	FFrameSpikeProfiler::Get().EndFrame();
+#endif
 }
 
 void UEngine::Render(float DeltaTime)

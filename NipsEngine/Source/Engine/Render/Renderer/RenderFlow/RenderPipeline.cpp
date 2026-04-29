@@ -1,4 +1,7 @@
-﻿#include "RenderPipeline.h"
+#include "RenderPipeline.h"
+
+#include "Core/Logging/GPUProfiler.h"
+#include "Core/Logging/Stats.h"
 #include "LightCullingPass.h"
 #include "SkyRenderPass.h"
 #include "OpaqueRenderPass.h"
@@ -37,7 +40,6 @@ bool FRenderPipeline::Initialize()
 	DecalRenderPass = std::make_shared<FDecalRenderPass>();
 	DecalRenderPass->Initialize();
 
-	// 버퍼 시각화 계열 view mode는 이 전용 pass를 통해 확장한다.
 	BufferVisualizationRenderPass = std::make_shared<FBufferVisualizationRenderPass>();
 	BufferVisualizationRenderPass->Initialize();
 
@@ -68,11 +70,11 @@ bool FRenderPipeline::Initialize()
 	EditorRenderPass = std::make_shared<FEditorRenderPass>();
 	EditorRenderPass->Initialize();
 
-    DepthLessRenderPass = std::make_shared<FDepthLessRenderPass>();
-    DepthLessRenderPass->Initialize();
+	DepthLessRenderPass = std::make_shared<FDepthLessRenderPass>();
+	DepthLessRenderPass->Initialize();
 
-    DepthPrepassRenderPass = std::make_shared<FDepthPrepassRenderPass>();
-    DepthPrepassRenderPass->Initialize();
+	DepthPrepassRenderPass = std::make_shared<FDepthPrepassRenderPass>();
+	DepthPrepassRenderPass->Initialize();
 
 	PostProcessOutlineRenderPass = std::make_shared<FPostProcessOutlineRenderPass>();
 	PostProcessOutlineRenderPass->Initialize();
@@ -86,24 +88,17 @@ bool FRenderPipeline::Initialize()
 	FogRenderPass->SetSkipWireframe(true);
 	FXAARenderPass->SetSkipWireframe(true);
 
-	// /**
-	//  * 각 Render Pass 는 자신의 출력 SRV/RTV 를 다음 패스로 넘긴다.
-	//  * 마지막 패스가 남긴 OutSRV/OutRTV 가 RenderTargets.FinalSRV/FinalRTV 가 된다.
-	//  */
-
-    RenderPasses.push_back(ShadowPass);
-
+	RenderPasses.push_back(ShadowPass);
 	RenderPasses.push_back(DepthPrepassRenderPass);
-    RenderPasses.push_back(LightCullingPass);
-    RenderPasses.push_back(SkyRenderPass);
-    RenderPasses.push_back(ToonOutlineRenderPass);
+	RenderPasses.push_back(LightCullingPass);
+	RenderPasses.push_back(SkyRenderPass);
+	RenderPasses.push_back(ToonOutlineRenderPass);
 	RenderPasses.push_back(OpaqueRenderPass);
 	RenderPasses.push_back(DecalRenderPass);
-	// SceneColor를 만든 뒤 fog/fxaa 전에 덮어쓸 수 있는 view mode 확장 지점이다.
 	RenderPasses.push_back(BufferVisualizationRenderPass);
 	RenderPasses.push_back(HitMapRenderPass);
 	RenderPasses.push_back(FogRenderPass);
-    RenderPasses.push_back(FXAARenderPass);
+	RenderPasses.push_back(FXAARenderPass);
 	RenderPasses.push_back(FontRenderPass);
 	RenderPasses.push_back(SubUVRenderPass);
 	RenderPasses.push_back(BillboardRenderPass);
@@ -113,7 +108,7 @@ bool FRenderPipeline::Initialize()
 	RenderPasses.push_back(EditorRenderPass);
 	RenderPasses.push_back(DepthLessRenderPass);
 	RenderPasses.push_back(PostProcessOutlineRenderPass);
-	
+
 	return true;
 }
 
@@ -122,11 +117,42 @@ bool FRenderPipeline::Render(const FRenderPassContext* Context)
 	OutSRV = nullptr;
 	OutRTV = nullptr;
 
-	for (std::shared_ptr<FBaseRenderPass> Pass : RenderPasses)
+	auto ResolvePassName = [this](const FBaseRenderPass* Pass) -> const char*
+	{
+		if (Pass == ShadowPass.get()) return "Shadow pass";
+		if (Pass == DepthPrepassRenderPass.get()) return "Depth prepass";
+		if (Pass == LightCullingPass.get()) return "Light culling compute pass";
+		if (Pass == OpaqueRenderPass.get()) return "Main opaque pass";
+		if (Pass == BufferVisualizationRenderPass.get()) return "Debug rendering";
+		if (Pass == HitMapRenderPass.get()) return "Debug rendering";
+		if (Pass == GridRenderPass.get()) return "Debug rendering";
+		if (Pass == EditorRenderPass.get()) return "Debug rendering";
+		if (Pass == PostProcessOutlineRenderPass.get()) return "Debug rendering";
+		if (Pass == SkyRenderPass.get()) return "Sky pass";
+		if (Pass == ToonOutlineRenderPass.get()) return "Toon outline pass";
+		if (Pass == DecalRenderPass.get()) return "Decal pass";
+		if (Pass == FogRenderPass.get()) return "Fog pass";
+		if (Pass == FXAARenderPass.get()) return "FXAA pass";
+		if (Pass == FontRenderPass.get()) return "Font pass";
+		if (Pass == SubUVRenderPass.get()) return "SubUV pass";
+		if (Pass == BillboardRenderPass.get()) return "Billboard pass";
+		if (Pass == TranslucentRenderPass.get()) return "Translucent pass";
+		if (Pass == SelectionMaskRenderPass.get()) return "Selection mask pass";
+		if (Pass == DepthLessRenderPass.get()) return "Depth-less pass";
+		return "Render pass";
+	};
+
+	for (const std::shared_ptr<FBaseRenderPass>& Pass : RenderPasses)
 	{
 		Pass->SetPrevPassSRV(OutSRV);
 		Pass->SetPrevPassRTV(OutRTV);
-		Pass->Render(Context);
+
+		const char* PassName = ResolvePassName(Pass.get());
+		{
+			FRAME_SPIKE_SCOPE(PassName);
+			GPU_SCOPE_STAT(PassName);
+			Pass->Render(Context);
+		}
 
 		OutSRV = Pass->GetOutSRV();
 		OutRTV = Pass->GetOutRTV();
@@ -136,9 +162,13 @@ bool FRenderPipeline::Render(const FRenderPassContext* Context)
 	Context->RenderTargets->FinalRTV = OutRTV;
 
 	if (ShadowPass->GetShadowMaps().empty())
+	{
 		Context->RenderTargets->ShadowMap = nullptr;
+	}
 	else
+	{
 		Context->RenderTargets->ShadowMap = &ShadowPass->GetShadowMaps()[0];
+	}
 
 	return true;
 }
@@ -241,21 +271,27 @@ void FRenderPipeline::Release()
 		EditorRenderPass.reset();
 	}
 
-    if (DepthLessRenderPass)
-    {
-        DepthLessRenderPass->Release();
-        DepthLessRenderPass.reset();
-    }
+	if (DepthLessRenderPass)
+	{
+		DepthLessRenderPass->Release();
+		DepthLessRenderPass.reset();
+	}
 
-    if (DepthPrepassRenderPass)
-    {
-        DepthPrepassRenderPass->Release();
-        DepthPrepassRenderPass.reset();
-    }
+	if (DepthPrepassRenderPass)
+	{
+		DepthPrepassRenderPass->Release();
+		DepthPrepassRenderPass.reset();
+	}
 
 	if (PostProcessOutlineRenderPass)
 	{
 		PostProcessOutlineRenderPass->Release();
 		PostProcessOutlineRenderPass.reset();
+	}
+
+	if (ShadowPass)
+	{
+		ShadowPass->Release();
+		ShadowPass.reset();
 	}
 }

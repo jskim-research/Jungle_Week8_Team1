@@ -1,4 +1,6 @@
-﻿#include "Core/Logging/GPUProfiler.h"
+#include "Core/Logging/GPUProfiler.h"
+
+#include <algorithm>
 
 void FGPUProfiler::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* InContext)
 {
@@ -20,6 +22,7 @@ void FGPUProfiler::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* InCon
 	{
 		Device->CreateQuery(&disjointDesc, Frames[f].DisjointQuery.ReleaseAndGetAddressOf());
 		Frames[f].UsedCount = 0;
+		Frames[f].bSubmitted = false;
 
 		for (uint32 i = 0; i < MAX_TIMESTAMPS; ++i)
 		{
@@ -29,6 +32,7 @@ void FGPUProfiler::Initialize(ID3D11Device* InDevice, ID3D11DeviceContext* InCon
 		}
 	}
 
+	WriteIndex = 0;
 	bInitialized = true;
 }
 
@@ -39,11 +43,14 @@ void FGPUProfiler::Shutdown()
 	for (uint32 f = 0; f < FRAME_COUNT; ++f)
 	{
 		Frames[f].DisjointQuery.Reset();
+		Frames[f].UsedCount = 0;
+		Frames[f].bSubmitted = false;
 
 		for (uint32 i = 0; i < MAX_TIMESTAMPS; ++i)
 		{
 			Frames[f].Timestamps[i].BeginQuery.Reset();
 			Frames[f].Timestamps[i].EndQuery.Reset();
+			Frames[f].Timestamps[i].Name = nullptr;
 		}
 	}
 
@@ -56,53 +63,61 @@ void FGPUProfiler::BeginFrame()
 {
 	if (!bInitialized) return;
 
-	// 이전 프레임 결과 수집
-	CollectPreviousFrame();
+	CollectReadyFrames();
 
-	// 쿼리 재사용 전에 결과가 준비됐는지 확인 (GPU가 느리면 스킵)
-	if (Context->GetData(Frames[WriteIndex].DisjointQuery.Get(), nullptr, 0,
-		D3D11_ASYNC_GETDATA_DONOTFLUSH) != S_OK)
+	FFrameData* WriteFrame = nullptr;
+	for (uint32 Attempt = 0; Attempt < FRAME_COUNT; ++Attempt)
+	{
+		const uint32 CandidateIndex = (WriteIndex + Attempt) % FRAME_COUNT;
+		if (!Frames[CandidateIndex].bSubmitted)
+		{
+			WriteIndex = CandidateIndex;
+			WriteFrame = &Frames[CandidateIndex];
+			break;
+		}
+	}
+
+	if (WriteFrame == nullptr)
 	{
 		bSkipFrame = true;
 		return;
 	}
-	bSkipFrame = false;
 
-	// 현재 프레임 시작
-	FFrameData& Write = Frames[WriteIndex];
-	Write.UsedCount = 0;
-	Context->Begin(Write.DisjointQuery.Get());
+	bSkipFrame = false;
+	WriteFrame->UsedCount = 0;
+	for (uint32 i = 0; i < MAX_TIMESTAMPS; ++i)
+	{
+		WriteFrame->Timestamps[i].Name = nullptr;
+	}
+
+	Context->Begin(WriteFrame->DisjointQuery.Get());
 }
 
 void FGPUProfiler::EndFrame()
 {
-	if (!bInitialized) return;
-	if (bSkipFrame) return;
+	if (!bInitialized || bSkipFrame) return;
 
 	Context->End(Frames[WriteIndex].DisjointQuery.Get());
-
-	// 프레임 스왑
-	WriteIndex = 1 - WriteIndex;
+	Frames[WriteIndex].bSubmitted = true;
+	WriteIndex = (WriteIndex + 1u) % FRAME_COUNT;
 }
 
 uint32 FGPUProfiler::BeginTimestamp(const char* Name)
 {
-	if (!bInitialized) return UINT32_MAX;
-	if (bSkipFrame) return UINT32_MAX;
+	if (!bInitialized || bSkipFrame) return UINT32_MAX;
 
 	FFrameData& Write = Frames[WriteIndex];
 	if (Write.UsedCount >= MAX_TIMESTAMPS) return UINT32_MAX;
 
-	uint32 Idx = Write.UsedCount++;
-	Write.Timestamps[Idx].Name = Name;
-	Context->End(Write.Timestamps[Idx].BeginQuery.Get());  // Timestamp은 End()로 기록
-	return Idx;
+	const uint32 Index = Write.UsedCount++;
+	Write.Timestamps[Index].Name = Name;
+	Context->End(Write.Timestamps[Index].BeginQuery.Get());
+	return Index;
 }
 
 void FGPUProfiler::EndTimestamp(uint32 Index)
 {
-	if (!bInitialized || Index == UINT32_MAX) return;
-	if (bSkipFrame) return;
+	if (!bInitialized || bSkipFrame || Index == UINT32_MAX) return;
 
 	FFrameData& Write = Frames[WriteIndex];
 	if (Index >= Write.UsedCount) return;
@@ -110,33 +125,69 @@ void FGPUProfiler::EndTimestamp(uint32 Index)
 	Context->End(Write.Timestamps[Index].EndQuery.Get());
 }
 
-void FGPUProfiler::CollectPreviousFrame()
+void FGPUProfiler::CollectReadyFrames()
 {
-	uint32 ReadIndex = 1 - WriteIndex;
-	FFrameData& Read = Frames[ReadIndex];
-
-	// Disjoint 결과 확인 (UsedCount와 무관하게 항상 읽어서 Query 상태를 소비)
-	D3D11_QUERY_DATA_TIMESTAMP_DISJOINT disjointData;
-	HRESULT hr = Context->GetData(Read.DisjointQuery.Get(), &disjointData, sizeof(disjointData), 0);
-	if (hr != S_OK || disjointData.Disjoint || Read.UsedCount == 0)
+	for (uint32 FrameIndex = 0; FrameIndex < FRAME_COUNT; ++FrameIndex)
 	{
-		return;
+		if (!Frames[FrameIndex].bSubmitted)
+		{
+			continue;
+		}
+
+		TryCollectFrame(Frames[FrameIndex]);
+	}
+}
+
+bool FGPUProfiler::TryCollectFrame(FFrameData& Frame)
+{
+	D3D11_QUERY_DATA_TIMESTAMP_DISJOINT DisjointData = {};
+	const HRESULT DisjointResult = Context->GetData(
+		Frame.DisjointQuery.Get(),
+		&DisjointData,
+		sizeof(DisjointData),
+		D3D11_ASYNC_GETDATA_DONOTFLUSH);
+	if (DisjointResult != S_OK)
+	{
+		return false;
 	}
 
-	double InvFrequency = 1000.0 / static_cast<double>(disjointData.Frequency); // ms 단위
-
-	for (uint32 i = 0; i < Read.UsedCount; ++i)
+	if (DisjointData.Disjoint || Frame.UsedCount == 0)
 	{
-		UINT64 tsBegin = 0, tsEnd = 0;
-		if (Context->GetData(Read.Timestamps[i].BeginQuery.Get(), &tsBegin, sizeof(UINT64), 0) != S_OK) continue;
-		if (Context->GetData(Read.Timestamps[i].EndQuery.Get(), &tsEnd, sizeof(UINT64), 0) != S_OK) continue;
+		Frame.bSubmitted = false;
+		Frame.UsedCount = 0;
+		return true;
+	}
 
-		double ElapsedMs = static_cast<double>(tsEnd - tsBegin) * InvFrequency;
-		double ElapsedSec = ElapsedMs * 0.001;
+	const double InvFrequency = 1000.0 / static_cast<double>(DisjointData.Frequency);
 
-		const char* Name = Read.Timestamps[i].Name;
-		auto it = GPUStats.find(Name);
-		if (it == GPUStats.end())
+	for (uint32 TimestampIndex = 0; TimestampIndex < Frame.UsedCount; ++TimestampIndex)
+	{
+		UINT64 TimestampBegin = 0;
+		UINT64 TimestampEnd = 0;
+
+		if (Context->GetData(
+				Frame.Timestamps[TimestampIndex].BeginQuery.Get(),
+				&TimestampBegin,
+				sizeof(UINT64),
+				D3D11_ASYNC_GETDATA_DONOTFLUSH) != S_OK)
+		{
+			return false;
+		}
+
+		if (Context->GetData(
+				Frame.Timestamps[TimestampIndex].EndQuery.Get(),
+				&TimestampEnd,
+				sizeof(UINT64),
+				D3D11_ASYNC_GETDATA_DONOTFLUSH) != S_OK)
+		{
+			return false;
+		}
+
+		const double ElapsedMs = static_cast<double>(TimestampEnd - TimestampBegin) * InvFrequency;
+		const double ElapsedSec = ElapsedMs * 0.001;
+		const char* Name = Frame.Timestamps[TimestampIndex].Name;
+		auto It = GPUStats.find(Name);
+		if (It == GPUStats.end())
 		{
 			FStatEntry Entry;
 			Entry.Name = Name;
@@ -149,7 +200,7 @@ void FGPUProfiler::CollectPreviousFrame()
 		}
 		else
 		{
-			FStatEntry& Entry = it->second;
+			FStatEntry& Entry = It->second;
 			Entry.CallCount++;
 			Entry.TotalTime += ElapsedSec;
 			Entry.MaxTime = (std::max)(Entry.MaxTime, ElapsedSec);
@@ -157,6 +208,10 @@ void FGPUProfiler::CollectPreviousFrame()
 			Entry.LastTime = ElapsedSec;
 		}
 	}
+
+	Frame.bSubmitted = false;
+	Frame.UsedCount = 0;
+	return true;
 }
 
 void FGPUProfiler::TakeSnapshot()
@@ -168,7 +223,6 @@ void FGPUProfiler::TakeSnapshot()
 	{
 		Snapshot.push_back(Entry);
 
-		// Reset for next frame
 		Entry.CallCount = 0;
 		Entry.TotalTime = 0.0;
 		Entry.MaxTime = 0.0;

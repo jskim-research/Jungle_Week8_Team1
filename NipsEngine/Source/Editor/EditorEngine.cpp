@@ -77,11 +77,25 @@ void UEditorEngine::OnWindowResized(uint32 Width, uint32 Height)
 
 void UEditorEngine::Tick(float DeltaTime)
 {
+#if STATS
+	FFrameSpikeProfiler::Get().BeginFrame();
+#endif
+
 	InputSystem::Get().Tick();
-	ViewportLayout.Tick(DeltaTime);
+	{
+		FRAME_SPIKE_SCOPE("Camera update");
+		ViewportLayout.Tick(DeltaTime);
+	}
 	MainPanel.Update();
-	WorldTick(DeltaTime);
+	{
+		FRAME_SPIKE_SCOPE("Scene update");
+		WorldTick(DeltaTime);
+	}
 	Render(DeltaTime);
+
+#if STATS
+	FFrameSpikeProfiler::Get().EndFrame();
+#endif
 }
 
 void UEditorEngine::WorldTick(float DeltaTime)

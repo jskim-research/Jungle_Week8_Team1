@@ -33,13 +33,20 @@ void FObjViewerRenderPipeline::Execute(float DeltaTime, FRenderer& Renderer)
 		const FShowFlags& ShowFlags = Settings.ShowFlags;
 		EViewMode ViewMode = Settings.ViewMode;
 
-		Bus.SetViewProjection(Camera->GetViewMatrix(), Camera->GetProjectionMatrix());
-		Bus.SetRenderSettings(ViewMode, ShowFlags);
-		Bus.SetFXAAEnabled(true);
+		{
+			FRAME_SPIKE_SCOPE("Camera update");
+			Bus.SetViewProjection(Camera->GetViewMatrix(), Camera->GetProjectionMatrix());
+			Bus.SetRenderSettings(ViewMode, ShowFlags);
+			Bus.SetFXAAEnabled(true);
+		}
+
 		Collector.SetLineBatcher(&Renderer.GetEditorLineBatcher());
 
-		Collector.CollectWorld(World, ShowFlags, ViewMode, Bus);
-		Collector.CollectGrid(Settings.GridSpacing, Settings.GridHalfLineCount, Bus);
+		{
+			FRAME_SPIKE_SCOPE("Scene gather");
+			Collector.CollectWorld(World, ShowFlags, ViewMode, Bus);
+			Collector.CollectGrid(Settings.GridSpacing, Settings.GridHalfLineCount, Bus);
+		}
 	}
 
 	Renderer.PrepareBatchers(Bus);
@@ -47,7 +54,10 @@ void FObjViewerRenderPipeline::Execute(float DeltaTime, FRenderer& Renderer)
 
 	TransferViewportData(Renderer);
 	Renderer.Render(Bus);
-	Engine->RenderUI(DeltaTime);
+	{
+		FRAME_SPIKE_SCOPE("ImGui / editor UI");
+		Engine->RenderUI(DeltaTime);
+	}
 	Renderer.EndFrame();
 }
 

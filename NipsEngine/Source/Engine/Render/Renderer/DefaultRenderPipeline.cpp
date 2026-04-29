@@ -1,6 +1,7 @@
 ﻿#include "DefaultRenderPipeline.h"
 
 #include "Renderer.h"
+#include "Core/Logging/Stats.h"
 #include "Engine/Runtime/Engine.h"
 #include "Editor/Viewport/ViewportCamera.h"
 #include "GameFramework/World.h"
@@ -25,20 +26,24 @@ void FDefaultRenderPipeline::Execute(float DeltaTime, FRenderer& Renderer)
 	FViewportCamera* Camera = World ? World->GetActiveCamera() : nullptr;
 	if (Camera)
 	{
-		FMatrix ViewMat = Camera->GetViewMatrix();
-		FMatrix ProjMat = Camera->GetProjectionMatrix();
-
 		FShowFlags ShowFlags;
 		EViewMode ViewMode = EViewMode::Lit;
 
-		Bus.SetViewProjection(Camera->GetViewMatrix(), Camera->GetProjectionMatrix());
-		Bus.SetRenderSettings(ViewMode, ShowFlags);
-		Bus.SetFXAAEnabled(true);
+		{
+			FRAME_SPIKE_SCOPE("Camera update");
+			Bus.SetViewProjection(Camera->GetViewMatrix(), Camera->GetProjectionMatrix());
+			Bus.SetRenderSettings(ViewMode, ShowFlags);
+			Bus.SetFXAAEnabled(true);
+		}
+
 		Renderer.GetEditorLineBatcher().Clear();
 		Collector.SetLineBatcher(&Renderer.GetEditorLineBatcher());
 
-		const FFrustum& ViewFrustum = Camera->GetFrustum();
-		Collector.CollectWorld(World, ShowFlags, ViewMode, Bus, &ViewFrustum);
+		{
+			FRAME_SPIKE_SCOPE("Scene gather");
+			const FFrustum& ViewFrustum = Camera->GetFrustum();
+			Collector.CollectWorld(World, ShowFlags, ViewMode, Bus, &ViewFrustum);
+		}
 	}
 
 	Renderer.PrepareBatchers(Bus);

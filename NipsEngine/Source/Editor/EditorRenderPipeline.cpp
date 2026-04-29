@@ -45,7 +45,10 @@ void FEditorRenderPipeline::Execute(float DeltaTime, FRenderer& Renderer)
 	Renderer.UseBackBufferRenderTargets();
 
 	// ImGui UI 오버레이
-	Editor->RenderUI(DeltaTime);
+	{
+		FRAME_SPIKE_SCOPE("ImGui / editor UI");
+		Editor->RenderUI(DeltaTime);
+	}
 
 	Renderer.EndFrame();
 }
@@ -58,7 +61,10 @@ void FEditorRenderPipeline::RenderViewport(FRenderer& Renderer, int32 ViewportIn
 	//    - ViewRect : 화면 내 서브 영역 (BuildSceneView가 State->Rect에서 채움)
 	//    - ViewMode : 뷰포트별 독립 모드 (기본값 EViewMode::Lit)
 	FSceneView SceneView;
-	VC->BuildSceneView(SceneView);
+	{
+		FRAME_SPIKE_SCOPE("Camera update");
+		VC->BuildSceneView(SceneView);
+	}
 
 	// 2. 렌더링 대상을 서브 영역으로 제한
 	const FViewportRect& Rect = SceneView.ViewRect;
@@ -104,7 +110,10 @@ void FEditorRenderPipeline::RenderViewport(FRenderer& Renderer, int32 ViewportIn
 	const FFrustum& ViewFrustum = SceneView.CameraFrustum;
 	Renderer.GetEditorLineBatcher().Clear();
 	Collector.SetLineBatcher(&Renderer.GetEditorLineBatcher());
-	Collector.CollectWorld(World, ShowFlags, ViewMode, Bus, &ViewFrustum);
+	{
+		FRAME_SPIKE_SCOPE("Scene gather");
+		Collector.CollectWorld(World, ShowFlags, ViewMode, Bus, &ViewFrustum);
+	}
 	ViewportCullingStats[ViewportIndex] = Collector.GetLastCullingStats();
 	ViewportDecalStats[ViewportIndex] = Collector.GetLastDecalStats();
 	Collector.CollectGrid(
