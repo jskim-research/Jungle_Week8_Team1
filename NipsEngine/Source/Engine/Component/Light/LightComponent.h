@@ -77,13 +77,16 @@ public:
 	float GetShadowBias() const { return ShadowBias; }
 	float GetShadowSlopeBias() const { return ShadowSlopeBias; }
 	float GetShadowSharpen() const { return ShadowSharpen; }
+    bool GetIsPSM() const{  return bPSM;  }
 
-public:
+
+    public:
 	ELightType GetLightType() const { return LightType; }
 
 protected:
 	void SetLightType(ELightType InLightType) { LightType = InLightType; }
-    
+    bool bPSM = false;
+
 private:
 	ELightType LightType = ELightType::Max;
 
@@ -91,4 +94,5 @@ private:
 	float ShadowBias = 0.5f;
 	float ShadowSlopeBias = 0.001f;
 	float ShadowSharpen = 0.0f; 
+
 };

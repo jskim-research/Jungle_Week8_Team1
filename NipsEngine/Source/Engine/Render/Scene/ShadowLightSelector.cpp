@@ -140,7 +140,7 @@ TArray<FShadowRequest> FShadowLightSelector::SelectShadowLights(const TArray<FRe
 			Req.Resolution = ComputeShadowResolution(Light);
 			Req.ProjectionMode = EShadowProjectionMode::Default;
 			Req.bUseVSM = false;
-
+            Req.bPSM = Light.bPSM;
 			FCascadeInfo CascadeInfo;
 
 			if (Req.Type == ELightType::LightType_Directional)

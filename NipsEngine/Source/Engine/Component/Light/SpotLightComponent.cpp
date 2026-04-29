@@ -43,6 +43,7 @@ void USpotLightComponent::GetEditableProperties(TArray<FPropertyDescriptor>& Out
 
 	OutProps.push_back({ "Inner Cone Angle", EPropertyType::Float, &InnerConeAngle, 0.0f, 80.0f, 0.1f });
 	OutProps.push_back({ "Outer Cone Angle", EPropertyType::Float, &OuterConeAngle, 0.0f, 80.0f, 0.1f });
+    OutProps.push_back({ "Apply PSM", EPropertyType::Bool, &bPSM });
 }
 
 void USpotLightComponent::PostEditProperty(const char* PropertyName)

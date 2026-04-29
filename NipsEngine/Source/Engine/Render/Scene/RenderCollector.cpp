@@ -287,6 +287,7 @@ void FRenderCollector::CollectLight(UWorld* World, const FShowFlags& ShowFlags, 
 		RenderLight.ShadowResolutionScale = LightComponent->GetShadowResolutionScale();
 		RenderLight.ShadowBias = LightComponent->GetShadowBias();
 		RenderLight.ShadowSlopeBias = LightComponent->GetShadowSlopeBias();
+        RenderLight.bPSM = LightComponent->GetIsPSM();
 
 		switch (LightComponent->GetLightType())
 		{

@@ -21,7 +21,7 @@ struct FShadowRequest
     TArray<FCascadeInfo> Cascades;
 
 	bool bUseVSM; // VSM 사용할지 여부
-
+    bool bPSM;
 	EShadowProjectionMode ProjectionMode = EShadowProjectionMode::Default;
 };
 

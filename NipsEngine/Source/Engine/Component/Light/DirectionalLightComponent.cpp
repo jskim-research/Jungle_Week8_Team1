@@ -16,6 +16,7 @@ void UDirectionalLightComponent::GetEditableProperties(TArray<FPropertyDescripto
 	OutProps.push_back({ "Cascade Count", EPropertyType::Int, &CascadeCount });
 	OutProps.push_back({ "Shadow Distance", EPropertyType::Float, &CascadeCount, 1000.0f, 30000.0f, 100.0f });
 	OutProps.push_back({ "Cascade Splits", EPropertyType::Vec4, &CascadeCount });
+    OutProps.push_back({ "Apply PSM", EPropertyType::Bool, &bPSM });
 }
 
 void UDirectionalLightComponent::Serialize(FArchive& Ar)

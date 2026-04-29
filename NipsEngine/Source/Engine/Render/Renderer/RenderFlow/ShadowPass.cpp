@@ -289,7 +289,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
             CB.SliceCount = 1;
             CB.PointShadowTexelSize = 0.0f;
             CB.PSM = ComputePSMMatrix(Context, Light);
-            CB.isPSM = true;
+            CB.isPSM = Light.bPSM;
             CB.ShadowTextureIndex = 1u;
             ++ShadowIndexCounter;
             continue;
@@ -322,7 +322,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
             CB.ShadowTextureIndex = 0u;
             CB.PointShadowTexelSize = 0.0f;
             CB.PSM = ComputePSMMatrix(Context, Light);
-            CB.isPSM = true;
+            CB.isPSM = Light.bPSM;
 
             ++ShadowIndexCounter;
         }
@@ -374,13 +374,12 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
         if (Light->Type != static_cast<uint32>(ELightType::LightType_Point))
         {
             ShaderBinding->SetMatrix4("PSM", ComputePSMMatrix(Context, *Light));
-            ShaderBinding->SetBool("isPSM", 1);
+            ShaderBinding->SetBool("isPSM", Light->bPSM);
         }
         else
         {
-            // Point Light와 Spot Light는 일반 렌더링 방식을 따름
             ShaderBinding->SetMatrix4("PSM", FMatrix::Identity); // 쓰레기값 방지
-            ShaderBinding->SetBool("isPSM", 0);
+            ShaderBinding->SetBool("isPSM", Light->bPSM);
         }
 
         for (const FRenderCommand& Cmd : Commands)
