@@ -78,6 +78,7 @@ public:
 	float GetShadowSlopeBias() const { return ShadowSlopeBias; }
 	float GetShadowSharpen() const { return ShadowSharpen; }
     bool GetIsPSM() const{  return bPSM;  }
+    float GetCameraSliderBack() const { return CameraSliderBack; }
 
 
     public:
@@ -86,6 +87,7 @@ public:
 protected:
 	void SetLightType(ELightType InLightType) { LightType = InLightType; }
     bool bPSM = false;
+    float CameraSliderBack = 100;
 
 private:
 	ELightType LightType = ELightType::Max;

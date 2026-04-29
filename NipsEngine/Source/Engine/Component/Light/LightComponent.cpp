@@ -125,6 +125,7 @@ void ULightComponent::Serialize(FArchive& Ar)
 	Ar << "ShadowSlopeBias" << ShadowSlopeBias;
 	Ar << "ShadowSharpen" << ShadowSharpen;
     Ar << "bPSM" << bPSM;
+    Ar << "CameraSliderBack" << CameraSliderBack;
 }
 
 void ULightComponent::PostDuplicate(UObject* Original)

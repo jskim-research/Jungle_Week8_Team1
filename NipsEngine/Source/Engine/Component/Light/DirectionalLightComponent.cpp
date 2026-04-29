@@ -17,6 +17,8 @@ void UDirectionalLightComponent::GetEditableProperties(TArray<FPropertyDescripto
 	OutProps.push_back({ "Shadow Distance", EPropertyType::Float, &CascadeCount, 1000.0f, 30000.0f, 100.0f });
 	OutProps.push_back({ "Cascade Splits", EPropertyType::Vec4, &CascadeCount });
     OutProps.push_back({ "Apply PSM", EPropertyType::Bool, &bPSM });
+    if (bPSM)
+        OutProps.push_back({ "Camera Slider Back", EPropertyType::Float, &CameraSliderBack });
 }
 
 void UDirectionalLightComponent::Serialize(FArchive& Ar)

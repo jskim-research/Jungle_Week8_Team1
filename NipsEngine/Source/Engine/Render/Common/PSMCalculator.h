@@ -16,166 +16,143 @@ struct FCamera
 namespace PSM
 {
 
-
-FAABB GenerateShadowCasterAABB(const TArray<FRenderCommand>& Commands)
+// Shadow Caster 전체를 감싸는 World AABB 반환
+inline FAABB GenerateShadowCasterAABB(const TArray<FRenderCommand>& Commands)
 {
-    FAABB ShadowReceiverAABB = {};
-    for (auto Cmd : Commands)
-    {
-        ShadowReceiverAABB.Merge(Cmd.WorldBounds);
-    }
-    return ShadowReceiverAABB;
+    FAABB Result = {};
+    for (const auto& Cmd : Commands)
+        Result.Merge(Cmd.WorldBounds);
+    return Result;
 }
 
-// 카메라 뒤로 빼기
-void GetCameraFitNearZ(const TArray<FRenderCommand>& Commands, FCamera& outCamera)
+// MainCamera의 NearZ/FarZ를 ShadowCaster AABB에 맞게 조정
+// → VirtualCamera frustum이 caster를 잘라내지 않도록 보장
+inline void GetCameraFitNearZ(const TArray<FRenderCommand>& Commands, FCamera& OutCamera)
 {
-    FAABB LightWolrdBound = GenerateShadowCasterAABB(Commands);
-
+    const FAABB CasterAABB = GenerateShadowCasterAABB(Commands);
 
     float MinZ = FLT_MAX;
     float MaxZ = -FLT_MAX;
 
-    FVector MainCameraForward = outCamera.Forward;
-    FVector MainCameraRight = outCamera.Right;
-
     for (int i = 0; i < 8; ++i)
     {
-        FVector ToBB = (LightWolrdBound.GetPoint(i) - outCamera.Position);
-        float Z = MainCameraForward.DotProduct(ToBB);
-        float X = MainCameraRight.DotProduct(ToBB);
-
+        const FVector ToBB = CasterAABB.GetPoint(i) - OutCamera.Position;
+        const float Z = OutCamera.Forward.DotProduct(ToBB);
         MinZ = std::min(Z, MinZ);
         MaxZ = std::max(Z, MaxZ);
     }
 
-    if (outCamera.CameraState.NearZ < MinZ)
-        outCamera.CameraState.NearZ = std::max(0.1f, MinZ);
+    // NearZ: caster에 가장 가까운 면 (최소 0.1)
+    if (OutCamera.CameraState.NearZ < MinZ)
+        OutCamera.CameraState.NearZ = std::max(0.1f, MinZ);
 
-    // FarZ도 맞춰줘야 오브젝트가 안 잘림
-    if (outCamera.CameraState.FarZ < MaxZ)
-        outCamera.CameraState.FarZ = MaxZ * 1.1f; // 약간 여유
+    // FarZ: caster를 완전히 포함하도록
+    if (OutCamera.CameraState.FarZ < MaxZ)
+        OutCamera.CameraState.FarZ = MaxZ * 1.1f;
 }
 
-bool GenerateVirtualCameraViewProjection(float VirtualSliderBack, FCamera inCamera, FMatrix& OutProj, FMatrix& OutView)
+// VirtualCamera View/Projection 생성
+// 원본: Up = Pos + PrevUp (CreateViewMatrix가 upPoint를 받는 구현)
+inline bool GenerateVirtualCameraViewProjection(float VirtualSliderBack, const FCamera& InCamera,
+                                                FMatrix& OutProj, FMatrix& OutView)
 {
-    FAABB LightWolrdBound;
-
-    auto PrevUp = inCamera.Up;
-    FVector Pos = inCamera.Position - (inCamera.Forward * VirtualSliderBack);
-    FVector Target = inCamera.Position + inCamera.Forward;
-    FVector Up = Pos + PrevUp;
+    const FVector PrevUp = InCamera.Up;
+    const FVector Pos = InCamera.Position - InCamera.Forward * VirtualSliderBack;
+    const FVector Target = InCamera.Position + InCamera.Forward;
+    const FVector Up = Pos + PrevUp; // upPoint (위치)
 
     OutView = FMatrix::MakeViewLookAtLH(Pos, Target, Up);
 
+    // Near: 원본 NearZ + SliderBack (카메라를 뒤로 뺀 만큼 Near도 보정)
+    // Far:  원본 FarZ + SliderBack
+    const float Near = InCamera.CameraState.NearZ + VirtualSliderBack;
+    const float Far = InCamera.CameraState.FarZ + VirtualSliderBack;
 
-    // float OuterAngleRad = acos(Light.SpotOuterCos); // 반각(half angle)
-    // float FovRad = OuterAngleRad * 2.0f;            // 전체 FOV
-
-    // float NearZ = 0.1f;
-    // float Radius = Light.Radius;
-    // float FarZ = std::max(Radius, NearZ + 0.1f);
-    OutProj = FMatrix::MakePerspectiveFovLH(inCamera.CameraState.FOV, 1.0f,
-                                            inCamera.CameraState.NearZ + VirtualSliderBack, inCamera.CameraState.FarZ); // Far = 라이트반경)
-
+    OutProj = FMatrix::MakePerspectiveFovLH(InCamera.CameraState.FOV, 1.0f, Near, Far);
     return true;
 }
 
-
-void GeneratePostPerspectiveViewProjection(FVector LightDir,
-                                           FMatrix& OutProjPP, FMatrix& OutViewPP,
-                                           const FMatrix& InView, const FMatrix& InProj /*, bool updatePPCamera*/)
+// PostPerspective 공간의 View/Projection 생성
+// LightDir: 라이트 방향 (내부에서 -LightDir로 EyeSpace 변환)
+inline void GeneratePostPerspectiveViewProjection(const FVector& LightDir,
+                                                  FMatrix& OutProjPP, FMatrix& OutViewPP,
+                                                  const FMatrix& InView, const FMatrix& InProj)
 {
-    FVector CubeCenterPP = FVector::Zero();
-    float CubeRadiusPPxy = FVector::OneVector.Size(); // 6. PP 공간의 큐브의 반지름을 구함. (OpenGL은 NDC 공간이 X, Y, Z 모두 길이 2임)
-    float CubeRadiusPPz = FVector::OneVector.Size() / 2;
+    // 원본과 동일: CubeRadius 하나 (xy/z 분리 없음)
+    const FVector CubeCenterPP = FVector::Zero();
+    const float CubeRadiusPP = FVector::OneVector.Size(); // sqrt(3) ≈ 1.732
 
     FVector LightPosPP;
     float FovPP = 0.0f;
     float NearPP = 0.0f;
     float FarPP = 0.0f;
 
-    // Camera 공간의 LightDir 구함
-    FVector EyeLightDir = InView.TransformVector4(FVector4(-LightDir, 0.0f)).ToVector3();
+    // Eye 공간의 LightDir
+    const FVector EyeLightDir = InView.TransformVector4(FVector4(-LightDir, 0.0f)).ToVector3();
 
-    // Camera 공간의 LightDir을 PP 공간으로 이동시킴
-    FVector4 LightPP = InProj.TransformVector4(FVector4(EyeLightDir, 0.0f));
+    // PP 공간으로 변환
+    const FVector4 LightPP = InProj.TransformVector4(FVector4(EyeLightDir, 0.0f));
 
-    // 라이트가 Eye의 뒤쪽에 있는지 판단한다.
-    bool LightIsBehindOfEye = (LightPP.W < 0.0f);
+    const bool LightIsBehindOfEye = (LightPP.W < 0.0f);
 
-    // 시야 방향과 라이트가 직교하는 상태인지 확인하고, 직교하면 OrthoMatrix 사용
-    static float W_EPSILON = 0.001f;
-    bool IsOrthoMatrix = (fabsf(LightPP.W) <= W_EPSILON);
+    static const float W_EPSILON = 0.001f;
+    const bool IsOrthoMatrix = (fabsf(LightPP.W) <= W_EPSILON);
 
-    float WidthPP = 1.0f;
-    float HeightPP = 1.0f;
+    const float WidthPP = 1.0f;
+    const float HeightPP = 1.0f;
 
     if (IsOrthoMatrix)
     {
-        FVector LightDirPP(LightPP.X * CubeRadiusPPxy, LightPP.Y * CubeRadiusPPxy, LightPP.Z * CubeRadiusPPz);
+        // 원본: LightDirPP에 CubeRadiusPP 별도 스케일 없이 xyz 그대로 사용
+        const FVector LightDirPP(LightPP.X, LightPP.Y, LightPP.Z);
 
-        // NDC Unit Cube를 딱 감쌀 수 있는 View와 Projection Matrix를 생성합니다.
-        LightPosPP = CubeCenterPP + LightDirPP * 2.0 * CubeRadiusPPxy;
-        float DistToCenter = LightPosPP.Size();
+        // NDC Unit Cube를 감싸는 카메라 위치
+        LightPosPP = CubeCenterPP + LightDirPP* 2.0f * CubeRadiusPP;
+        const float DistToCenter = LightPosPP.Size();
 
-        NearPP = DistToCenter - CubeRadiusPPz;
-        FarPP = DistToCenter + CubeRadiusPPz;
+        NearPP = DistToCenter - CubeRadiusPP;
+        FarPP = DistToCenter + CubeRadiusPP;
 
         FVector UpVector = FVector::UpVector;
         if (fabsf(UpVector.DotProduct((CubeCenterPP - LightPosPP).GetSafeNormal())) > 0.99f)
             UpVector = FVector::RightVector;
 
-        OutViewPP = FMatrix::MakeViewLookAtLH(LightPosPP, CubeCenterPP, (LightPosPP + UpVector));
-        OutProjPP = FMatrix::MakeOrthographicLH(CubeRadiusPPxy * 2, CubeRadiusPPxy * 2, FarPP, NearPP);
-
-        // PP 공간 디버깅용 카메라 업데이트
-        // if (updatePPCamera)
-        //{
-        //    OutPPCamera = std::shared_ptr<jCamera>(jCamera::CreateCamera(LightPosPP, CubeCenterPP, (LightPosPP + UpVector), FovPP, NearPP, FarPP, CubeRadiusPP * 2, CubeRadiusPP * 2, !IsOrthoMatrix));
-        //    OutPPCamera->UpdateCamera();
-        //}
+        OutViewPP = FMatrix::MakeViewLookAtLH(LightPosPP, CubeCenterPP, LightPosPP + UpVector);
+        OutProjPP = FMatrix::MakeOrthographicLH(CubeRadiusPP * 2.0f, CubeRadiusPP * 2.0f, NearPP, FarPP);
     }
     else
     {
-        // PP 공간의 LightDir로 변경한 후, LightDir을 LightPos으로 변경함.
-        float wRecip = 1.0f / LightPP.W;
+        // PP 공간의 LightPos 계산
+        const float wRecip = 1.0f / LightPP.W;
         LightPosPP.X = LightPP.X * wRecip;
         LightPosPP.Y = LightPP.Y * wRecip;
         LightPosPP.Z = LightPP.Z * wRecip;
 
-        // LightPP위치에서 CubeCenter를 바라보는 벡터와 그 벡터의 거리를 구함.
-        FVector LookAtCubePP = (CubeCenterPP - LightPosPP);
-        float DistLookAtCubePP = LookAtCubePP.Size();
+        FVector LookAtCubePP = CubeCenterPP - LightPosPP;
+        const float DistLookAtCubePP = LookAtCubePP.Size();
         LookAtCubePP /= DistLookAtCubePP;
 
-         if (LightIsBehindOfEye)
+        if (LightIsBehindOfEye)
         {
-             FVector ToBSphereDirection = CubeCenterPP - LightPosPP;
-             const float DistToBSphereDirection = ToBSphereDirection.Size();
-             ToBSphereDirection = ToBSphereDirection.GetSafeNormal();
+            const FVector ToBSphere = CubeCenterPP - LightPosPP;
+            const float DistToBSphere = ToBSphere.Size();
 
-            NearPP = DistToBSphereDirection - CubeRadiusPPz;
-            FovPP = 2.0f * atanf(CubeRadiusPPz / DistToBSphereDirection);
+            NearPP = DistToBSphere - CubeRadiusPP;
+            FovPP = 2.0f * atanf(CubeRadiusPP / DistToBSphere);
 
-            // Perspective Matrix의 Near를 마이너스로 두는 트릭을 사용함.
+            // Inverse Perspective 트릭: Near를 음수로
             NearPP = std::max(0.1f, NearPP);
-            FarPP = NearPP;
+            FarPP = NearPP; // ← 원본: FarPP = NearPP 스왑 후 NearPP 반전
             NearPP = -NearPP;
 
-            // PostPerspective 공간에서 사용할 Projection 을 계산
-            OutProjPP = FMatrix::MakePerspectiveFovLH(FovPP, WidthPP / HeightPP,NearPP, FarPP);
+            OutProjPP = FMatrix::MakePerspectiveFovLH(FovPP, WidthPP / HeightPP, NearPP, FarPP);
         }
         else
         {
-            // NDC Unit Cube 공간의 바운드박스를 만듬
-            FovPP = 2.0f * atanf(CubeRadiusPPxy / DistLookAtCubePP);
-            float AspectPP = 1.0f;
+            FovPP = 2.0f * atanf(CubeRadiusPP / DistLookAtCubePP);
+            NearPP = std::max(0.1f, DistLookAtCubePP - CubeRadiusPP);
+            FarPP = DistLookAtCubePP + CubeRadiusPP;
 
-            NearPP = std::max(0.1f, DistLookAtCubePP - CubeRadiusPPz);
-            FarPP = DistLookAtCubePP + CubeRadiusPPz;
-
-            // PostPerspective 공간에서 사용할 Projection 을 계산
             OutProjPP = FMatrix::MakePerspectiveFovLH(FovPP, 1.0f, NearPP, FarPP);
         }
 
@@ -183,15 +160,8 @@ void GeneratePostPerspectiveViewProjection(FVector LightDir,
         if (fabsf(FVector::UpVector.DotProduct(LookAtCubePP)) > 0.99f)
             UpVector = FVector::RightVector;
 
-        // PP에서의 라이트 위치, PP의 중심, 위에서 구한 Up벡터를 사용해서 PP에서의 ViewMatrix 구함.
-        OutViewPP = FMatrix::MakeViewLookAtLH(LightPosPP, CubeCenterPP, (LightPosPP + UpVector));
-
-        // PP 공간 디버깅용 카메라 업데이트
-        // if (updatePPCamera)
-        //{
-        //    OutPPCamera = std::shared_ptr<jCamera>(jCamera::CreateCamera(LightPosPP, CubeCenterPP, (LightPosPP + UpVector), FovPP, NearPP, FarPP, WidthPP, HeightPP, !IsOrthoMatrix));
-        //    OutPPCamera->UpdateCamera();
-        //}
+        OutViewPP = FMatrix::MakeViewLookAtLH(LightPosPP, CubeCenterPP, LightPosPP + UpVector);
     }
 }
+
 } // namespace PSM
