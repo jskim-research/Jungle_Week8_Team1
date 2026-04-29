@@ -27,8 +27,10 @@ bool USpotLightComponent::BuildShadowView(uint32 CascadeIndex, FMatrix& OutView,
 
     OutView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
 
-    float OuterAngleRad = (OuterConeAngle * (3.141592f / 180.0f)) * 0.5f; // half-angle
-    float FovRad = OuterAngleRad * 2.0f;
+    // Runtime light/shadow code treats OuterConeAngle as the spotlight half-angle.
+    // Keep the editor-facing shadow view builder consistent with that convention.
+    float HalfAngleRad = OuterConeAngle * (3.141592f / 180.0f);
+    float FovRad = HalfAngleRad * 2.0f;
 
     float NearZ = 0.1f;
     float FarZ = std::max(GetAttenuationRadius(), NearZ + 0.1f);

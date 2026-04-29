@@ -50,6 +50,46 @@ namespace
 	TArray<int32> GLightToShadowIndices;
 	FOpaqueRenderPass::FShadowArrayCB GShadowCBData;
 
+	struct FResolvedShadowProjectionState
+	{
+		EShadowProjectionMode Mode = EShadowProjectionMode::Standard;
+		FMatrix Matrix = FMatrix::Identity;
+	};
+
+	TArray<FResolvedShadowProjectionState> GResolvedProjectionStates;
+
+	enum class EPSMInvalidReason : uint8
+	{
+		None,
+		MissingContext,
+		NoReceivers,
+		InvalidCamera,
+		InvalidVirtualCamera,
+		DirectionalPostPerspectiveFitFailed,
+		InvalidSpotBasis,
+		SpotReceiverFitFailed,
+		UnsupportedLightType,
+		NonFiniteMatrix
+	};
+
+	struct FPSMBuildDiagnostics
+	{
+		EPSMInvalidReason Reason = EPSMInvalidReason::None;
+		float Near = 0.0f;
+		float Far = 0.0f;
+		float Aux0 = 0.0f;
+		float Aux1 = 0.0f;
+		int32 PointCount = 0;
+	};
+
+	struct FPSMFallbackLogState
+	{
+		bool bWasFallback = false;
+		EPSMInvalidReason Reason = EPSMInvalidReason::None;
+	};
+
+	TArray<FPSMFallbackLogState> GPSMFallbackLogStates;
+
 	constexpr DXGI_FORMAT GVSMMomentsFormat = DXGI_FORMAT_R32G32_FLOAT;
 
 	bool MatchesVSMResourceDesc(const FShadowVSMResourceDesc& Lhs, const FShadowVSMResourceDesc& Rhs)
@@ -65,10 +105,92 @@ namespace
 			   LightType == ELightType::LightType_Spot;
 	}
 
+	const TArray<FRenderCommand>& GetShadowCasterCommands(const FRenderBus& RenderBus)
+	{
+		const TArray<FRenderCommand>& ShadowCommands = RenderBus.GetCommands(ERenderPass::Shadow);
+		return !ShadowCommands.empty() ? ShadowCommands : RenderBus.GetCommands(ERenderPass::Opaque);
+	}
+
+	const TArray<FRenderCommand>& GetPSMReceiverCommands(const FRenderBus& RenderBus)
+	{
+		const TArray<FRenderCommand>& OpaqueCommands = RenderBus.GetCommands(ERenderPass::Opaque);
+		return !OpaqueCommands.empty() ? OpaqueCommands : GetShadowCasterCommands(RenderBus);
+	}
+
+	const char* GetLightTypeName(ELightType LightType)
+	{
+		switch (LightType)
+		{
+		case ELightType::LightType_Directional:
+			return "Directional";
+		case ELightType::LightType_Spot:
+			return "Spot";
+		case ELightType::LightType_Point:
+			return "Point";
+		default:
+			return "Unknown";
+		}
+	}
+
+	const char* GetPSMInvalidReasonName(EPSMInvalidReason Reason)
+	{
+		switch (Reason)
+		{
+		case EPSMInvalidReason::None:
+			return "None";
+		case EPSMInvalidReason::MissingContext:
+			return "MissingContext";
+		case EPSMInvalidReason::NoReceivers:
+			return "NoReceivers";
+		case EPSMInvalidReason::InvalidCamera:
+			return "InvalidCamera";
+		case EPSMInvalidReason::InvalidVirtualCamera:
+			return "InvalidVirtualCamera";
+		case EPSMInvalidReason::DirectionalPostPerspectiveFitFailed:
+			return "DirectionalPostPerspectiveFitFailed";
+		case EPSMInvalidReason::InvalidSpotBasis:
+			return "InvalidSpotBasis";
+		case EPSMInvalidReason::SpotReceiverFitFailed:
+			return "SpotReceiverFitFailed";
+		case EPSMInvalidReason::UnsupportedLightType:
+			return "UnsupportedLightType";
+		case EPSMInvalidReason::NonFiniteMatrix:
+			return "NonFiniteMatrix";
+		default:
+			return "Unknown";
+		}
+	}
+
+	void UpdatePSMFallbackLogging(
+		const FShowFlags& ShowFlags,
+		const FRenderLight& Light,
+		uint32 LightId,
+		EShadowProjectionMode RequestedMode,
+		bool bUsingFallback,
+		const FPSMBuildDiagnostics& Diagnostics);
+
 	float ComputeShadowCompareBias(const FRenderLight& Light)
 	{
 		const float UserBias = std::clamp(Light.ShadowBias, 0.0f, 1.0f);
 		return 0.005f * std::max(UserBias * 2.0f, 0.1f);
+	}
+
+	float ComputeShadowCompareBias(
+		const FRenderLight& Light,
+		EShadowMapType MapType,
+		const FResolvedShadowProjectionState& ProjectionState,
+		uint32 EffectiveResolution)
+	{
+		float Bias = ComputeShadowCompareBias(Light);
+		if (MapType == EShadowMapType::Depth2D || MapType == EShadowMapType::VSM2D)
+		{
+			const float Resolution = std::max(static_cast<float>(EffectiveResolution), 1.0f);
+			const float TexelDepthBias =
+				(ProjectionState.Mode == EShadowProjectionMode::PSM ? 4.0f : 2.0f) / Resolution;
+			Bias = std::max(Bias, TexelDepthBias);
+		}
+
+		return Bias;
 	}
 
 	float ComputeShadowFilterScale(const FRenderLight& Light)
@@ -88,58 +210,245 @@ namespace
 		return EShadowProjectionMode::PSM;
 	}
 
-	FMatrix ComputePSMMatrix(const FRenderPassContext* Context, const FRenderLight& Light)
+	bool TryComputePSMMatrix(
+		const FRenderPassContext* Context,
+		const FRenderLight& Light,
+		FMatrix& OutMatrix,
+		FPSMBuildDiagnostics* OutDiagnostics = nullptr)
 	{
 		FRAME_SPIKE_SCOPE("PSM shadow matrix/build step");
+		OutMatrix = FMatrix::Identity;
+		FPSMBuildDiagnostics Diagnostics = {};
+
+		auto Fail = [&](EPSMInvalidReason Reason) -> bool
+		{
+			Diagnostics.Reason = Reason;
+			if (OutDiagnostics != nullptr)
+			{
+				*OutDiagnostics = Diagnostics;
+			}
+			return false;
+		};
 
 		if (Context == nullptr || Context->RenderBus == nullptr)
 		{
-			return FMatrix::Identity;
+			return Fail(EPSMInvalidReason::MissingContext);
 		}
 
+		const FRenderBus& RenderBus = *Context->RenderBus;
+		const TArray<FRenderCommand>& ReceiverCommands = GetPSMReceiverCommands(RenderBus);
+		const TArray<FRenderCommand>& CasterCommands = GetShadowCasterCommands(RenderBus);
+		const ELightType LightType = static_cast<ELightType>(Light.Type);
+
 		FCamera Camera = {};
-		Camera.Forward = Context->RenderBus->GetCameraForward();
-		Camera.Up = Context->RenderBus->GetCameraUp();
-		Camera.Right = Context->RenderBus->GetCameraRight();
-		Camera.Position = Context->RenderBus->GetCameraPosition();
-		Camera.CameraState = Context->RenderBus->GetCameraState();
+		Camera.Forward = RenderBus.GetCameraForward();
+		Camera.Up = RenderBus.GetCameraUp();
+		Camera.Right = RenderBus.GetCameraRight();
+		Camera.Position = RenderBus.GetCameraPosition();
+		Camera.CameraState = RenderBus.GetCameraState();
 
-		PSM::GetCameraFitNearZ(Context->RenderBus->GetCommands(ERenderPass::Opaque), Camera);
+		if (!PSM::IsFiniteVector(Camera.Forward) ||
+			!PSM::IsFiniteVector(Camera.Up) ||
+			!PSM::IsFiniteVector(Camera.Position))
+		{
+			return Fail(EPSMInvalidReason::InvalidCamera);
+		}
 
-		const float SliderBack = (Light.CameraSliderBack > 0.0f) ? Light.CameraSliderBack : kDefaultPsmSliderBack;
-		FMatrix VirtualCameraView;
-		FMatrix VirtualCameraProjection;
-		PSM::GenerateVirtualCameraViewProjection(SliderBack, Camera, VirtualCameraProjection, VirtualCameraView);
+		if (LightType == ELightType::LightType_Directional)
+		{
+			if (ReceiverCommands.empty())
+			{
+				return Fail(EPSMInvalidReason::NoReceivers);
+			}
 
-		const bool bDirectional = Light.Type == static_cast<uint32>(ELightType::LightType_Directional);
-		const FVector LightDir = bDirectional
-			? -Light.Direction.GetSafeNormal()
-			: Light.Direction.GetSafeNormal();
+			FCamera FitCamera = Camera;
+			PSM::GetCameraFitNearZ(!CasterCommands.empty() ? CasterCommands : ReceiverCommands, FitCamera);
 
-		FMatrix PostPerspectiveView;
-		FMatrix PostPerspectiveProjection;
-		PSM::GeneratePostPerspectiveViewProjection(
-			LightDir,
-			PostPerspectiveProjection,
-			PostPerspectiveView,
-			VirtualCameraView,
-			VirtualCameraProjection);
+			const float SliderBack = (Light.CameraSliderBack > 0.0f) ? Light.CameraSliderBack : kDefaultPsmSliderBack;
+			FMatrix VirtualCameraView;
+			FMatrix VirtualCameraProjection;
+			if (!PSM::GenerateVirtualCameraViewProjection(SliderBack, FitCamera, VirtualCameraProjection, VirtualCameraView))
+			{
+				return Fail(EPSMInvalidReason::InvalidVirtualCamera);
+			}
 
-		return VirtualCameraView * VirtualCameraProjection * PostPerspectiveView * PostPerspectiveProjection;
+			FMatrix PostPerspectiveView;
+			FMatrix PostPerspectiveProjection;
+			if (!PSM::GeneratePostPerspectiveViewProjection(
+				Light.Direction.GetSafeNormal(),
+				PostPerspectiveProjection,
+				PostPerspectiveView,
+				VirtualCameraView,
+				VirtualCameraProjection))
+			{
+				return Fail(EPSMInvalidReason::DirectionalPostPerspectiveFitFailed);
+			}
+
+			OutMatrix = VirtualCameraView * VirtualCameraProjection * PostPerspectiveView * PostPerspectiveProjection;
+		}
+		else if (LightType == ELightType::LightType_Spot)
+		{
+			if (!PSM::IsFiniteVector(Light.Position) || Light.Direction.IsNearlyZero())
+			{
+				return Fail(EPSMInvalidReason::InvalidSpotBasis);
+			}
+
+			PSM::FSpotLightPerspectiveFitStats SpotFitStats = {};
+			FMatrix SpotView;
+			FMatrix SpotProjection;
+			if (!PSM::GenerateSpotLightPerspectiveFitViewProjection(
+				Camera,
+				ReceiverCommands,
+				CasterCommands,
+				Light.Position,
+				Light.Direction.GetSafeNormal(),
+				Light.SpotOuterCos,
+				std::max(Light.Radius, 1.0f),
+				SpotView,
+				SpotProjection,
+				&SpotFitStats))
+			{
+				Diagnostics.Near = SpotFitStats.Near;
+				Diagnostics.Far = SpotFitStats.Far;
+				Diagnostics.Aux0 = SpotFitStats.MinClipX;
+				Diagnostics.Aux1 = SpotFitStats.MaxClipX;
+				Diagnostics.PointCount = SpotFitStats.ValidPointCount;
+				return Fail(EPSMInvalidReason::SpotReceiverFitFailed);
+			}
+
+			Diagnostics.Near = SpotFitStats.Near;
+			Diagnostics.Far = SpotFitStats.Far;
+			Diagnostics.Aux0 = SpotFitStats.MinClipX;
+			Diagnostics.Aux1 = SpotFitStats.MaxClipX;
+			Diagnostics.PointCount = SpotFitStats.ValidPointCount;
+			OutMatrix = SpotView * SpotProjection;
+		}
+		else
+		{
+			return Fail(EPSMInvalidReason::UnsupportedLightType);
+		}
+
+		if (!PSM::IsFiniteMatrix(OutMatrix))
+		{
+			return Fail(EPSMInvalidReason::NonFiniteMatrix);
+		}
+
+		Diagnostics.Reason = EPSMInvalidReason::None;
+		if (OutDiagnostics != nullptr)
+		{
+			*OutDiagnostics = Diagnostics;
+		}
+
+		return true;
+	}
+
+	FResolvedShadowProjectionState ResolveShadowProjectionState(
+		const FRenderPassContext* Context,
+		const FShowFlags& ShowFlags,
+		const FRenderLight& Light,
+		uint32 LightId)
+	{
+		FResolvedShadowProjectionState State = {};
+		const EShadowProjectionMode RequestedMode = ResolveShadowProjectionMode(ShowFlags, Light);
+		State.Mode = RequestedMode;
+		FPSMBuildDiagnostics Diagnostics = {};
+		if (RequestedMode != EShadowProjectionMode::PSM)
+		{
+			UpdatePSMFallbackLogging(ShowFlags, Light, LightId, RequestedMode, false, Diagnostics);
+			return State;
+		}
+
+		if (!TryComputePSMMatrix(Context, Light, State.Matrix, &Diagnostics))
+		{
+			State.Mode = EShadowProjectionMode::Standard;
+			State.Matrix = FMatrix::Identity;
+			UpdatePSMFallbackLogging(ShowFlags, Light, LightId, RequestedMode, true, Diagnostics);
+			return State;
+		}
+
+		UpdatePSMFallbackLogging(ShowFlags, Light, LightId, RequestedMode, false, Diagnostics);
+		return State;
+	}
+
+	const FResolvedShadowProjectionState& GetResolvedShadowProjectionState(uint32 LightId)
+	{
+		static const FResolvedShadowProjectionState DefaultState = {};
+		return (LightId < static_cast<uint32>(GResolvedProjectionStates.size()))
+			? GResolvedProjectionStates[LightId]
+			: DefaultState;
+	}
+
+	void UpdatePSMFallbackLogging(
+		const FShowFlags& ShowFlags,
+		const FRenderLight& Light,
+		uint32 LightId,
+		EShadowProjectionMode RequestedMode,
+		bool bUsingFallback,
+		const FPSMBuildDiagnostics& Diagnostics)
+	{
+		if (LightId >= static_cast<uint32>(GPSMFallbackLogStates.size()))
+		{
+			GPSMFallbackLogStates.resize(LightId + 1);
+		}
+
+		FPSMFallbackLogState& PreviousState = GPSMFallbackLogStates[LightId];
+		if (RequestedMode != EShadowProjectionMode::PSM)
+		{
+			PreviousState = {};
+			return;
+		}
+
+		const ELightType LightType = static_cast<ELightType>(Light.Type);
+		const bool bVerbose =
+			(LightType == ELightType::LightType_Spot && ShowFlags.bSpotLightDebug) ||
+			(LightType == ELightType::LightType_Directional && ShowFlags.bDirectionalLightDebug);
+
+		if (!bUsingFallback)
+		{
+			if (PreviousState.bWasFallback)
+			{
+				UE_LOG(
+					"[Shadow][PSM] %s Light %u recovered from Standard fallback.",
+					GetLightTypeName(LightType),
+					LightId);
+			}
+
+			PreviousState = {};
+			return;
+		}
+
+		if (bVerbose || !PreviousState.bWasFallback || PreviousState.Reason != Diagnostics.Reason)
+		{
+			UE_LOG(
+				"[Shadow][PSM] Falling back to Standard for %s Light %u: reason=%s near=%.3f far=%.3f points=%d aux0=%.3f aux1=%.3f",
+				GetLightTypeName(LightType),
+				LightId,
+				GetPSMInvalidReasonName(Diagnostics.Reason),
+				Diagnostics.Near,
+				Diagnostics.Far,
+				Diagnostics.PointCount,
+				Diagnostics.Aux0,
+				Diagnostics.Aux1);
+		}
+
+		PreviousState.bWasFallback = true;
+		PreviousState.Reason = Diagnostics.Reason;
 	}
 
 	void ApplyShadowProjectionMode(
 		FOpaqueRenderPass::FShadowCB& ShadowData,
-		const FRenderPassContext* Context,
-		const FRenderLight& Light,
-		EShadowProjectionMode ProjectionMode)
+		const FResolvedShadowProjectionState& ProjectionState)
 	{
-		const bool bUsePSM = ProjectionMode == EShadowProjectionMode::PSM;
+		const bool bUsePSM = ProjectionState.Mode == EShadowProjectionMode::PSM;
 		ShadowData.isPSM = bUsePSM ? 1u : 0u;
-		ShadowData.PSM = bUsePSM ? ComputePSMMatrix(Context, Light) : FMatrix::Identity;
+		ShadowData.PSM = bUsePSM ? ProjectionState.Matrix : FMatrix::Identity;
 	}
 
-	float ComputeVSMDepthBias(const FRenderLight& Light, EShadowMapType MapType)
+	float ComputeVSMDepthBias(
+		const FRenderLight& Light,
+		EShadowMapType MapType,
+		const FResolvedShadowProjectionState& ProjectionState,
+		uint32 EffectiveResolution)
 	{
 		const float UserBias = std::clamp(Light.ShadowBias, 0.0f, 1.0f);
 		if (MapType == EShadowMapType::VSMCube)
@@ -147,7 +456,11 @@ namespace
 			return std::max(0.02f, std::max(Light.Radius, 1.0f) * 1.0e-4f * std::max(UserBias * 2.0f, 0.1f));
 		}
 
-		return 5.0e-4f * std::max(UserBias * 2.0f, 0.1f);
+		float Bias = 5.0e-4f * std::max(UserBias * 2.0f, 0.1f);
+		const float Resolution = std::max(static_cast<float>(EffectiveResolution), 1.0f);
+		const float TexelDepthBias =
+			(ProjectionState.Mode == EShadowProjectionMode::PSM ? 2.0f : 1.0f) / Resolution;
+		return std::max(Bias, TexelDepthBias);
 	}
 
 	float ComputeVSMMinVariance(const FRenderLight& Light, EShadowMapType MapType)
@@ -166,9 +479,14 @@ namespace
 		return (MapType == EShadowMapType::VSMCube) ? 0.35f : 0.2f;
 	}
 
-	void ApplyVSMParameters(FOpaqueRenderPass::FShadowCB& ShadowData, const FRenderLight& Light, EShadowMapType MapType)
+	void ApplyVSMParameters(
+		FOpaqueRenderPass::FShadowCB& ShadowData,
+		const FRenderLight& Light,
+		EShadowMapType MapType,
+		const FResolvedShadowProjectionState& ProjectionState,
+		uint32 EffectiveResolution)
 	{
-		ShadowData.VSMDepthBias = ComputeVSMDepthBias(Light, MapType);
+		ShadowData.VSMDepthBias = ComputeVSMDepthBias(Light, MapType, ProjectionState, EffectiveResolution);
 		ShadowData.VSMMinVariance = ComputeVSMMinVariance(Light, MapType);
 		ShadowData.VSMLightBleedingReduction = ComputeVSMLightBleedingReduction(MapType);
 	}
@@ -528,6 +846,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 	GShadowMaps.clear();
 	GVSMResources.clear();
 	GLightToShadowIndices.clear();
+	GResolvedProjectionStates.clear();
 	GShadowCBData = FOpaqueRenderPass::FShadowArrayCB{};
 	OutSRV = nullptr;
 	OutRTV = nullptr;
@@ -535,6 +854,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
 	const TArray<FRenderLight>& Lights = Context->RenderBus->GetLights();
 	GLightToShadowIndices.assign(Lights.size(), -1);
+	GResolvedProjectionStates.assign(Lights.size(), FResolvedShadowProjectionState{});
+	GPSMFallbackLogStates.resize(Lights.size());
 
 	std::vector<FShadowRequest> ShadowRequests =
 		ShadowLightSelector.SelectShadowLights(
@@ -585,8 +906,11 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 	for (FShadowRequest& ShadowRequest : ShadowRequests)
 	{
 		const FRenderLight& ShadowLight = Lights[ShadowRequest.LightId];
-		ShadowRequest.ProjectionMode = ResolveShadowProjectionMode(ShowFlags, ShadowLight);
-		ShadowRequest.bPSM = ShadowRequest.ProjectionMode == EShadowProjectionMode::PSM;
+		const FResolvedShadowProjectionState ProjectionState =
+			ResolveShadowProjectionState(Context, ShowFlags, ShadowLight, ShadowRequest.LightId);
+		GResolvedProjectionStates[ShadowRequest.LightId] = ProjectionState;
+		ShadowRequest.ProjectionMode = ProjectionState.Mode;
+		ShadowRequest.bPSM = ProjectionState.Mode == EShadowProjectionMode::PSM;
 		ShadowRequest.bUseVSM =
 			bUseVSMFilter &&
 			(ShadowRequest.Type == ELightType::LightType_Directional ||
@@ -683,13 +1007,18 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GShadowMaps.push_back(ShadowMap);
 			GVSMResources.push_back(ShadowMap.MapType == EShadowMapType::VSMCube ? SharedPointVSMResource : nullptr);
 			GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
+			const FResolvedShadowProjectionState& ProjectionState = GetResolvedShadowProjectionState(ShadowRequest.LightId);
 
 			FOpaqueRenderPass::FShadowCB& CB = GShadowCBData.ShadowDataArray[ShadowIndexCounter];
 			CB.UVOffset = FVector2(0.0f, 0.0f);
 			CB.UVScale = FVector2(1.0f, 1.0f);
 			CB.ShadowLightPosition = ShadowLight.Position;
 			CB.ShadowFar = std::max(ShadowLight.Radius, 0.1f);
-			CB.ShadowBias = ComputeShadowCompareBias(ShadowLight);
+			CB.ShadowBias = ComputeShadowCompareBias(
+				ShadowLight,
+				ShadowMap.MapType,
+				ProjectionState,
+				SharedPointShadowResource->Resolution);
 			CB.ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
 			CB.ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
 			CB.ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
@@ -698,8 +1027,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			ApplyShadowFilterMode(CB, RequestedShadowFilter, ShadowMap.MapType);
 			CB.PointShadowTexelSize =
 				2.0f / std::max<float>(static_cast<float>(SharedPointShadowResource->Resolution), 1.0f);
-			ApplyVSMParameters(CB, ShadowLight, ShadowMap.MapType);
-			ApplyShadowProjectionMode(CB, Context, ShadowLight, EShadowProjectionMode::Standard);
+			ApplyVSMParameters(CB, ShadowLight, ShadowMap.MapType, ProjectionState, SharedPointShadowResource->Resolution);
+			ApplyShadowProjectionMode(CB, ProjectionState);
 
 			SharedPointShadowFaceOffset += 6;
 			++PointShadowTextureIndexCounter;
@@ -760,13 +1089,18 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 
 			const uint32 ViewIndex = static_cast<uint32>(CurrentAtlasMap.Views.size() - 1);
 			GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
+			const FResolvedShadowProjectionState& ProjectionState = GetResolvedShadowProjectionState(ShadowRequest.LightId);
 
 			FOpaqueRenderPass::FShadowCB& CB = GShadowCBData.ShadowDataArray[ShadowIndexCounter];
 			CB.ShadowLightView[0] = CurrentAtlasMap.Views[ViewIndex].LightView;
 			CB.ShadowLightProjection[0] = CurrentAtlasMap.Views[ViewIndex].LightProjection;
 			CB.UVOffset = AllocResult.UVOffset;
 			CB.UVScale = AllocResult.UVScale;
-			CB.ShadowBias = ComputeShadowCompareBias(ShadowLight);
+			CB.ShadowBias = ComputeShadowCompareBias(
+				ShadowLight,
+				CurrentAtlasMap.MapType,
+				ProjectionState,
+				ShadowRequest.Resolution);
 			CB.ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
 			CB.ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
 			CB.ShadowMapType = static_cast<uint32>(CurrentAtlasMap.MapType);
@@ -774,8 +1108,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			CB.ShadowTextureIndex = 1u;
 			ApplyShadowFilterMode(CB, RequestedShadowFilter, CurrentAtlasMap.MapType);
 			CB.PointShadowTexelSize = 0.0f;
-			ApplyVSMParameters(CB, ShadowLight, CurrentAtlasMap.MapType);
-			ApplyShadowProjectionMode(CB, Context, ShadowLight, ShadowRequest.ProjectionMode);
+			ApplyVSMParameters(CB, ShadowLight, CurrentAtlasMap.MapType, ProjectionState, ShadowRequest.Resolution);
+			ApplyShadowProjectionMode(CB, ProjectionState);
 
 			++ShadowIndexCounter;
 			continue;
@@ -805,6 +1139,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		GShadowMaps.push_back(ShadowMap);
 		GVSMResources.push_back(VSMResource);
 		GLightToShadowIndices[ShadowRequest.LightId] = ShadowIndexCounter;
+		const FResolvedShadowProjectionState& ProjectionState = GetResolvedShadowProjectionState(ShadowRequest.LightId);
 
 		FOpaqueRenderPass::FShadowCB& CB = GShadowCBData.ShadowDataArray[ShadowIndexCounter];
 		for (size_t CascadeIndex = 0; CascadeIndex < ShadowRequest.Cascades.size(); ++CascadeIndex)
@@ -818,7 +1153,11 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		CB.UVScale = FVector2(1.0f, 1.0f);
 		CB.ShadowLightPosition = ShadowLight.Position;
 		CB.ShadowFar = std::max(ShadowLight.Radius, 0.1f);
-		CB.ShadowBias = ComputeShadowCompareBias(ShadowLight);
+		CB.ShadowBias = ComputeShadowCompareBias(
+			ShadowLight,
+			ShadowMap.MapType,
+			ProjectionState,
+			ShadowMap.Resource ? ShadowMap.Resource->Resolution : 0u);
 		CB.ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
 		CB.ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
 		CB.ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
@@ -826,8 +1165,13 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		CB.ShadowTextureIndex = 0u;
 		ApplyShadowFilterMode(CB, RequestedShadowFilter, ShadowMap.MapType);
 		CB.PointShadowTexelSize = 0.0f;
-		ApplyVSMParameters(CB, ShadowLight, ShadowMap.MapType);
-		ApplyShadowProjectionMode(CB, Context, ShadowLight, ShadowRequest.ProjectionMode);
+		ApplyVSMParameters(
+			CB,
+			ShadowLight,
+			ShadowMap.MapType,
+			ProjectionState,
+			ShadowMap.Resource ? ShadowMap.Resource->Resolution : 0u);
+		ApplyShadowProjectionMode(CB, ProjectionState);
 
 		++ShadowIndexCounter;
 	}
@@ -860,7 +1204,7 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 	}
 
 	const FRenderBus* RenderBus = Context->RenderBus;
-	const TArray<FRenderCommand>& Commands = RenderBus->GetCommands(ERenderPass::Opaque);
+	const TArray<FRenderCommand>& Commands = GetShadowCasterCommands(*RenderBus);
 	if (Commands.empty())
 	{
 		return true;
@@ -887,14 +1231,13 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 	Context->DeviceContext->OMSetBlendState(OpaqueBlendState, nullptr, 0xFFFFFFFF);
 
 	const auto& Lights = RenderBus->GetLights();
-	const FShowFlags ShowFlags = RenderBus->GetShowFlags();
 
 	auto GetLight = [&](uint32 LightId) -> const FRenderLight*
 	{
 		return (LightId < static_cast<uint32>(Lights.size())) ? &Lights[LightId] : nullptr;
 	};
 
-	auto DrawShadowCommands = [&](const FShadowViewInfo& ViewInfo, const FRenderLight* ShadowLight) -> bool
+	auto DrawShadowCommands = [&](const FShadowViewInfo& ViewInfo, uint32 LightId, const FRenderLight* ShadowLight) -> bool
 	{
 		if (ShadowLight == nullptr)
 		{
@@ -904,9 +1247,9 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 		ShaderBinding->SetMatrix4("View", ViewInfo.LightView);
 		ShaderBinding->SetMatrix4("Projection", ViewInfo.LightProjection);
 
-		const EShadowProjectionMode ProjectionMode = ResolveShadowProjectionMode(ShowFlags, *ShadowLight);
-		const bool bUsePSM = ProjectionMode == EShadowProjectionMode::PSM;
-		ShaderBinding->SetMatrix4("PSM", bUsePSM ? ComputePSMMatrix(Context, *ShadowLight) : FMatrix::Identity);
+		const FResolvedShadowProjectionState& ProjectionState = GetResolvedShadowProjectionState(LightId);
+		const bool bUsePSM = ProjectionState.Mode == EShadowProjectionMode::PSM;
+		ShaderBinding->SetMatrix4("PSM", bUsePSM ? ProjectionState.Matrix : FMatrix::Identity);
 		ShaderBinding->SetUInt("isPSM", bUsePSM ? 1u : 0u);
 
 		for (const FRenderCommand& Cmd : Commands)
@@ -1134,7 +1477,7 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 				ShadowViewport.MaxDepth = 1.0f;
 				Context->DeviceContext->RSSetViewports(1, &ShadowViewport);
 
-				if (!DrawShadowCommands(ShadowMap.Views[SliceIndex], GetLight(Slice.LightId)))
+				if (!DrawShadowCommands(ShadowMap.Views[SliceIndex], Slice.LightId, GetLight(Slice.LightId)))
 				{
 					Context->DeviceContext->RSSetViewports(OldVPCount, OldVP);
 					return false;
@@ -1174,7 +1517,7 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 				0);
 			Context->DeviceContext->OMSetRenderTargets(0, nullptr, ShadowMap.Resource->DSVs[ShadowMap.ResourceSliceOffset + ViewIndex]);
 
-			if (!DrawShadowCommands(ShadowMap.Views[ViewIndex], DrawShadowLight))
+			if (!DrawShadowCommands(ShadowMap.Views[ViewIndex], ShadowMap.LightId, DrawShadowLight))
 			{
 				Context->DeviceContext->RSSetViewports(OldVPCount, OldVP);
 				return false;

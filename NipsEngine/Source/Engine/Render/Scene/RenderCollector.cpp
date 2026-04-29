@@ -220,9 +220,10 @@ void FRenderCollector::CollectWorld(UWorld* World, const FShowFlags& ShowFlags, 
 		{
 			for (UPrimitiveComponent* Primitive : Actor->GetPrimitiveComponents())
 			{	
-				if (Primitive != nullptr && !Primitive->IsVisible())
+				if (Primitive != nullptr && Primitive->IsVisible())
 				{
 					++LastCullingStats.TotalVisiblePrimitiveCount;
+					CollectShadowCasterFromComponent(Primitive, RenderBus, World->GetWorldType());
 				}
 			}
 			CollectFromActor(Actor, ShowFlags, ViewMode, RenderBus, World->GetWorldType());
@@ -235,6 +236,7 @@ void FRenderCollector::CollectWorld(UWorld* World, const FShowFlags& ShowFlags, 
 			if (!Primitive || !Primitive->IsVisible()) continue;
 
 			++LastCullingStats.TotalVisiblePrimitiveCount;
+			CollectShadowCasterFromComponent(Primitive, RenderBus, World->GetWorldType());
 
 			const bool bIsCameraDependent = UsesCameraDependentRenderBounds(Primitive);
 			if (!bIsCameraDependent && Primitive->IsEnableCull()) continue;
@@ -260,6 +262,78 @@ void FRenderCollector::ResetCullingStats()
 void FRenderCollector::ResetDecalStats()
 {
 	LastDecalStats = {};
+}
+
+void FRenderCollector::CollectShadowCasterFromComponent(UPrimitiveComponent* Primitive, FRenderBus& RenderBus, EWorldType WorldType)
+{
+	if (Primitive == nullptr || !Primitive->IsVisible())
+	{
+		return;
+	}
+
+	if (Primitive->IsEditorOnly() && WorldType != EWorldType::Editor)
+	{
+		return;
+	}
+
+	if (Primitive->GetPrimitiveType() != EPrimitiveType::EPT_StaticMesh)
+	{
+		return;
+	}
+
+	UStaticMeshComponent* StaticMeshComp = static_cast<UStaticMeshComponent*>(Primitive);
+	const UStaticMesh* StaticMesh = StaticMeshComp->GetStaticMesh();
+	if (!StaticMesh || !StaticMesh->HasValidMeshData())
+	{
+		return;
+	}
+
+	const FVector CameraPos = RenderBus.GetCameraPosition();
+	const FMatrix ProjMatrix = RenderBus.GetProj();
+	const FAABB Bounds = StaticMeshComp->GetWorldAABB();
+	const int32 ValidLODCount = StaticMesh->GetValidLODCount();
+
+	int32 SelectedLOD = 0;
+	if (RenderBus.GetShowFlags().bEnableLOD)
+	{
+		SelectedLOD = SelectLODLevel(CameraPos, Bounds, ProjMatrix, ValidLODCount);
+	}
+
+	FMeshBuffer* MeshBuffer = MeshBufferManager.GetStaticMeshBuffer(StaticMesh, SelectedLOD);
+	if (MeshBuffer == nullptr)
+	{
+		return;
+	}
+
+	const FStaticMesh* MeshData = StaticMesh->GetMeshData(SelectedLOD);
+	if (MeshData == nullptr)
+	{
+		return;
+	}
+
+	for (int32 SectionIdx = 0; SectionIdx < static_cast<int32>(MeshData->Sections.size()); ++SectionIdx)
+	{
+		const FStaticMeshSection& Section = MeshData->Sections[SectionIdx];
+		UMaterialInterface* Material = Cast<UMaterialInterface>(StaticMeshComp->GetMaterial(SectionIdx));
+		if (Material == nullptr)
+		{
+			Material = FResourceManager::Get().GetMaterial("DefaultWhite");
+			if (Material == nullptr)
+			{
+				continue;
+			}
+		}
+
+		FRenderCommand ShadowCmd = {};
+		ShadowCmd.PerObjectConstants = FPerObjectConstants{ Primitive->GetWorldMatrix(), FColor::White().ToVector4() };
+		ShadowCmd.WorldBounds = Bounds;
+		ShadowCmd.Type = ERenderCommandType::StaticMesh;
+		ShadowCmd.MeshBuffer = MeshBuffer;
+		ShadowCmd.SectionIndexStart = Section.StartIndex;
+		ShadowCmd.SectionIndexCount = Section.IndexCount;
+		ShadowCmd.Material = Material;
+		RenderBus.AddCommand(ERenderPass::Shadow, ShadowCmd);
+	}
 }
 
 // 조명을 Frustum Culling을 통해 수집한다.
@@ -327,7 +401,7 @@ void FRenderCollector::CollectLight(UWorld* World, const FShowFlags& ShowFlags, 
 			}
 			
 			// View Frustum에 대한 Bounding Sphere 교차 검사
-			if (ViewFrustum)
+			if (ViewFrustum && !RenderLight.bCastShadows)
 			{
 				FVector Center = PointLight->GetWorldLocation();
 				float Radius = PointLight->GetAttenuationRadius();
@@ -368,7 +442,7 @@ void FRenderCollector::CollectLight(UWorld* World, const FShowFlags& ShowFlags, 
 			LightDirection.Normalize();
 
 			// 원뿔 각도에 따라 줄어든 Bounding Sphere 교차 검사
-			if (ViewFrustum)
+			if (ViewFrustum && !RenderLight.bCastShadows)
 			{
 				const float Attenuation = SpotLight->GetAttenuationRadius();
 				const float SpotAngle = MathUtil::Clamp(std::max(OuterAngle, InnerAngle), 0.0f, 89.0f);
