@@ -16,6 +16,7 @@
 #include "Runtime/SceneView.h"
 #include "Slate/SWidget.h"
 #include "Utility/EditorUIUtils.h"
+#include "Component/Light/LightComponent.h"
 
 void FEditorViewportClient::Initialize(FWindowsWindow* InWindow, UEditorEngine* InEditor)
 {
@@ -119,6 +120,11 @@ void FEditorViewportClient::BuildSceneView(FSceneView& OutView) const
 {
 	if (!bHasCamera) return;
 
+	if (World->GetOverridenLight())
+	{
+        ULightComponentBase* Light = World->GetWorldLightSlots()[World->GetOverridenLight()->Index].LightData;
+
+	}
 	OutView.ViewMatrix           = Camera.GetViewMatrix();
 	OutView.ProjectionMatrix     = Camera.GetProjectionMatrix();
 	OutView.ViewProjectionMatrix = OutView.ViewMatrix * OutView.ProjectionMatrix;

@@ -525,6 +525,12 @@ void FEditorPropertyWidget::RenderComponentProperties()
 	{
 		RenderLightPreview();
 		ImGui::Separator();
+
+		if (ImGui::Button("Override Camera"))
+		{
+            ULightComponent* LightComponent = Cast<ULightComponent>(SelectedComponent);
+            LightComponent->GetOwner()->GetFocusedWorld()->SetOverridenLight(&LightComponent->GetLightHandle());
+		}
 	}
 
 	// PropertyDescriptor 기반 자동 위젯 렌더링
