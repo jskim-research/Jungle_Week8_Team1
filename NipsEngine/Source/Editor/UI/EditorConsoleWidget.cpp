@@ -272,7 +272,7 @@ void FEditorConsoleWidget::CmdShadowFilter(const TArray<FString>& Args)
 {
 	if (Args.size() < 2)
 	{
-		AddLog("[WARN] Usage: shadow_filter <PCF|VSM>\n");
+		AddLog("[WARN] Usage: shadow_filter <SSM|SSM_PCF|PCF|VSM>\n");
 		return;
 	}
 
@@ -280,15 +280,20 @@ void FEditorConsoleWidget::CmdShadowFilter(const TArray<FString>& Args)
 	std::transform(FilterName.begin(), FilterName.end(), FilterName.begin(), ::tolower);
 
 	FShowFlags& ShowFlags = FEditorSettings::Get().ShowFlags;
-	if (FilterName == "pcf")
+	if (FilterName == "ssm")
 	{
-		ShowFlags.ShadowFilter = EShadowFilterMode::PCF;
-		AddLog("Shadow filter set to PCF\n");
+		ShowFlags.ShadowFilter = EShadowFilterMode::SSM;
+		AddLog("Shadow filter set to %s\n", GetShadowFilterModeDisplayName(ShowFlags.ShadowFilter));
+	}
+	else if (FilterName == "ssm_pcf" || FilterName == "pcf")
+	{
+		ShowFlags.ShadowFilter = EShadowFilterMode::SSM_PCF;
+		AddLog("Shadow filter set to %s\n", GetShadowFilterModeDisplayName(ShowFlags.ShadowFilter));
 	}
 	else if (FilterName == "vsm")
 	{
 		ShowFlags.ShadowFilter = EShadowFilterMode::VSM;
-		AddLog("Shadow filter set to VSM (spot lights remain on PCF)\n");
+		AddLog("Shadow filter set to VSM (spot lights still fall back to PCF on the depth atlas path)\n");
 	}
 	else
 	{

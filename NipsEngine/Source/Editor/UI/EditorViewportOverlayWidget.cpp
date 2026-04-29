@@ -142,7 +142,7 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
 		ImGui::Checkbox("Fog", &Settings.ShowFlags.bFog);
 	}
 
-	if (BeginSettingsSection("Light", false))
+	if (BeginSettingsSection("Light Settings", false))
 	{
 		ImGui::Checkbox("Directional Light Debug", &Settings.ShowFlags.bDirectionalLightDebug);
 		ImGui::Checkbox("Point Light Debug", &Settings.ShowFlags.bPointLightDebug);
@@ -154,15 +154,13 @@ void FEditorViewportOverlayWidget::RenderViewportSettings(float DeltaTime)
 	{
 		int32 ShadowFilterMode = static_cast<int32>(Settings.ShowFlags.ShadowFilter);
 		ImGui::SetNextItemWidth(ItemWidth);
-		if (ImGui::Combo("Shadow Filter", &ShadowFilterMode, "PCF\0VSM\0"))
+		if (ImGui::Combo("Shadow Mode", &ShadowFilterMode, "SSM\0SSM + PCF\0VSM\0"))
 		{
-			Settings.ShowFlags.ShadowFilter =
-				(ShadowFilterMode == static_cast<int32>(EShadowFilterMode::VSM))
-					? EShadowFilterMode::VSM
-					: EShadowFilterMode::PCF;
+			Settings.ShowFlags.ShadowFilter = SanitizeShadowFilterMode(ShadowFilterMode);
 		}
 
-		ImGui::TextWrapped("VSM applies to directional and point-light shadows. Spot lights stay on PCF because the atlas path is still unfiltered.");
+		ImGui::Text("Active Mode: %s", GetShadowFilterModeDisplayName(Settings.ShowFlags.ShadowFilter));
+		ImGui::TextWrapped("SSM uses one hard depth compare, SSM + PCF reuses the depth map with filtered comparisons, and VSM switches directional/point lights to moment textures. Spot lights still use the depth atlas, so they fall back to PCF when VSM is selected.");
 	}
 
 	// Camera Sensitivity

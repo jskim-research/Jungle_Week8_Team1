@@ -44,9 +44,11 @@ namespace EditorKey
 	constexpr const char* bFog = "bFog";
 	constexpr const char* bShowLightHitmapOverlay = "bShowLightHitmapOverlay";
 	constexpr const char* ShadowFilter = "ShadowFilter";
+	constexpr const char* ShadowFilterVersion = "ShadowFilterVersion";
 	constexpr const char* VSMEnabled = "VSMEnabled";
 	constexpr const char* FXAAEnabled = "FXAAEnabled";
 	constexpr const char* FXAAThreshold = "FXAAThreshold"; // Backward compatibility
+	constexpr int32 ShadowFilterVersionValue = 2;
 
 	// Grid
 	constexpr const char* Grid = "Grid";
@@ -118,6 +120,7 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 	ViewObj[EditorKey::bFog] = ShowFlags.bFog;
 	ViewObj[EditorKey::bShowLightHitmapOverlay] = ShowFlags.bShowLightHitmapOverlay;
 	ViewObj[EditorKey::ShadowFilter] = static_cast<int32>(ShowFlags.ShadowFilter);
+	ViewObj[EditorKey::ShadowFilterVersion] = EditorKey::ShadowFilterVersionValue;
 	ViewObj[EditorKey::VSMEnabled] = ShowFlags.UsesVSMShadowFilter();
 	ViewObj[EditorKey::FXAAEnabled] = bEnableFXAA;
 	Root[EditorKey::View] = ViewObj;
@@ -271,18 +274,30 @@ void FEditorSettings::LoadFromFile(const FString& Path)
 			ShowFlags.bShowLightHitmapOverlay = ViewObj[EditorKey::bShowLightHitmapOverlay].ToBool();
 		if (ViewObj.hasKey(EditorKey::ShadowFilter))
 		{
+			const int32 ShadowFilterVersion =
+				ViewObj.hasKey(EditorKey::ShadowFilterVersion)
+					? ViewObj[EditorKey::ShadowFilterVersion].ToInt()
+					: 1;
 			const int32 FilterMode = ViewObj[EditorKey::ShadowFilter].ToInt();
-			ShowFlags.ShadowFilter =
-				(FilterMode == static_cast<int32>(EShadowFilterMode::VSM))
-					? EShadowFilterMode::VSM
-					: EShadowFilterMode::PCF;
+			if (ShadowFilterVersion >= EditorKey::ShadowFilterVersionValue)
+			{
+				ShowFlags.ShadowFilter = SanitizeShadowFilterMode(FilterMode);
+			}
+			else
+			{
+				// Legacy two-mode saves stored 0 = PCF and 1 = VSM. Map old PCF to the new filtered depth path.
+				ShowFlags.ShadowFilter =
+					(FilterMode == 1)
+						? EShadowFilterMode::VSM
+						: EShadowFilterMode::SSM_PCF;
+			}
 		}
 		else if (ViewObj.hasKey(EditorKey::VSMEnabled))
 		{
 			ShowFlags.ShadowFilter =
 				ViewObj[EditorKey::VSMEnabled].ToBool()
 					? EShadowFilterMode::VSM
-					: EShadowFilterMode::PCF;
+					: EShadowFilterMode::SSM_PCF;
 		}
 		if (ViewObj.hasKey(EditorKey::FXAAEnabled))
 			bEnableFXAA = ViewObj[EditorKey::FXAAEnabled].ToBool();

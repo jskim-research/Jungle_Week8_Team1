@@ -62,7 +62,7 @@ struct FShadowData
     uint ShadowMapType;
     uint SliceCount;
     uint ShadowTextureIndex;
-    float Pad2;
+    uint ShadowFilterMode;
     
     float3 CascadeSplits;
     float PointShadowTexelSize;
@@ -125,6 +125,9 @@ static const uint SHADOW_MAP_TYPE_DEPTH2D = 1u;
 static const uint SHADOW_MAP_TYPE_DEPTHCUBE = 2u;
 static const uint SHADOW_MAP_TYPE_VSM2D = 3u;
 static const uint SHADOW_MAP_TYPE_VSMCUBE = 4u;
+static const uint SHADOW_FILTER_MODE_SSM = 0u;
+static const uint SHADOW_FILTER_MODE_SSM_PCF = 1u;
+static const uint SHADOW_FILTER_MODE_VSM = 2u;
 static const float3 DEFAULT_AMBIENT_COLOR = float3(0.02f, 0.02f, 0.02f);
 
 struct FLightingResult
@@ -152,6 +155,44 @@ float SamplePointShadowPCF(float3 SampleDir, float CurrentDepth, FShadowData SDa
             const float3 OffsetDir = normalize(SampleDir + Tangent * Offset.x + Bitangent * Offset.y);
             const float StoredDepth = ShadowMapCube.Sample(ShadowSampler, float4(OffsetDir, SData.ShadowTextureIndex)).r;
             Shadow += (StoredDepth + SData.ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
+        }
+    }
+
+    return Shadow / 9.0f;
+}
+
+float SamplePointShadowSSM(float3 SampleDir, float CurrentDepth, FShadowData SData)
+{
+    const float StoredDepth = ShadowMapCube.Sample(ShadowSampler, float4(SampleDir, SData.ShadowTextureIndex)).r;
+    return (StoredDepth + SData.ShadowBias >= CurrentDepth) ? 1.0f : 0.0f;
+}
+
+float SampleShadowDepth2D(float2 ShadowUV, int SliceIndex, bool bUseAtlasShadowMap)
+{
+    return bUseAtlasShadowMap
+        ? ShadowMap2DAtlas.Sample(ShadowSampler, float3(ShadowUV, SliceIndex)).r
+        : ShadowMap2D.Sample(ShadowSampler, float3(ShadowUV, SliceIndex)).r;
+}
+
+float EvaluateShadowSSM2D(float2 ShadowUV, float CurrentDepth, int SliceIndex, bool bUseAtlasShadowMap, float DepthBias)
+{
+    const float StoredDepth = SampleShadowDepth2D(ShadowUV, SliceIndex, bUseAtlasShadowMap);
+    return (StoredDepth + DepthBias >= CurrentDepth) ? 1.0f : 0.0f;
+}
+
+float EvaluateShadowPCF2D(float2 ShadowUV, float CurrentDepth, int SliceIndex, bool bUseAtlasShadowMap, float2 TexelSize, float DepthBias)
+{
+    float Shadow = 0.0f;
+
+    [unroll]
+    for (int X = -1; X <= 1; ++X)
+    {
+        [unroll]
+        for (int Y = -1; Y <= 1; ++Y)
+        {
+            const float2 Offset = float2(X, Y) * TexelSize;
+            const float SampleDepth = SampleShadowDepth2D(ShadowUV + Offset, SliceIndex, bUseAtlasShadowMap);
+            Shadow += (SampleDepth + DepthBias >= CurrentDepth) ? 1.0f : 0.0f;
         }
     }
 
@@ -277,11 +318,15 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
             return 1.0f; // 빛의 범위를 벗어나면 그림자 없음
 
         ShadowUV = (ShadowUV * SData.UVScale) + SData.UVOffset;
+        const bool bUseAtlasShadowMap = (SData.ShadowTextureIndex == 1u);
+        if (SData.ShadowFilterMode == SHADOW_FILTER_MODE_SSM)
+        {
+            return EvaluateShadowSSM2D(ShadowUV, CurrentDepth, SliceIndex, bUseAtlasShadowMap, FinalBias);
+        }
 
         uint ShadowMapWidth = 0;
         uint ShadowMapHeight = 0;
         uint ShadowMapLayers = 0;
-        const bool bUseAtlasShadowMap = (SData.ShadowTextureIndex == 1u);
         if (bUseAtlasShadowMap)
         {
             ShadowMap2DAtlas.GetDimensions(ShadowMapWidth, ShadowMapHeight, ShadowMapLayers);
@@ -291,24 +336,9 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
             ShadowMap2D.GetDimensions(ShadowMapWidth, ShadowMapHeight, ShadowMapLayers);
         }
 
-        float2 TexelSize = (1.0f / max(float2(ShadowMapWidth, ShadowMapHeight), float2(1.0f, 1.0f))) * SData.ShadowFilterScale;
-        float Shadow = 0.0f;
-
-        [unroll]
-        for (int X = -1; X <= 1; ++X)
-        {
-            [unroll]
-            for (int Y = -1; Y <= 1; ++Y)
-            {
-                float2 Offset = float2(X, Y) * TexelSize;
-                float SampleDepth = bUseAtlasShadowMap
-                    ? ShadowMap2DAtlas.Sample(ShadowSampler, float3(ShadowUV + Offset, SliceIndex)).r
-                    : ShadowMap2D.Sample(ShadowSampler, float3(ShadowUV + Offset, SliceIndex)).r;
-                Shadow += (SampleDepth + FinalBias >= CurrentDepth) ? 1.0f : 0.0f;
-            }
-        }
-
-        return Shadow / 9.0f;
+        const float2 TexelSize =
+            (1.0f / max(float2(ShadowMapWidth, ShadowMapHeight), float2(1.0f, 1.0f))) * SData.ShadowFilterScale;
+        return EvaluateShadowPCF2D(ShadowUV, CurrentDepth, SliceIndex, bUseAtlasShadowMap, TexelSize, FinalBias);
     }
     else if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTHCUBE)
     {
@@ -338,6 +368,11 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
         if (CurrentDepth < 0.0f || CurrentDepth > 1.0f)
         {
             return 1.0f;
+        }
+
+        if (SData.ShadowFilterMode == SHADOW_FILTER_MODE_SSM)
+        {
+            return SamplePointShadowSSM(SampleDir, CurrentDepth, SData);
         }
 
         return SamplePointShadowPCF(SampleDir, CurrentDepth, SData);

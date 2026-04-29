@@ -96,7 +96,7 @@ struct FShadowViewInfo
 	Cascade 랑 Cube View Info 들을 합치면서 View Info 에 병합됨
 	CSM 을 따로 안 쓰면 SplitDepth = Far;
 	*/
-	float SplitDepth;
+	float SplitDepth = 0.f;
 };
 
 struct FShadowMap

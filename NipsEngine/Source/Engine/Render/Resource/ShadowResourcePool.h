@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Core/CoreTypes.h"
 struct ID3D11Device;
 #include "ShadowResource.h"
@@ -6,9 +6,9 @@ struct ID3D11Device;
 
 struct FShadowRequestDesc
 {
-	uint32 Resolution;
-	uint32 CascadeCount; // CSM only
-	uint32 CubeCount = 1;
+	uint32 Resolution = 1024u;
+	uint32 CascadeCount = 1u; // CSM only
+	uint32 CubeCount = 1u;
 
 	// 동일한 설정의 Pool 에서 가져오기 위한 정보들
 	EShadowMapType MapType;

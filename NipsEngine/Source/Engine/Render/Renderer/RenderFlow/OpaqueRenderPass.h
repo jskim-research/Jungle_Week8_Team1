@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "RenderPass.h"
 #include "Render/Common/ComPtr.h"
+#include "Render/Common/ViewTypes.h"
 #include "Math/Vector2.h"
 #define MAX_SHADOW_LIGHTS 32
 class FOpaqueRenderPass : public FBaseRenderPass
@@ -25,7 +26,7 @@ public:
 		uint32 ShadowMapType = 0; // 0: none, 1: Depth2D, 2: DepthCube, 3: VSM2D, 4: VSMCube
 		uint32 SliceCount = 0;
         uint32 ShadowTextureIndex = 0;
-		float Pad1;
+		uint32 ShadowFilterMode = static_cast<uint32>(EShadowFilterMode::SSM_PCF); // 0: SSM, 1: SSM+PCF, 2: VSM
 
         float CascadeSplits[3] = { 0.0f, 0.0f, 0.0f };
 		float PointShadowTexelSize = 0.0f;

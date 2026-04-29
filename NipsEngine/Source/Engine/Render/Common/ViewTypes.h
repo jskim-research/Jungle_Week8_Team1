@@ -30,9 +30,43 @@ inline bool ShouldBypassSceneCompositePasses(EViewMode ViewMode)
 
 enum class EShadowFilterMode : uint8
 {
-	PCF = 0,
-	VSM = 1
+	SSM = 0,
+	SSM_PCF = 1,
+	VSM = 2
 };
+
+constexpr EShadowFilterMode GetDefaultShadowFilterMode()
+{
+	return EShadowFilterMode::SSM_PCF;
+}
+
+constexpr EShadowFilterMode SanitizeShadowFilterMode(int32 ModeValue, EShadowFilterMode Fallback = GetDefaultShadowFilterMode())
+{
+	switch (static_cast<EShadowFilterMode>(ModeValue))
+	{
+	case EShadowFilterMode::SSM:
+	case EShadowFilterMode::SSM_PCF:
+	case EShadowFilterMode::VSM:
+		return static_cast<EShadowFilterMode>(ModeValue);
+	default:
+		return Fallback;
+	}
+}
+
+inline const char* GetShadowFilterModeDisplayName(EShadowFilterMode Mode)
+{
+	switch (Mode)
+	{
+	case EShadowFilterMode::SSM:
+		return "SSM";
+	case EShadowFilterMode::SSM_PCF:
+		return "SSM + PCF";
+	case EShadowFilterMode::VSM:
+		return "VSM";
+	default:
+		return "Unknown";
+	}
+}
 
 struct FShowFlags
 {
@@ -50,7 +84,7 @@ struct FShowFlags
 	bool bDecals = true;
 	bool bFog = true;
 	bool bShowLightHitmapOverlay = false;
-	EShadowFilterMode ShadowFilter = EShadowFilterMode::PCF;
+	EShadowFilterMode ShadowFilter = GetDefaultShadowFilterMode();
 
 	bool UsesVSMShadowFilter() const
 	{

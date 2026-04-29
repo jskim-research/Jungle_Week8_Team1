@@ -79,6 +79,23 @@ namespace
 		ShadowData.VSMLightBleedingReduction = ComputeVSMLightBleedingReduction(MapType);
 	}
 
+	EShadowFilterMode ResolveShadowFilterMode(EShadowFilterMode RequestedMode, EShadowMapType MapType)
+	{
+		if (MapType == EShadowMapType::VSM2D || MapType == EShadowMapType::VSMCube)
+		{
+			return EShadowFilterMode::VSM;
+		}
+
+		return (RequestedMode == EShadowFilterMode::SSM)
+			? EShadowFilterMode::SSM
+			: EShadowFilterMode::SSM_PCF;
+	}
+
+	void ApplyShadowFilterMode(FOpaqueRenderPass::FShadowCB& ShadowData, EShadowFilterMode RequestedMode, EShadowMapType MapType)
+	{
+		ShadowData.ShadowFilterMode = static_cast<uint32>(ResolveShadowFilterMode(RequestedMode, MapType));
+	}
+
 	bool CreateVSMTextureResource(
 		ID3D11Device* Device,
 		uint32 Resolution,
@@ -413,6 +430,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 		}
 	}
 
+	const EShadowFilterMode RequestedShadowFilter = Context->RenderBus->GetShowFlags().ShadowFilter;
 	bool bUseVSMFilter = Context->RenderBus->GetShowFlags().UsesVSMShadowFilter();
 	if (bUseVSMFilter && !EnsureVSMBindings(Context))
 	{
@@ -544,6 +562,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = PointShadowTextureIndexCounter;
+			ApplyShadowFilterMode(GShadowCBData.ShadowDataArray[ShadowIndexCounter], RequestedShadowFilter, ShadowMap.MapType);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize =
 				2.0f / std::max<float>(static_cast<float>(SharedPointShadowResource->Resolution), 1.0f);
 			ApplyVSMParameters(GShadowCBData.ShadowDataArray[ShadowIndexCounter], ShadowLight, ShadowMap.MapType);
@@ -563,7 +582,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 				Desc.AllocationMode = EShadowAllocationMode::AtlasPacked;
 				Desc.MapType = EShadowMapType::Depth2D;
 				Desc.Resolution = ATLAS_SIZE;
-				Desc.CascadeCount = ShadowRequest.Cascades.size();
+				Desc.CascadeCount = static_cast<uint32>(ShadowRequest.Cascades.size());
 
 				FShadowResource* NewAtlasRes = nullptr;
 				if (AcquireResource(Context, Desc, &NewAtlasRes))
@@ -577,7 +596,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 					GShadowMaps.push_back(NewAtlasMap);
 					GVSMResources.emplace_back();
 
-					uint32 NewAtlasIndex = GShadowMaps.size() - 1;
+					uint32 NewAtlasIndex = static_cast<uint32>(GShadowMaps.size() - 1);
 					AtlasAllocator.SetCurrentAtlasIndex(NewAtlasIndex);
 					AtlasAllocator.Allocate(ShadowRequest.Resolution, AllocResult);
 				}
@@ -599,8 +618,8 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			CurrentAtlasMap.Slices.push_back(Slice);
 
 			// ★ 방금 추가된 View와 Slice의 실제 인덱스 추출 (맨 마지막 위치)
-			uint32 CurrentViewIndex = CurrentAtlasMap.Views.size() - 1;
-			uint32 CurrentSliceIndex = CurrentAtlasMap.Slices.size() - 1;
+            uint32 CurrentViewIndex = static_cast<uint32>(CurrentAtlasMap.Views.size() - 1);
+            uint32 CurrentSliceIndex = static_cast<uint32>(CurrentAtlasMap.Slices.size() - 1);
 
 			// 매핑 테이블 기록
 			FLightShadowMappingInfo& MappingInfo = ShadowLookupTable[ShadowRequest.LightId];
@@ -623,6 +642,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(CurrentAtlasMap.MapType);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 1u;
+			ApplyShadowFilterMode(GShadowCBData.ShadowDataArray[ShadowIndexCounter], RequestedShadowFilter, CurrentAtlasMap.MapType);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
 			ApplyVSMParameters(GShadowCBData.ShadowDataArray[ShadowIndexCounter], ShadowLight, CurrentAtlasMap.MapType);
 
@@ -669,8 +689,9 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowSlopeBias = ShadowLight.ShadowSlopeBias;
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(ShadowMap.MapType);
-				GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = ShadowRequest.Cascades.size();
+                GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = static_cast<uint32>(ShadowRequest.Cascades.size());
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 0u;
+				ApplyShadowFilterMode(GShadowCBData.ShadowDataArray[ShadowIndexCounter], RequestedShadowFilter, ShadowMap.MapType);
 				GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
 				ApplyVSMParameters(GShadowCBData.ShadowDataArray[ShadowIndexCounter], ShadowLight, ShadowMap.MapType);
 
@@ -1191,7 +1212,7 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 			? (Req.bUseVSM ? EShadowMapType::VSMCube : EShadowMapType::DepthCube)
 			: (Req.bUseVSM ? EShadowMapType::VSM2D : EShadowMapType::Depth2D);
 	Desc.Resolution = Req.Resolution;
-	Desc.CascadeCount = Req.Cascades.size();
+    Desc.CascadeCount = static_cast<uint32>(Req.Cascades.size());
 	Desc.CubeCount = (Req.Type == ELightType::LightType_Point) ? 1u : 0u;
 
 	if (!AcquireResource(Context, Desc, &OutShadowMap.Resource))
