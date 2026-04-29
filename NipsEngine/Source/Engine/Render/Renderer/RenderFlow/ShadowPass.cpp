@@ -371,8 +371,17 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
 
         ShaderBinding->SetMatrix4("View", ViewInfo.LightView);
         ShaderBinding->SetMatrix4("Projection", ViewInfo.LightProjection);
-        ShaderBinding->SetMatrix4("PSM", ComputePSMMatrix(Context, *Light));
-        ShaderBinding->SetBool("isPSM", 1);
+        if (Light->Type != static_cast<uint32>(ELightType::LightType_Point))
+        {
+            ShaderBinding->SetMatrix4("PSM", ComputePSMMatrix(Context, *Light));
+            ShaderBinding->SetBool("isPSM", 1);
+        }
+        else
+        {
+            // Point Light와 Spot Light는 일반 렌더링 방식을 따름
+            ShaderBinding->SetMatrix4("PSM", FMatrix::Identity); // 쓰레기값 방지
+            ShaderBinding->SetBool("isPSM", 0);
+        }
 
         for (const FRenderCommand& Cmd : Commands)
         {
