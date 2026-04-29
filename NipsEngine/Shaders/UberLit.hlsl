@@ -61,7 +61,11 @@ struct FShadowData
     uint ShadowMapType;
     uint SliceCount;
     uint ShadowTextureIndex;
-    float Pad2;
+    float1 Pad2;
+    
+    uint isPSM;
+    float3 Pad3;
+    row_major float4x4 PSM;
     
     float3 CascadeSplits;
     float PointShadowTexelSize;
@@ -170,7 +174,16 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
         if (SliceIndex + 1 < SData.SliceCount && ViewDepth > SData.CascadeSplits.y)
             SliceIndex = 2;
 
-        float4 ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView[SliceIndex]), SData.ShadowLightProjection[SliceIndex]);
+        float4 ShadowLightPos;
+        
+        if (SData.isPSM)
+        {
+            ShadowLightPos = mul(float4(WorldPos, 1.0f), SData.PSM);
+        }
+        else
+        {
+            ShadowLightPos = mul(mul(float4(WorldPos, 1), SData.ShadowLightView[SliceIndex]), SData.ShadowLightProjection[SliceIndex]);
+        }
         float3 NDC = ShadowLightPos.xyz / ShadowLightPos.w;
         float2 ShadowUV = NDC.xy * float2(0.5, -0.5) + 0.5;
         float CurrentDepth = NDC.z;

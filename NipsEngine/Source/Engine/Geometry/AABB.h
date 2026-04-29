@@ -36,7 +36,13 @@ struct FAABB
 			DirectX::XMVectorSubtract(Max.ToXMVector(), Min.ToXMVector()), 0.5f);
 		return FVector(Extent);
 	}
-
+    inline FVector GetPoint(int32 index) const
+    {
+        return FVector(
+            (index & 1) ? Min.X : Max.X,
+            (index & 2) ? Min.Y : Max.Y,
+            (index & 4) ? Min.Z : Max.Z);
+    }
 	bool         IntersectRay(const FRay& Ray, float& OutT) const;
 	bool         IntersectRay(const FRay& Ray, float& OutTMin, float& OutTMax) const;
 	static FAABB TransformAABB(const FAABB& InLocalAABB, const FMatrix& InMatrix);

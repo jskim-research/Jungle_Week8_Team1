@@ -219,15 +219,13 @@
     <FxCompile Include="Shaders\Multipass\LightCulling25DCS.hlsl">
       <Filter>Shaders\Multipass</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\Multipass\LightCullingCS.hlsl">
-      <Filter>Shaders\Multipass</Filter>
-    </FxCompile>
     <FxCompile Include="Shaders\Multipass\SkyPass.hlsl">
       <Filter>Shaders\Multipass</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\Multipass\ToonOutlinePass.hlsl">
       <Filter>Shaders\Multipass</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\ShadowMap.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Editor\EditorEngine.cpp">
@@ -1400,5 +1398,6 @@
     <ClInclude Include="Source\Engine\Render\Resource\ShadowResourcePool.h" />
     <ClInclude Include="Source\Engine\Render\Scene\ShadowLightSelector.h" />
     <ClInclude Include="Source\Engine\Render\Resource\ShadowAtlasAllocator.h" />
+    <ClInclude Include="Source\Engine\Render\Common\PSMCalculator.h" />
   </ItemGroup>
 </Project>
