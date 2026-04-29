@@ -105,8 +105,9 @@ StructuredBuffer<uint> TileSpotLightIndices : register(t13);
 
 Texture2DArray ShadowMap2D : register(t14);
 TextureCubeArray ShadowMapCube : register(t15);
-Texture2DArray ShadowMoments2D : register(t16);
-TextureCubeArray ShadowMomentsCube : register(t17);
+Texture2DArray ShadowMap2DAtlas : register(t16);
+Texture2DArray ShadowMoments2D : register(t17);
+TextureCubeArray ShadowMomentsCube : register(t18);
 SamplerState ShadowSampler : register(s1);
 SamplerState ShadowLinearSampler : register(s2);
 
@@ -257,7 +258,15 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
         uint ShadowMapWidth = 0;
         uint ShadowMapHeight = 0;
         uint ShadowMapLayers = 0;
-        ShadowMap2D.GetDimensions(ShadowMapWidth, ShadowMapHeight, ShadowMapLayers);
+        const bool bUseAtlasShadowMap = (SData.ShadowTextureIndex == 1u);
+        if (bUseAtlasShadowMap)
+        {
+            ShadowMap2DAtlas.GetDimensions(ShadowMapWidth, ShadowMapHeight, ShadowMapLayers);
+        }
+        else
+        {
+            ShadowMap2D.GetDimensions(ShadowMapWidth, ShadowMapHeight, ShadowMapLayers);
+        }
 
         float2 TexelSize = (1.0f / max(float2(ShadowMapWidth, ShadowMapHeight), float2(1.0f, 1.0f))) * SData.ShadowFilterScale;
         float Shadow = 0.0f;
@@ -269,7 +278,9 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
             for (int Y = -1; Y <= 1; ++Y)
             {
                 float2 Offset = float2(X, Y) * TexelSize;
-                float SampleDepth = ShadowMap2D.Sample(ShadowSampler, float3(ShadowUV + Offset, SliceIndex)).r;
+                float SampleDepth = bUseAtlasShadowMap
+                    ? ShadowMap2DAtlas.Sample(ShadowSampler, float3(ShadowUV + Offset, SliceIndex)).r
+                    : ShadowMap2D.Sample(ShadowSampler, float3(ShadowUV + Offset, SliceIndex)).r;
                 Shadow += (SampleDepth + FinalBias >= CurrentDepth) ? 1.0f : 0.0f;
             }
         }

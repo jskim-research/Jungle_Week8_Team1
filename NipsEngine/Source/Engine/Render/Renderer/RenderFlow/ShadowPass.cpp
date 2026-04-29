@@ -587,6 +587,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowFilterScale = ComputeShadowFilterScale(ShadowLight);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowMapType = static_cast<uint32>(CurrentAtlasMap.MapType);
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].SliceCount = 1;
+			GShadowCBData.ShadowDataArray[ShadowIndexCounter].ShadowTextureIndex = 1u;
 			GShadowCBData.ShadowDataArray[ShadowIndexCounter].PointShadowTexelSize = 0.0f;
 
 			ShadowIndexCounter++;

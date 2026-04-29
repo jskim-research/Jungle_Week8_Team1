@@ -82,6 +82,7 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 	const FShadowArrayCB& ShadowCBData = FShadowPass::GetShadowCBData();
 	ID3D11ShaderResourceView* ShadowMap2DSRV = nullptr;
+	ID3D11ShaderResourceView* ShadowAtlas2DSRV = nullptr;
 	ID3D11ShaderResourceView* ShadowMapCubeSRV = nullptr;
 	ID3D11ShaderResourceView* ShadowVSM2DSRV = FShadowPass::GetVSM2DShadowSRV();
 	ID3D11ShaderResourceView* ShadowVSMCubeSRV = FShadowPass::GetVSMCubeShadowSRV();
@@ -102,7 +103,19 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 			continue;
 		}
 
-		if (ShadowMap.MapType == EShadowMapType::Depth2D && ShadowMap2DSRV == nullptr)
+		const bool bAtlasMap =
+			ShadowMap.MapType == EShadowMapType::Depth2D &&
+			!ShadowMap.Slices.empty() &&
+			ShadowMap.Slices[0].Type == EShadowSliceType::Atlas;
+
+		if (bAtlasMap)
+		{
+			if (ShadowAtlas2DSRV == nullptr)
+			{
+				ShadowAtlas2DSRV = ShadowMap.Resource->SRV;
+			}
+		}
+		else if (ShadowMap2DSRV == nullptr)
 		{
 			ShadowMap2DSRV = ShadowMap.Resource->SRV;
 		}
