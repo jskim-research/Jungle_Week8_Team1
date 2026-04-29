@@ -213,6 +213,7 @@ struct FRenderLight : public FGPULight
 	float ShadowBias = 0.5f;
 	float ShadowSlopeBias = 0.5f;
     bool bPSM;
+	float CameraSliderBack = 100.f;
 };
 
 struct FRenderCommand

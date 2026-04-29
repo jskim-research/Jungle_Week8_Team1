@@ -8,7 +8,7 @@
 // Shadow map atlas 크기 (픽셀)
 static constexpr uint32 kAtlasSize = 4096;
 // PSM VirtualCamera를 뒤로 밀 거리
-static constexpr float kPsmSliderBack = 3.0f;
+static constexpr float kPsmSliderBack = 10.0f;
 
 // ---------------------------------------------------------------------------
 // 파일 내부 전역 (Pass 간 Input/Output 연결 구조 정비 전 임시)
@@ -27,7 +27,7 @@ float ComputeShadowCompareBias(const FRenderLight& Light)
 }
 
 // PSM Matrix 계산: VirtualCamera * PostPerspective 합성
-FMatrix ComputePSMMatrix(const FRenderPassContext* Context, const FRenderLight& Light)
+FMatrix ComputePSMMatrix(const FRenderPassContext* Context, const FRenderLight& Light, float kPsmSliderBack)
 {
     FCamera Camera = {};
     Camera.Forward = Context->RenderBus->GetCameraForward();
@@ -38,9 +38,12 @@ FMatrix ComputePSMMatrix(const FRenderPassContext* Context, const FRenderLight& 
 
     PSM::GetCameraFitNearZ(Context->RenderBus->GetCommands(ERenderPass::Opaque), Camera);
 
+	FAABB CasterAABB = PSM::GenerateShadowCasterAABB(
+        Context->RenderBus->GetCommands(ERenderPass::Opaque));
+
     FMatrix VCView, VCProj;
     PSM::GenerateVirtualCameraViewProjection(kPsmSliderBack, Camera, VCProj, VCView);
-
+ 
     // Directional Light는 광원 방향이 반전되어 PP 공간으로 이동
     const bool bDirectional = (Light.Type == static_cast<uint32>(ELightType::LightType_Directional));
     const FVector LightDir = bDirectional
@@ -288,7 +291,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
             CB.ShadowMapType = static_cast<uint32>(CurrentAtlas.MapType);
             CB.SliceCount = 1;
             CB.PointShadowTexelSize = 0.0f;
-            CB.PSM = ComputePSMMatrix(Context, Light);
+            CB.PSM = ComputePSMMatrix(Context, Light, Light.CameraSliderBack);
             CB.isPSM = Light.bPSM;
             CB.ShadowTextureIndex = 1u;
             ++ShadowIndexCounter;
@@ -321,7 +324,7 @@ bool FShadowPass::Begin(const FRenderPassContext* Context)
             CB.SliceCount = static_cast<uint32>(Req.Cascades.size());
             CB.ShadowTextureIndex = 0u;
             CB.PointShadowTexelSize = 0.0f;
-            CB.PSM = ComputePSMMatrix(Context, Light);
+            CB.PSM = ComputePSMMatrix(Context, Light, Light.CameraSliderBack);
             CB.isPSM = Light.bPSM;
 
             ++ShadowIndexCounter;
@@ -373,7 +376,7 @@ bool FShadowPass::DrawCommand(const FRenderPassContext* Context)
         ShaderBinding->SetMatrix4("Projection", ViewInfo.LightProjection);
         if (Light->Type != static_cast<uint32>(ELightType::LightType_Point))
         {
-            ShaderBinding->SetMatrix4("PSM", ComputePSMMatrix(Context, *Light));
+            ShaderBinding->SetMatrix4("PSM", ComputePSMMatrix(Context, *Light, Light->CameraSliderBack));
             ShaderBinding->SetBool("isPSM", Light->bPSM);
         }
         else
