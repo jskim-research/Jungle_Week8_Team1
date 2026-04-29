@@ -82,6 +82,7 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 
 	const FShadowArrayCB& ShadowCBData = FShadowPass::GetShadowCBData();
 	ID3D11ShaderResourceView* ShadowMap2DSRV = nullptr;
+	ID3D11ShaderResourceView* ShadowAtlas2DSRV = nullptr;
 	ID3D11ShaderResourceView* ShadowMapCubeSRV = nullptr;
 
 	for (const FShadowMap& ShadowMap : FShadowPass::GetShadowMaps())
@@ -100,7 +101,19 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 			continue;
 		}
 
-		if (ShadowMap2DSRV == nullptr)
+		const bool bAtlasMap =
+			ShadowMap.MapType == EShadowMapType::Depth2D &&
+			!ShadowMap.Slices.empty() &&
+			ShadowMap.Slices[0].Type == EShadowSliceType::Atlas;
+
+		if (bAtlasMap)
+		{
+			if (ShadowAtlas2DSRV == nullptr)
+			{
+				ShadowAtlas2DSRV = ShadowMap.Resource->SRV;
+			}
+		}
+		else if (ShadowMap2DSRV == nullptr)
 		{
 			ShadowMap2DSRV = ShadowMap.Resource->SRV;
 		}
@@ -153,8 +166,8 @@ bool FOpaqueRenderPass::DrawCommand(const FRenderPassContext* Context)
 		SceneLightBinding::BindResources(Context, VisibleLightConstantBuffer);
 
 		// Material bind가 texture 슬롯을 다시 덮어쓸 수 있으므로 shadow 리소스는 draw 직전 재바인딩한다.
-		ID3D11ShaderResourceView* ShadowSRVs[2] = { ShadowMap2DSRV, ShadowMapCubeSRV };
-		Context->DeviceContext->PSSetShaderResources(14, 2, ShadowSRVs);
+		ID3D11ShaderResourceView* ShadowSRVs[3] = { ShadowMap2DSRV, ShadowMapCubeSRV, ShadowAtlas2DSRV };
+		Context->DeviceContext->PSSetShaderResources(14, 3, ShadowSRVs);
 
         ID3D11Buffer* RawShadowConstantBuffer = ShadowConstantBuffer.Get();
         Context->DeviceContext->PSSetConstantBuffers(7, 1, &RawShadowConstantBuffer);
@@ -192,8 +205,8 @@ bool FOpaqueRenderPass::End(const FRenderPassContext* Context)
 		return true;
 	}
 
-	ID3D11ShaderResourceView* NullSRVs[2] = { nullptr, nullptr };
-	Context->DeviceContext->PSSetShaderResources(14, 2, NullSRVs);
+	ID3D11ShaderResourceView* NullSRVs[3] = { nullptr, nullptr, nullptr };
+	Context->DeviceContext->PSSetShaderResources(14, 3, NullSRVs);
     ID3D11Buffer* NullShadowCB = nullptr;
     Context->DeviceContext->PSSetConstantBuffers(7, 1, &NullShadowCB);
     Context->DeviceContext->VSSetConstantBuffers(7, 1, &NullShadowCB);
