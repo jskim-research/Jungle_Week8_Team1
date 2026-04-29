@@ -563,7 +563,7 @@ bool FShadowPass::MakeShadowMap(const FRenderPassContext* Context, const FShadow
 }
 
 bool FShadowPass::BuildViews(const FRenderPassContext* Context, const FShadowRequest& Req, TArray<FShadowViewInfo>& OutViewInfoArray)
-{
+{	
 	switch (Req.Type)
 	{
 	case ELightType::LightType_Directional:

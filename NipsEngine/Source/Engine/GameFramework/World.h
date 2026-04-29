@@ -28,6 +28,11 @@ struct FLightHandle
 	uint32 Generation = 0;
 
 	bool IsValid() const { return Index != 0xFFFFFFFF; }
+
+	bool operator==(const FLightHandle& Rhs)
+	{
+        return Index == Rhs.Index && Generation == Rhs.Generation;
+	}
 };
 
 class UWorld : public UObject {
@@ -120,7 +125,9 @@ public:
 	void SetOverridenLight(const FLightHandle* InLightHandle) 
 	{
         if (InLightHandle && InLightHandle->IsValid())
-			OverridenLight = InLightHandle; 
+            OverridenLight = InLightHandle;
+        else
+            OverridenLight = nullptr;
 	}
     const FLightHandle* GetOverridenLight() const 
 	{

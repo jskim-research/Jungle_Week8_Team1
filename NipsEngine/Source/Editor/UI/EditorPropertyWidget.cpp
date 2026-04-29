@@ -529,7 +529,12 @@ void FEditorPropertyWidget::RenderComponentProperties()
 		if (ImGui::Button("Override Camera"))
 		{
             ULightComponent* LightComponent = Cast<ULightComponent>(SelectedComponent);
-            LightComponent->GetOwner()->GetFocusedWorld()->SetOverridenLight(&LightComponent->GetLightHandle());
+
+			// 설정된 애를 다시 클릭한 경우 해제
+            if (LightComponent->GetOwner()->GetFocusedWorld()->GetOverridenLight() == &LightComponent->GetLightHandle())
+                LightComponent->GetOwner()->GetFocusedWorld()->SetOverridenLight(nullptr);
+            else
+	            LightComponent->GetOwner()->GetFocusedWorld()->SetOverridenLight(&LightComponent->GetLightHandle());
 		}
 	}
 

@@ -4,6 +4,12 @@
 #include "Render/Common/RenderTypes.h"
 #include "GameFramework/World.h"
 #include "Core/PropertyTypes.h"
+#include "Render/Scene/ShadowLightSelector.h"
+#include "Render/Scene/RenderBus.h"
+#include "Render/Common/ShadowTypes.h"
+#include "Math/Matrix.h"
+
+struct FRenderPassContext;
 
 class ULightComponentBase : public USceneComponent
 {
@@ -38,6 +44,9 @@ public:
 	
 	const FLightHandle& GetLightHandle() const { return LightHandle; }
 	void SetLightHandle(const FLightHandle& InLightHandle) { LightHandle = InLightHandle; }
+
+    // 라이트별 Shadow View/Projection 생성 (캐스케이드 인덱스 -> View/Projection 반환)
+    virtual bool BuildShadowView(uint32 CascadeIndex, FMatrix& OutView, FMatrix& OutProjection) const { return false; }
 
 private:
 	FColor LightColor = FColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -74,7 +83,7 @@ public:
 
 protected:
 	void SetLightType(ELightType InLightType) { LightType = InLightType; }
-
+    
 private:
 	ELightType LightType = ELightType::Max;
 

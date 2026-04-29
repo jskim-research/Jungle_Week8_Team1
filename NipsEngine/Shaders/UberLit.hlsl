@@ -158,6 +158,7 @@ float CalculateShadowFactor(float3 WorldPos, float3 N, float3 L, int ShadowIndex
     float FinalBias = SData.ShadowBias + Slope * SData.ShadowSlopeBias;
         
     if (SData.ShadowMapType == SHADOW_MAP_TYPE_DEPTH2D)
+    
     {
         float ViewDepth = mul(float4(WorldPos, 1), View).x;
         int SliceIndex = 0;

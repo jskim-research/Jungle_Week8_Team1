@@ -14,6 +14,9 @@ public:
 	void Serialize(FArchive& Ar) override;
 	void PostDuplicate(UObject* Original) override;
 
+    // Shadow view builder override (캐스케이드 인덱스로 View/Projection 반환)
+    bool BuildShadowView(uint32 CascadeIndex, FMatrix& OutView, FMatrix& OutProjection) const override;
+
 protected:
 	FString GetVisualizationTexturePath() const override { return "Asset/Texture/Icons/S_LightSpot.PNG"; }
 

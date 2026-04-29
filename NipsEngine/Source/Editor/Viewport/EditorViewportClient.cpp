@@ -120,13 +120,19 @@ void FEditorViewportClient::BuildSceneView(FSceneView& OutView) const
 {
 	if (!bHasCamera) return;
 
-	if (World->GetOverridenLight())
-	{
-        ULightComponentBase* Light = World->GetWorldLightSlots()[World->GetOverridenLight()->Index].LightData;
 
+	const FLightHandle* LightHandle = World->GetOverridenLight();
+    if (!Camera.IsOrthographic() && LightHandle && LightHandle->IsValid() && World->GetWorldLightSlots()[LightHandle->Index].bAlive)
+	{
+        ULightComponentBase* Light = World->GetWorldLightSlots()[LightHandle->Index].LightData;
+        if (Light)
+	        Light->BuildShadowView(0, OutView.ViewMatrix, OutView.ProjectionMatrix);
 	}
-	OutView.ViewMatrix           = Camera.GetViewMatrix();
-	OutView.ProjectionMatrix     = Camera.GetProjectionMatrix();
+	else
+    {
+        OutView.ViewMatrix = Camera.GetViewMatrix();
+        OutView.ProjectionMatrix = Camera.GetProjectionMatrix();
+	}
 	OutView.ViewProjectionMatrix = OutView.ViewMatrix * OutView.ProjectionMatrix;
 
 	OutView.CameraPosition = Camera.GetLocation();
@@ -220,6 +226,8 @@ void FEditorViewportClient::TickInput(float DeltaTime)
 {
 	if (!bHasCamera)
 		return;
+    if (World->GetOverridenLight())
+        return;
 
 	if (Settings)
 	{
@@ -400,6 +408,9 @@ void FEditorViewportClient::TickInteraction(float DeltaTime)
 
 	if (!bHasCamera || !Gizmo)
 		return;
+
+	if (World->GetOverridenLight())
+        return;
 
 	if (World && World->GetWorldType() == EWorldType::PIE)
 		return;

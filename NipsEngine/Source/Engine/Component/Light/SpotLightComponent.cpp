@@ -1,5 +1,6 @@
 ﻿#include "SpotLightComponent.h"
 #include "Object/ObjectFactory.h"
+#include "Render/Renderer/RenderFlow/RenderPassContext.h"
 
 DEFINE_CLASS(USpotLightComponent, UPointLightComponent)
 REGISTER_FACTORY(USpotLightComponent)
@@ -7,6 +8,33 @@ REGISTER_FACTORY(USpotLightComponent)
 USpotLightComponent::USpotLightComponent()
 {
 	SetLightType(ELightType::LightType_Spot);
+}
+
+// Spot light shadow view generation (single cascade index)
+bool USpotLightComponent::BuildShadowView(uint32 CascadeIndex, FMatrix& OutView, FMatrix& OutProjection) const
+{
+    (void)CascadeIndex; // spots typically use single projection
+
+    FVector Eye = GetWorldLocation();
+    FVector LightDir = GetUpVector() * -1.0f;
+    FVector Target = Eye + LightDir;
+    FVector Up = FVector(0, 0, 1);
+    if (abs(FVector::DotProduct(LightDir, Up)) > 0.99f)
+    {
+        Up = FVector(1, 0, 0);
+    }
+
+    OutView = FMatrix::MakeViewLookAtLH(Eye, Target, Up);
+
+    float OuterAngleRad = (OuterConeAngle * (3.141592f / 180.0f)) * 0.5f; // half-angle
+    float FovRad = OuterAngleRad * 2.0f;
+
+    float NearZ = 0.1f;
+    float FarZ = std::max(GetAttenuationRadius(), NearZ + 0.1f);
+
+    OutProjection = FMatrix::MakePerspectiveFovLH(FovRad, 1.0f, NearZ, FarZ);
+
+    return true;
 }
 
 void USpotLightComponent::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
